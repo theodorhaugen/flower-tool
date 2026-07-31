@@ -17,9 +17,12 @@ export function createTerrainShape(seed: number): TerrainShapeConfig {
     seed,
     baseY: -2.6,
     noiseFrequency: 0.022,
-    amplitude: 1.1,
-    detailNoiseFrequency: 0.11,
-    detailAmplitude: 0.22,
+    // Both amplitudes raised (were 1.1/0.22) for more visibly rolling,
+    // uneven ground — the previous values read as almost flat once seen
+    // from the macro-lens camera height/angle this scene uses.
+    amplitude: 1.7,
+    detailNoiseFrequency: 0.13,
+    detailAmplitude: 0.4,
   }
 }
 

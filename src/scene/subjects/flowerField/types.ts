@@ -8,7 +8,13 @@ export interface PetalVariantGroup {
   instances: InstanceDatum[]
 }
 
+export interface StemVariantGroup {
+  variantIndex: number
+  instances: InstanceDatum[]
+}
+
 export interface FlowerFieldData {
   petalGroups: PetalVariantGroup[]
   centers: InstanceDatum[]
+  stemGroups: StemVariantGroup[]
 }

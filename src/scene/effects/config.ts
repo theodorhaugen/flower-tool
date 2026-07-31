@@ -143,9 +143,4 @@ export const POST_PROCESSING_CONFIG = {
   motionBlur: {
     halfLifeSeconds: 0.9,
   },
-
-  vignette: {
-    offset: 0.2,
-    darkness: 0.6,
-  },
 }

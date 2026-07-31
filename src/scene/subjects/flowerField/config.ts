@@ -64,6 +64,24 @@ export const FLOWER_FIELD_CONFIG = {
   /** Roughness variance applied on top of each archetype's base roughness, per geometry variant. */
   roughnessJitter: 0.12,
 
+  /**
+   * A thin stem from the terrain up to each flower's head — without this,
+   * `stemHeightFactorRange` above was only ever an invisible position
+   * offset, which is what made flowers read as floating rather than
+   * growing out of the ground. Kept deliberately plain (no colour
+   * gradient, no petal-style translucency): a stem is meant to disappear
+   * into the grass around it, not draw attention to itself.
+   */
+  stem: {
+    variantCount: 3,
+    /** Relative to the geometry's own local unit height — width itself then scales with each flower's `flowerScale` at the instance level. */
+    widthScaleRange: [0.045, 0.075] as const,
+    curlRange: [0.08, 0.25] as const,
+    jitterAmount: 0.3,
+    /** Small random lean, same idea as generateGrass.ts's — a stem standing perfectly vertical reads as artificial. */
+    maxLean: 0.18,
+  },
+
   // The field spans the meadow depth (see shared/frustum.ts) in front of the
   // camera. Sampled positions are clamped against `minCameraDistance` so
   // nothing ends up on top of the lens.

@@ -58,20 +58,40 @@ export function createGroundColorSampler(
   const lush = new THREE.Color(groundColors.lush)
   const shadow = new THREE.Color(groundColors.shadow)
 
-  /** Ground colour at a position: a lush-vs-dry blend, subtle independent damp/shadow variation, pulled towards bare dirt on paths. */
+  /**
+   * Ground colour at a position: a sparse-vs-lush *green* blend, subtle
+   * independent damp/shadow variation, a coarser mottled "patch" variation
+   * for more tonal levels, and — only right on the worn path — a pull
+   * towards bare dirt.
+   *
+   * `dry` used to be the low end of the lushness blend too, not just the
+   * path colour — so any merely-sparse (not actually-a-path) patch of
+   * ground read as bare tan dirt, while the grass instances scattered
+   * across that same ground (Grass.tsx places by path factor alone, not
+   * lushness) stayed green regardless. That mismatch is what made grass
+   * look like it was floating over the wrong-coloured ground beneath it.
+   * Keeping the lushness blend entirely within the green family and
+   * reserving `dry` for the path term below (which is already how paths
+   * get their own grass thinned out, via the same `path` factor) is what
+   * actually fixes that — bare dirt now only shows up where there
+   * genuinely isn't grass to begin with.
+   */
   return function sampleGroundColor(x: number, z: number): THREE.Color {
     const lushness = sampleGroundLushness(x, z, meadowLayout, environmentSeed)
     const path = samplePathFactor(x, z, meadowLayout)
 
-    const color = new THREE.Color()
-    if (lushness < 0.5) {
-      color.copy(dry).lerp(sparse, lushness / 0.5)
-    } else {
-      color.copy(sparse).lerp(lush, (lushness - 0.5) / 0.5)
-    }
+    const color = new THREE.Color().copy(sparse).lerp(lush, lushness)
 
     const dampness = fbm2D(x * 0.16, z * 0.16, environmentSeed + 700, { octaves: 2 })
     color.lerp(shadow, Math.max(0, dampness - 0.6) * 0.4)
+
+    // Coarser than the dampness term above and on its own frequency/seed so
+    // it reads as independent mottled patches — sun-bleached/mossy blotches
+    // — rather than a second copy of the same variation. This is the extra
+    // "level" of uneven colouring layered on top of the lushness gradient.
+    const patch = fbm2D(x * 0.045, z * 0.045, environmentSeed + 1500, { octaves: 2 })
+    color.lerp(shadow, Math.max(0, 0.35 - patch) * 0.5)
+    color.lerp(lush, Math.max(0, patch - 0.65) * 0.6)
 
     color.lerp(dry, 1 - path)
     return color

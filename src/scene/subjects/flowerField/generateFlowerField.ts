@@ -9,13 +9,14 @@ import type { TerrainShapeConfig } from '../../shared/terrainHeight'
 import { FLOWER_FIELD_CONFIG, PETAL_ARCHETYPES } from './config'
 import type { DepthBand } from './config'
 import { jitterColor, sampleCenterColor, samplePetalBaseColor } from './palette'
-import type { FlowerFieldData, InstanceDatum, PetalVariantGroup } from './types'
+import type { FlowerFieldData, InstanceDatum, PetalVariantGroup, StemVariantGroup } from './types'
 
 // Flowers default to facing the camera (the field is composed for a
 // horizontally-aimed lens, not a top-down view) — tilt/spin are applied
 // relative to this axis so "randomized rotation" still reads as flowers,
 // not an edge-on tumble of disks.
 const FACE_AXIS = new THREE.Vector3(0, 0, 1)
+const UP = new THREE.Vector3(0, 1, 0)
 
 /** Approximate on-screen ground area of a band (width × depth, integrated over its z range). */
 function approximateBandArea(band: DepthBand, samples = 12): number {
@@ -80,15 +81,18 @@ export interface FlowerFieldOptions {
 /**
  * Generates a full flower field as instance-ready transforms/colors, grouped
  * by petal geometry variant so each group can back its own InstancedMesh.
- * Pure function of its inputs — same seed/palette/meadowLayout/terrainShape/
- * options always reproduce the same field. seed/palette/meadowLayout/
- * terrainShape come from the active render's generative seed; `options`
- * from the same state's Leva-controlled creative overrides (see
- * shared/generative.ts).
+ * Pure function of its inputs — same seed/palette/stemColorPalette/
+ * meadowLayout/terrainShape/options always reproduce the same field.
+ * seed/palette/meadowLayout/terrainShape come from the active render's
+ * generative seed; `stemColorPalette` from environment/paletteColors.ts (the
+ * same green family Grass.tsx draws from, so stems read as part of the same
+ * grass rather than a mismatched plant); `options` from the same state's
+ * Leva-controlled creative overrides (see shared/generative.ts).
  */
 export function generateFlowerField(
   seed: number,
   palette: ColorPalette,
+  stemColorPalette: readonly string[],
   meadowLayout: MeadowLayoutConfig,
   terrainShape: TerrainShapeConfig,
   { densityMultiplier = 1, scaleMultiplier = 1, poppyAccentProbability = 0.15 }: FlowerFieldOptions = {},
@@ -104,6 +108,7 @@ export function generateFlowerField(
     petalDroopJitter,
     maxFlowerTilt,
     centerRadiusRange,
+    stem: stemConfig,
   } = FLOWER_FIELD_CONFIG
   const flowerCount = Math.round(baseFlowerCount * densityMultiplier)
 
@@ -114,9 +119,14 @@ export function generateFlowerField(
     }
   }
   const centers: InstanceDatum[] = []
+  const stemGroups: StemVariantGroup[] = []
+  for (let variantIndex = 0; variantIndex < stemConfig.variantCount; variantIndex++) {
+    stemGroups.push({ variantIndex, instances: [] })
+  }
 
   const petalMatrix = new THREE.Matrix4()
   const centerMatrix = new THREE.Matrix4()
+  const stemMatrix = new THREE.Matrix4()
 
   const bandCounts = allocateBandCounts(depthBands, flowerCount)
   depthBands.forEach((band, bandIndex) => {
@@ -127,7 +137,25 @@ export function generateFlowerField(
 
       const flowerScale = range(rng, band.scaleRange[0], band.scaleRange[1]) * scaleMultiplier
       const stemHeight = flowerScale * range(rng, band.stemHeightFactorRange[0], band.stemHeightFactorRange[1])
-      flowerPosition.y = sampleTerrainHeight(flowerPosition.x, flowerPosition.z, terrainShape) + stemHeight
+      const groundY = sampleTerrainHeight(flowerPosition.x, flowerPosition.z, terrainShape)
+      flowerPosition.y = groundY + stemHeight
+
+      // Same small-random-lean idea as generateGrass.ts's blades — a stem
+      // standing perfectly vertical reads as artificial. Spins around
+      // world-up first so the lean direction is uniformly distributed, not
+      // just tilting in the same plane repeatedly.
+      const stemLeanAxisAngle = range(rng, 0, Math.PI * 2)
+      const stemLeanAxis = new THREE.Vector3(Math.cos(stemLeanAxisAngle + Math.PI / 2), 0, Math.sin(stemLeanAxisAngle + Math.PI / 2))
+      const stemQuat = new THREE.Quaternion().setFromAxisAngle(UP, stemLeanAxisAngle)
+      stemQuat.multiply(new THREE.Quaternion().setFromAxisAngle(stemLeanAxis, range(rng, 0, stemConfig.maxLean)))
+
+      stemMatrix.makeRotationFromQuaternion(stemQuat)
+      stemMatrix.scale(new THREE.Vector3(flowerScale, stemHeight, flowerScale))
+      stemMatrix.setPosition(flowerPosition.x, groundY, flowerPosition.z)
+
+      const stemBaseColor = new THREE.Color(stemColorPalette[Math.floor(rng() * stemColorPalette.length) % stemColorPalette.length])
+      const stemVariantIndex = intRange(rng, 0, stemConfig.variantCount - 1)
+      stemGroups[stemVariantIndex].instances.push({ matrix: stemMatrix.clone(), color: jitterColor(rng, stemBaseColor, 0.08) })
 
       const petalCount = intRange(rng, band.petalCountRange[0], band.petalCountRange[1])
       const cupAngle = range(rng, cupAngleRange[0], cupAngleRange[1])
@@ -190,5 +218,5 @@ export function generateFlowerField(
     }
   })
 
-  return { petalGroups, centers }
+  return { petalGroups, centers, stemGroups }
 }

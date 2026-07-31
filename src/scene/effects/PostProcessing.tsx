@@ -1,4 +1,4 @@
-import { Bloom, ChromaticAberration, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { Bloom, ChromaticAberration, EffectComposer, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import { Vector2 } from 'three'
 import { useGenerative } from '../shared/generativeContext'
@@ -60,7 +60,6 @@ import { PaletteGrade } from './PaletteGrade'
  *   shows up towards the edges the way a real lens's does, not as a
  *   full-frame colour shift.
  * - LensDistortion: a slight barrel bow, not a fisheye.
- * - Vignette: gentle edge falloff.
  * - LongExposureBlur: simulated handheld-long-exposure blur, blending in a
  *   decaying history of recent frames — driven by the scene's own existing
  *   camera drift, not a synthetic per-object velocity streak.
@@ -69,7 +68,7 @@ import { PaletteGrade } from './PaletteGrade'
  *   pass rather than the postprocessing package's `Noise` effect.
  */
 export function PostProcessing() {
-  const { bloom, highlightBloom, chromaticAberration, vignette } = POST_PROCESSING_CONFIG
+  const { bloom, highlightBloom, chromaticAberration } = POST_PROCESSING_CONFIG
   const { bloomIntensity, highlightBloomIntensity } = useGenerative()
 
   return (
@@ -97,7 +96,6 @@ export function PostProcessing() {
         modulationOffset={chromaticAberration.modulationOffset}
       />
       <LensDistortion />
-      <Vignette eskil={false} offset={vignette.offset} darkness={vignette.darkness} />
       <LongExposureBlur />
       <FilmGrain />
     </EffectComposer>

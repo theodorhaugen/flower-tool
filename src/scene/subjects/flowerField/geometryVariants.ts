@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { createRng } from '../../shared/random'
+import { createRng, range } from '../../shared/random'
+import { createTaperedBladeGeometry } from '../../shared/taperedBlade'
 import { FLOWER_FIELD_CONFIG, PETAL_ARCHETYPES } from './config'
 import { createPetalGeometry } from './petalGeometry'
 
@@ -36,4 +37,34 @@ export function buildPetalGeometryVariants(seed: number): THREE.BufferGeometry[]
 
 export function buildCenterGeometry(): THREE.BufferGeometry {
   return new THREE.IcosahedronGeometry(1, 1)
+}
+
+/**
+ * A handful of thin, gently-curled stem variants, reusing the same tapered
+ * plane deformation grass blades are built from (shared/taperedBlade.ts) —
+ * a stem is really just a much skinnier, straighter, unpigmented version of
+ * the same shape. Local Y still runs 0 (base, planted on the terrain) to 1
+ * (tip, where the flower head sits) — see generateFlowerField.ts for how
+ * that's scaled/positioned per instance.
+ */
+export function buildStemGeometryVariants(seed: number): THREE.BufferGeometry[] {
+  const rng = createRng(seed + 9000)
+  const { variantCount, widthScaleRange, curlRange, jitterAmount } = FLOWER_FIELD_CONFIG.stem
+  const geometries: THREE.BufferGeometry[] = []
+
+  for (let v = 0; v < variantCount; v++) {
+    geometries.push(
+      createTaperedBladeGeometry(rng, {
+        tipSharpness: 1,
+        curl: range(rng, curlRange[0], curlRange[1]),
+        twist: 0,
+        widthScale: range(rng, widthScaleRange[0], widthScaleRange[1]),
+        widthSegments: 1,
+        heightSegments: 3,
+        jitterAmount,
+      }),
+    )
+  }
+
+  return geometries
 }
