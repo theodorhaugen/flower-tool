@@ -43,7 +43,7 @@ export const CAMERA_CONFIG = {
   },
 
   drift: {
-    positionAmplitude: 0.022,
-    rotationAmplitudeDeg: 0.22,
+    positionAmplitude: 0.045,
+    rotationAmplitudeDeg: 0.4,
   },
 }
