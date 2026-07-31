@@ -20,14 +20,17 @@ npm run dev
 src/
   scene/
     SceneCanvas.tsx        R3F <Canvas> — renderer/color-management setup
+    CinematicFrame.tsx     letterboxes the canvas to a fixed cinematic aspect ratio
     Experience.tsx         composition root for the scene graph
     camera/
-      MainCamera.tsx        perspective camera
-      CameraControls.tsx    orbit controls
+      config.ts              lens tuning: fov, DoF, handheld drift, letterbox aspect
+      MainCamera.tsx          perspective camera, narrow fov (long-lens compression)
+      CameraControls.tsx      orbit controls, slightly off-axis target
+      HandheldDrift.tsx       subtle per-frame sway layered on top of the controls
     lighting/
       SceneLighting.tsx     ambient + directional lighting rig
     effects/
-      PostProcessing.tsx    EffectComposer pipeline
+      PostProcessing.tsx    EffectComposer pipeline — bloom, depth of field, vignette
     shared/                 procedural primitives used by more than one system
       random.ts               seeded PRNG — same seed always reproduces the same output
       noise.ts                 layered value noise (fbm) + a 1D slice for path curves
@@ -115,5 +118,28 @@ prioritized over geometric detail.
   fog chunk since it represents "infinitely far away."
 
 All tuning lives in `flowerField/config.ts` and `environment/config.ts`.
+
+### Lens (`camera/`)
+
+The camera is styled as a macro lens, not a generic 3D viewport:
+
+- **Long focal length** — a narrow FOV (`camera/config.ts`) reads as
+  telephoto/macro compression rather than a wide establishing shot.
+- **Shallow depth of field** — `PostProcessing.tsx`'s `DepthOfField`
+  keeps only a thin world-space slice in focus (`dof.focusDistance`/
+  `dof.focusRange`), melting everything else into bokeh; bloom is
+  listed before it in the effect chain so its highlights blur into
+  soft bokeh discs instead of staying crisp on top of the blur.
+- **Cinematic framing** — `CinematicFrame.tsx` letterboxes the canvas
+  to a fixed aspect ratio regardless of the browser window's shape,
+  and the orbit target is nudged off-axis so the composition isn't
+  dead-centered.
+- **Handheld drift** (`HandheldDrift.tsx`) — a small per-frame sway
+  built from two layered noise frequencies (slow sway + a faster
+  tremor) rather than one sine wave, so it reads as organic hand
+  movement, not a mechanical loop. It's recomputed as an absolute
+  offset from elapsed time every frame rather than accumulated, so it
+  can't run away, and it's mounted after `CameraControls` so its sway
+  layers on top of, rather than fights, the controls' own update.
 
 No GUI/controls panel yet by design.
