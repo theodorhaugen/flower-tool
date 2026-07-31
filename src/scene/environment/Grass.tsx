@@ -10,14 +10,20 @@ import { useEnvironmentPaletteColors } from './paletteColors'
 
 /** Dense instanced grass blades covering the near/mid ground, swaying in the active render's generative wind. */
 export function Grass() {
-  const { environmentSeed, meadowLayoutSeed, terrainShapeSeed, wind } = useGenerative()
+  const { environmentSeed, meadowLayoutSeed, terrainShapeSeed, wind, grassDensity, grassHeight, grassWidth } =
+    useGenerative()
   const { grassColorPalette } = useEnvironmentPaletteColors()
   const meadowLayout = useMeadowLayout(meadowLayoutSeed)
   const terrainShape = useTerrainShape(terrainShapeSeed)
 
   const groups = useMemo(
-    () => generateGrass(grassColorPalette, environmentSeed, meadowLayout, terrainShape),
-    [grassColorPalette, environmentSeed, meadowLayout, terrainShape],
+    () =>
+      generateGrass(grassColorPalette, environmentSeed, meadowLayout, terrainShape, {
+        densityMultiplier: grassDensity,
+        heightMultiplier: grassHeight,
+        widthMultiplier: grassWidth,
+      }),
+    [grassColorPalette, environmentSeed, meadowLayout, terrainShape, grassDensity, grassHeight, grassWidth],
   )
   const material = useMemo(() => {
     const mat = new THREE.MeshStandardMaterial({

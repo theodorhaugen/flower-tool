@@ -32,7 +32,8 @@ export const ENVIRONMENT_CONFIG = {
   groundSoilWeight: 0.35,
 
   grass: {
-    count: 42000,
+    /** Raised from 42000 — read as sparse once the skinnier blade width above stopped visually padding out each instance. Leva's Grass > Density fold scales this further at runtime. */
+    count: 60000,
     variantCount: 5,
     /**
      * Real grass blades run roughly 0.03-0.06 width:height — this was 0.4,

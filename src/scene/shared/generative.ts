@@ -106,6 +106,12 @@ export interface GenerativeState {
   grainAmount: number
   /** Film fold "Grain Size" — scales FilmGrainPass's grain cell size. 1 = as tuned. */
   grainSize: number
+  /** Grass fold "Density" — multiplies ENVIRONMENT_CONFIG.grass.count. 1 = as tuned. */
+  grassDensity: number
+  /** Grass fold "Height" — multiplies each blade's height range. 1 = as tuned. */
+  grassHeight: number
+  /** Grass fold "Width" — multiplies each blade's width independently of height. 1 = as tuned. */
+  grassWidth: number
 }
 
 export interface DeriveGenerativeStateOptions {
@@ -189,6 +195,9 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     vibranceAmount: 1,
     grainAmount: 1,
     grainSize: 1,
+    grassDensity: 1,
+    grassHeight: 1,
+    grassWidth: 1,
   }
 }
 

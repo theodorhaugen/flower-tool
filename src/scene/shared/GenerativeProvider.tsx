@@ -170,6 +170,17 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     [seed],
   )
 
+  // --- Grass: how much, how tall, how thick — not the blade taper/jitter shape itself ---
+  const [grassControls] = useControls(
+    'Grass',
+    () => ({
+      density: { value: 1, min: 0.3, max: 3, label: 'Density' },
+      height: { value: 1, min: 0.4, max: 2.2, label: 'Height' },
+      width: { value: 1, min: 0.4, max: 3, label: 'Width' },
+    }),
+    [seed],
+  )
+
   const state: GenerativeState = useMemo(() => {
     const palette = shiftPaletteHue(
       PALETTES.find((p) => p.name === colourControls.palette) ?? base.palette,
@@ -204,6 +215,9 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       fogDensityMultiplier: atmosphereControls.fog,
       grainAmount: filmControls.grainAmount,
       grainSize: filmControls.grainSize,
+      grassDensity: grassControls.density,
+      grassHeight: grassControls.height,
+      grassWidth: grassControls.width,
     }
   }, [
     base,
@@ -214,6 +228,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     atmosphereControls,
     lensControls,
     filmControls,
+    grassControls,
   ])
 
   useEffect(() => {

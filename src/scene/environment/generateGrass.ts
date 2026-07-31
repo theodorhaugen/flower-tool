@@ -15,6 +15,15 @@ export interface GrassGroup {
 
 const UP = new THREE.Vector3(0, 1, 0)
 
+export interface GenerateGrassOptions {
+  /** Leva's Grass > Density — multiplies ENVIRONMENT_CONFIG.grass.count. 1 = as tuned. */
+  densityMultiplier?: number
+  /** Leva's Grass > Height — multiplies heightRange's bounds. 1 = as tuned. */
+  heightMultiplier?: number
+  /** Leva's Grass > Width — multiplies each blade's width independently of height, at the instance level (the geometry's own widthScale stays fixed). 1 = as tuned. */
+  widthMultiplier?: number
+}
+
 /**
  * Dense grass, grown only where blades would actually resolve before blur
  * takes over (near/mid ground) and thinned along the same worn path the
@@ -22,15 +31,18 @@ const UP = new THREE.Vector3(0, 1, 0)
  * `colorPalette`, `environmentSeed`, `meadowLayout`, and `terrainShape` all
  * come from the active render's generative seed (see shared/generative.ts)
  * rather than fixed config, so grass colour/placement/height stay cohesive
- * with the rest of the scene instead of being independently fixed.
+ * with the rest of the scene instead of being independently fixed. `options`
+ * from the same state's Leva-controlled creative overrides.
  */
 export function generateGrass(
   colorPalette: readonly string[],
   environmentSeed: number,
   meadowLayout: MeadowLayoutConfig,
   terrainShape: TerrainShapeConfig,
+  { densityMultiplier = 1, heightMultiplier = 1, widthMultiplier = 1 }: GenerateGrassOptions = {},
 ): GrassGroup[] {
-  const { count, variantCount, widthScale, heightRange, zNear, zFar, xHalf } = ENVIRONMENT_CONFIG.grass
+  const { count: baseCount, variantCount, widthScale, heightRange, zNear, zFar, xHalf } = ENVIRONMENT_CONFIG.grass
+  const count = Math.round(baseCount * densityMultiplier)
   const rng = createRng(environmentSeed + 1000)
 
   const groups: GrassGroup[] = Array.from({ length: variantCount }, () => ({
@@ -62,7 +74,7 @@ export function generateGrass(
     if (rng() > samplePathFactor(x, z, meadowLayout)) continue // thinned on the path, otherwise kept
 
     const y = sampleTerrainHeight(x, z, terrainShape)
-    const height = range(rng, heightRange[0], heightRange[1])
+    const height = range(rng, heightRange[0], heightRange[1]) * heightMultiplier
     const spin = range(rng, 0, Math.PI * 2)
     const lean = range(rng, -0.22, 0.22)
     const leanAxis = new THREE.Vector3(Math.cos(spin + Math.PI / 2), 0, Math.sin(spin + Math.PI / 2))
@@ -71,7 +83,7 @@ export function generateGrass(
     quat.multiply(new THREE.Quaternion().setFromAxisAngle(leanAxis, lean))
 
     matrix.makeRotationFromQuaternion(quat)
-    matrix.scale(new THREE.Vector3(height, height, height))
+    matrix.scale(new THREE.Vector3(height * widthMultiplier, height, height * widthMultiplier))
     matrix.setPosition(x, y, z)
 
     const baseColor = new THREE.Color(colorPalette[Math.floor(rng() * colorPalette.length) % colorPalette.length])
