@@ -7,6 +7,7 @@ import { POST_PROCESSING_CONFIG } from './config'
 import { LensDistortion } from './LensDistortion'
 import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
 import { LongExposureBlur } from './LongExposureBlur'
+import { PaletteGrade } from './PaletteGrade'
 
 /**
  * Post-processing pipeline, styled after analogue photography rather than a
@@ -14,7 +15,11 @@ import { LongExposureBlur } from './LongExposureBlur'
  * real strip of film would do, kept subtle enough to be felt rather than
  * noticed on its own:
  *
- * - Bloom: highlights glowing into their surroundings, listed first so
+ * - PaletteGrade: a two-point colour grade towards the active palette's
+ *   `highlight`/`shadow`, plus a bloom-tint pre-bias — listed *first* so
+ *   Bloom's own glow (next) samples the already-tinted image and inherits
+ *   `bloomTint` rather than being recoloured after the fact.
+ * - Bloom: highlights glowing into their surroundings, listed early so
  *   depth of field blurs those highlights into soft bokeh discs rather than
  *   leaving them crisp on top of the blur.
  * - LensOpticsDepthOfField: the dominant characteristic — a thin,
@@ -42,6 +47,7 @@ export function PostProcessing() {
 
   return (
     <EffectComposer multisampling={4}>
+      <PaletteGrade />
       <Bloom
         intensity={bloom.intensity}
         luminanceThreshold={bloom.luminanceThreshold}

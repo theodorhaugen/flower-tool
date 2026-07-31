@@ -1,10 +1,11 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { InstancedGroup } from '../../shared/InstancedGroup'
+import { usePalette } from '../../shared/paletteContext'
 import { FLOWER_FIELD_CONFIG } from './config'
 import { generateFlowerField } from './generateFlowerField'
 import { buildCenterGeometry, buildPetalGeometryVariants } from './geometryVariants'
-import { CENTER_MATERIAL_PROPS, buildPetalMaterialVariants } from './materials'
+import { buildCenterMaterialProps, buildPetalMaterialVariants } from './materials'
 
 interface FlowerFieldProps {
   seed?: number
@@ -18,13 +19,18 @@ interface FlowerFieldProps {
  * of per-instance transforms/colors.
  */
 export function FlowerField({ seed = FLOWER_FIELD_CONFIG.seed }: FlowerFieldProps) {
+  const palette = usePalette()
+
   const petalGeometries = useMemo(() => buildPetalGeometryVariants(seed), [seed])
   const centerGeometry = useMemo(() => buildCenterGeometry(), [])
 
-  const petalMaterials = useMemo(() => buildPetalMaterialVariants(seed), [seed])
-  const centerMaterial = useMemo(() => new THREE.MeshStandardMaterial(CENTER_MATERIAL_PROPS), [])
+  const petalMaterials = useMemo(() => buildPetalMaterialVariants(seed, palette), [seed, palette])
+  const centerMaterial = useMemo(
+    () => new THREE.MeshStandardMaterial(buildCenterMaterialProps(palette)),
+    [palette],
+  )
 
-  const field = useMemo(() => generateFlowerField(seed), [seed])
+  const field = useMemo(() => generateFlowerField(seed, palette), [seed, palette])
 
   useEffect(() => {
     return () => {

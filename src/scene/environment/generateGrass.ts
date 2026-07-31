@@ -17,9 +17,12 @@ const UP = new THREE.Vector3(0, 1, 0)
  * Dense grass, grown only where blades would actually resolve before blur
  * takes over (near/mid ground) and thinned along the same worn path the
  * flowers avoid — otherwise as uniformly dense as a real meadow floor.
+ * `colorPalette` comes from the active render's palette (see
+ * paletteColors.ts) rather than fixed config, so grass colour stays
+ * cohesive with the rest of the scene.
  */
-export function generateGrass(): GrassGroup[] {
-  const { count, variantCount, widthScale, heightRange, zNear, zFar, xHalf, colorPalette } = ENVIRONMENT_CONFIG.grass
+export function generateGrass(colorPalette: readonly string[]): GrassGroup[] {
+  const { count, variantCount, widthScale, heightRange, zNear, zFar, xHalf } = ENVIRONMENT_CONFIG.grass
   const rng = createRng(ENVIRONMENT_CONFIG.seed + 1000)
 
   const groups: GrassGroup[] = Array.from({ length: variantCount }, () => ({

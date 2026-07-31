@@ -9,11 +9,6 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
-const dry = new THREE.Color(ENVIRONMENT_CONFIG.groundColors.dry)
-const sparse = new THREE.Color(ENVIRONMENT_CONFIG.groundColors.sparse)
-const lush = new THREE.Color(ENVIRONMENT_CONFIG.groundColors.lush)
-const shadow = new THREE.Color(ENVIRONMENT_CONFIG.groundColors.shadow)
-
 /**
  * How lush (1) vs. bare/dry (0) a ground position is — mostly the shared
  * meadow cluster field (so it agrees with where the flowers are dense) with
@@ -36,21 +31,42 @@ export function samplePathFactor(x: number, z: number): number {
   return sampleMeadowPathFactor(x, z, frustumWidthHalfAt(z), MEADOW_LAYOUT)
 }
 
-/** Ground colour at a position: a lush-vs-dry blend, subtle independent damp/shadow variation, pulled towards bare dirt on paths. */
-export function sampleGroundColor(x: number, z: number): THREE.Color {
-  const lushness = sampleGroundLushness(x, z)
-  const path = samplePathFactor(x, z)
+export interface GroundColors {
+  dry: string
+  sparse: string
+  lush: string
+  shadow: string
+}
 
-  const color = new THREE.Color()
-  if (lushness < 0.5) {
-    color.copy(dry).lerp(sparse, lushness / 0.5)
-  } else {
-    color.copy(sparse).lerp(lush, (lushness - 0.5) / 0.5)
+/**
+ * Builds a ground-colour sampler bound to one render's palette-derived
+ * colours (see environment/paletteColors.ts) — a factory rather than a
+ * free function since the colours themselves now vary per render instead
+ * of being fixed config, so callers (buildTerrainGeometry.ts) bind them
+ * once up front rather than passing four extra args through every call.
+ */
+export function createGroundColorSampler(groundColors: GroundColors): (x: number, z: number) => THREE.Color {
+  const dry = new THREE.Color(groundColors.dry)
+  const sparse = new THREE.Color(groundColors.sparse)
+  const lush = new THREE.Color(groundColors.lush)
+  const shadow = new THREE.Color(groundColors.shadow)
+
+  /** Ground colour at a position: a lush-vs-dry blend, subtle independent damp/shadow variation, pulled towards bare dirt on paths. */
+  return function sampleGroundColor(x: number, z: number): THREE.Color {
+    const lushness = sampleGroundLushness(x, z)
+    const path = samplePathFactor(x, z)
+
+    const color = new THREE.Color()
+    if (lushness < 0.5) {
+      color.copy(dry).lerp(sparse, lushness / 0.5)
+    } else {
+      color.copy(sparse).lerp(lush, (lushness - 0.5) / 0.5)
+    }
+
+    const dampness = fbm2D(x * 0.16, z * 0.16, ENVIRONMENT_CONFIG.seed + 700, { octaves: 2 })
+    color.lerp(shadow, Math.max(0, dampness - 0.6) * 0.4)
+
+    color.lerp(dry, 1 - path)
+    return color
   }
-
-  const dampness = fbm2D(x * 0.16, z * 0.16, ENVIRONMENT_CONFIG.seed + 700, { octaves: 2 })
-  color.lerp(shadow, Math.max(0, dampness - 0.6) * 0.4)
-
-  color.lerp(dry, 1 - path)
-  return color
 }

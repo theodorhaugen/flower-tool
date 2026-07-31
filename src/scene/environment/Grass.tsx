@@ -2,10 +2,12 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { InstancedGroup } from '../shared/InstancedGroup'
 import { generateGrass } from './generateGrass'
+import { useEnvironmentPaletteColors } from './paletteColors'
 
 /** Dense instanced grass blades covering the near/mid ground. */
 export function Grass() {
-  const groups = useMemo(() => generateGrass(), [])
+  const { grassColorPalette } = useEnvironmentPaletteColors()
+  const groups = useMemo(() => generateGrass(grassColorPalette), [grassColorPalette])
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({

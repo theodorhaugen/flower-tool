@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { CAMERA_Z, frustumWidthHalfAt } from '../../shared/frustum'
 import { sampleMeadowDensity } from '../../shared/meadowLayout'
 import { MEADOW_LAYOUT } from '../../shared/meadowLayoutConfig'
+import type { ColorPalette } from '../../shared/palette'
 import { createRng, gaussianish, intRange, range } from '../../shared/random'
 import { sampleTerrainHeight } from '../../shared/terrainHeight'
 import { TERRAIN_SHAPE } from '../../shared/terrainShapeConfig'
@@ -70,9 +71,10 @@ function sampleBandPosition(rng: () => number, band: DepthBand): THREE.Vector3 {
 /**
  * Generates a full flower field as instance-ready transforms/colors, grouped
  * by petal geometry variant so each group can back its own InstancedMesh.
- * Pure function of `seed` — same seed always reproduces the same field.
+ * Pure function of `seed` and `palette` — same inputs always reproduce the
+ * same field.
  */
-export function generateFlowerField(seed: number = FLOWER_FIELD_CONFIG.seed): FlowerFieldData {
+export function generateFlowerField(seed: number, palette: ColorPalette): FlowerFieldData {
   const rng = createRng(seed)
   const {
     flowerCount,
@@ -110,7 +112,7 @@ export function generateFlowerField(seed: number = FLOWER_FIELD_CONFIG.seed): Fl
 
       const petalCount = intRange(rng, band.petalCountRange[0], band.petalCountRange[1])
       const cupAngle = range(rng, cupAngleRange[0], cupAngleRange[1])
-      const baseColor = samplePetalBaseColor(rng)
+      const baseColor = samplePetalBaseColor(rng, palette)
       const archetypeIndex = rng() < 0.5 ? 0 : 1
 
       // A small cone around FACE_AXIS, not a full random tumble — most
@@ -165,7 +167,7 @@ export function generateFlowerField(seed: number = FLOWER_FIELD_CONFIG.seed): Fl
       centerMatrix.scale(new THREE.Vector3(centerRadius, centerRadius, centerRadius))
       centerMatrix.setPosition(centerPosition)
 
-      centers.push({ matrix: centerMatrix.clone(), color: sampleCenterColor(rng) })
+      centers.push({ matrix: centerMatrix.clone(), color: sampleCenterColor(rng, palette) })
     }
   })
 

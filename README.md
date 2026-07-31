@@ -31,10 +31,12 @@ src/
       SceneLighting.tsx     overcast "sky dome" rig — hemisphere + ambient dominate, directional lights are just a whisper
     effects/
       config.ts                        every post-processing tuning knob
-      PostProcessing.tsx               EffectComposer pipeline — bloom, DoF, atmospheric haze, bilateral soft, chromatic aberration, lens distortion, vignette, grain
+      PostProcessing.tsx               EffectComposer pipeline — palette grade, bloom, DoF, atmospheric haze, bilateral soft, chromatic aberration, lens distortion, vignette, grain
+      PaletteGrade.tsx                 R3F wrapper — constructs the Pass below from the active palette + effects/config.ts
+      PaletteGradePass.ts              custom Pass: two-point highlight/shadow grade + a bloom-tint pre-bias, run *before* Bloom
       LensOpticsDepthOfField.tsx       R3F wrapper — constructs the effect below from camera/config.ts
       LensOpticsDepthOfFieldEffect.ts   the thin-lens circle-of-confusion Effect itself
-      AtmosphericHaze.tsx              R3F wrapper — constructs the effect below from effects/config.ts
+      AtmosphericHaze.tsx              R3F wrapper — constructs the effect below from the active palette + effects/config.ts
       AtmosphericHazeEffect.ts         custom Effect: depth-gated low-frequency haze + volumetric scatter
       BilateralSoft.tsx                R3F wrapper — constructs the effect below from effects/config.ts
       BilateralSoftEffect.ts           custom Effect: edge-aware (luminance-weighted) softening
@@ -52,6 +54,9 @@ src/
       taperedBlade.ts          deformed-plane geometry (taper/curl/twist/jitter) for petals, grass, leaves
       colorJitter.ts           small per-instance HSL nudge away from a base color
       instancing.ts / InstancedGroup.tsx   generic InstancedMesh renderer
+      palette.ts               the ColorPalette type, the 7 named palettes, and pickPalette() — see "Colour palette" below
+      paletteContext.ts        React context + usePalette() hook
+      PaletteProvider.tsx      picks the one palette a render belongs to, once, and provides it
     subjects/
       flowerField/            the flowers — see below
     environment/             the meadow the flowers grow in — see below
@@ -63,6 +68,57 @@ post effects (depth of field, grain, chromatic aberration) extend
 `scene/effects/PostProcessing.tsx` without touching the rest of the
 scene graph.
 
+### Colour palette (`shared/palette.ts`, `shared/PaletteProvider.tsx`)
+
+Every render belongs to exactly one of seven named palettes — Spring
+Meadow, Early Morning, Golden Hour, Lavender Field, Summer Sky, Autumn
+Wildflowers, Mist — picked once, randomly, when `<PaletteProvider>`
+(wrapping everything in `Experience.tsx`) mounts. That's the mechanism
+behind "cohesive": every colourful subsystem below reads the *same*
+palette instance via `usePalette()` rather than inventing its own
+colours, so swapping the palette changes the whole image's mood
+together instead of five independent tuning knobs that happen to look
+okay side by side.
+
+A `ColorPalette` is exactly five fields, each with one clear job and
+(mostly) one clear consumer:
+
+- **`dominantHues`** — a handful of hex anchors, the flower "family"
+  this render draws from. `subjects/flowerField/palette.ts` converts
+  them to HSL and samples/jitters from them for petal colour; flower
+  *centres* derive from `highlight` instead (real flower centres read
+  as warm pollen regardless of petal colour), blended with a touch of
+  `dominantHues[0]`/`shadow` for some depth.
+- **`highlight`** — the colour of light hitting something. Tints the
+  sky/key light (`lighting/SceneLighting.tsx`), sunlit grass/dirt
+  (`environment/paletteColors.ts`), and the petal material's
+  emissive/sheen "glow" colour (`subjects/flowerField/materials.ts`).
+- **`shadow`** — the colour of the absence of that light. Tints the
+  fill light, ground-bounce, and shadowed grass — the same places
+  `highlight` reaches, from the other side.
+- **`bloomTint`** — the literal colour of the post-processing bloom
+  glow. `effects/PaletteGradePass.ts` biases the brightest (about-to-
+  bloom) pixels towards this colour *before* Bloom runs, so Bloom's own
+  glow inherits it rather than being recoloured after the fact — real
+  bloom/glare picks up a colour, it doesn't just get brighter.
+- **`hazeTint`** — the colour of the air itself. Drives the scene's
+  `FogExp2` (`environment/Fog.tsx`), the horizon gradient
+  (`environment/Horizon.tsx`), and the screen-space atmospheric haze
+  (`effects/AtmosphericHazeEffect.ts`) — all three read `hazeTint`
+  (via `environment/paletteColors.ts` or directly), so "the air" reads
+  as one thing instead of three effects picking their own tint.
+
+Grass/vegetation/ground colours are a special case: they stay anchored
+to fixed green/brown base tones (real grass doesn't change species
+with the weather) rather than becoming literally lavender or amber
+under every palette, but those anchors are tinted by `highlight`/
+`shadow` — the same way real grass looks different in different light.
+See `environment/paletteColors.ts`'s `deriveEnvironmentColors`.
+
+Pin a specific palette (for tuning/screenshotting one deliberately)
+via a `?palette=Golden%20Hour` URL query param — see
+`PaletteProvider.tsx`.
+
 ### Flower field (`subjects/flowerField/`)
 
 Not botanically accurate by design — each "flower" is a small cluster
@@ -71,7 +127,10 @@ per-petal jitter). Nearly everything is instanced: a couple dozen
 unique petal/center geometries (enough variety that repetition doesn't
 read at a glance) each back one `InstancedMesh` with thousands of
 per-instance transforms/colors, so it's a handful of draw calls
-regardless of flower count.
+regardless of flower count. Base colour (`palette.ts` in this folder,
+distinct from `shared/palette.ts`) samples from the active render's
+`dominantHues` for petals and `highlight` for centres — see "Colour
+palette" above.
 
 Placement is meadow-like rather than uniformly random
 (`shared/meadowLayout.ts`): a low-frequency noise field decides
@@ -111,7 +170,10 @@ translucent tissue does that a flat tint can't:
   has). `sheen` adds a soft, cheap rim-light term on top — light
   catching a thin, slightly fibrous edge — which combined with a
   boosted emissive reads as light re-emerging through tissue rather
-  than merely reflecting off it.
+  than merely reflecting off it. Both the emissive and sheen *colour*
+  (not just intensity) are mixed from the active palette's `highlight`
+  and `dominantHues` rather than fixed, so this glow stays this
+  render's colour of light instead of always the same two hues.
 - **Soft colour bleeding** — `petalGeometry.ts` bakes a base-to-tip
   vertex-colour gradient into each geometry variant (deeper/richer
   near the attachment point, paler at the thin tip), jittered per
@@ -150,10 +212,12 @@ anything. Petals lean into this: their emissive intensity is tuned a
 little brighter than the diffuse light alone would produce, reading as
 light glowing through translucent tissue rather than merely
 reflecting off it — reinforced by `PostProcessing.tsx`'s bloom
-threshold, lowered enough to catch that glow. `environment/config.ts`'s
-fog and horizon colours are kept close to each other for the same
-reason: a real overcast sky is famously flat, without much of a
-vertical gradient.
+threshold, lowered enough to catch that glow. All light *colours*
+here (the hemisphere sky/ground, the two directional lights) are
+tinted by the active palette's `highlight`/`shadow` — see "Colour
+palette" above. Fog and horizon colours are kept close to each other
+for the same overcast-flatness reason, and now share a source too:
+both read the palette's `hazeTint` (`environment/paletteColors.ts`).
 
 ### Environment (`environment/`)
 
@@ -169,13 +233,14 @@ prioritized over geometric detail.
   world space; height comes from `shared/terrainHeight.ts`'s layered
   noise (broad rolling undulation + a finer bump layer) — the same
   height function the flower field samples to plant flowers on it.
-- **Ground colour** (`groundColor.ts`) — blends a muted dry/sparse/lush
-  palette using the *same* shared meadow cluster field the flowers
-  sample, plus the environment's own fine soil noise, so the ground
-  reads as lusher where the flowers cluster and — together with the
-  shared path field — visibly bare/dirt along the same corridor the
-  flowers avoid, instead of two unrelated random patterns sharing a
-  scene by coincidence.
+- **Ground colour** (`groundColor.ts`) — blends a dry/sparse/lush/
+  shadow set of colours (derived from the active palette, see
+  `paletteColors.ts`) using the *same* shared meadow cluster field the
+  flowers sample, plus the environment's own fine soil noise, so the
+  ground reads as lusher where the flowers cluster and — together with
+  the shared path field — visibly bare/dirt along the same corridor
+  the flowers avoid, instead of two unrelated random patterns sharing
+  a scene by coincidence.
 - **Grass** (`generateGrass.ts`/`Grass.tsx`) — dense instanced blades
   (a handful of unique low-poly geometries, thousands of instances),
   planted only in the near/mid ground where individual blades would
@@ -189,11 +254,15 @@ prioritized over geometric detail.
   what the horizon and the terrain's far edge both blend into.
 - **Horizon** (`Horizon.tsx`) — a large backdrop sphere with a plain
   custom vertical-gradient shader (not a physically-based sky) so its
-  colours stay inside the same muted editorial palette instead of
+  colours stay inside the active palette's `hazeTint` instead of
   drifting toward a literal blue-sky look; deliberately excludes the
   fog chunk since it represents "infinitely far away."
 
-All tuning lives in `flowerField/config.ts` and `environment/config.ts`.
+Structural/geometric tuning (counts, ranges, extents) lives in
+`flowerField/config.ts` and `environment/config.ts`; colour comes from
+the active palette instead (see "Colour palette" above) —
+`environment/paletteColors.ts` is where the two meet for everything
+in this section.
 
 ### Lens (`camera/`)
 

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { ENVIRONMENT_CONFIG } from './config'
+import { useEnvironmentPaletteColors } from './paletteColors'
 
 const VERTEX_SHADER = `
   varying vec3 vWorldPosition;
@@ -38,7 +39,9 @@ const FRAGMENT_SHADER = `
  * horizon line for a seamless blend.
  */
 export function Horizon() {
-  const { radius, skyColor, horizonColor, groundColor, horizonHeight, spread } = ENVIRONMENT_CONFIG.horizon
+  const { radius, horizonHeight, spread } = ENVIRONMENT_CONFIG.horizon
+  const { horizon } = useEnvironmentPaletteColors()
+  const { skyColor, horizonColor, groundColor } = horizon
 
   const material = useMemo(
     () =>

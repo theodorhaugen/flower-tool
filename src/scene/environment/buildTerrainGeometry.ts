@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { ENVIRONMENT_CONFIG } from './config'
-import { sampleGroundColor } from './groundColor'
 import { sampleTerrainHeight } from './terrainHeight'
 
 /**
@@ -8,8 +7,12 @@ import { sampleTerrainHeight } from './terrainHeight'
  * (rather than a rotated+offset PlaneGeometry) so `sampleTerrainHeight`/
  * `sampleGroundColor` — which key off world x/z to stay aligned with the
  * flower field's meadow layout — need no extra transform bookkeeping.
+ * `sampleGroundColor` is passed in (from groundColor.ts's
+ * `createGroundColorSampler`, bound to the active render's palette-derived
+ * ground colours) rather than imported directly, since those colours vary
+ * per render now instead of being fixed config.
  */
-export function buildTerrainGeometry(): THREE.BufferGeometry {
+export function buildTerrainGeometry(sampleGroundColor: (x: number, z: number) => THREE.Color): THREE.BufferGeometry {
   const { width, depth, widthSegments, depthSegments, centerX, centerZ } = ENVIRONMENT_CONFIG.terrain
   const cols = widthSegments + 1
   const rows = depthSegments + 1

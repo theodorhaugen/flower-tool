@@ -1,7 +1,8 @@
 import * as THREE from 'three'
+import { jitterColor } from '../../shared/colorJitter'
+import type { ColorPalette } from '../../shared/palette'
 import type { Rng } from '../../shared/random'
 import { range } from '../../shared/random'
-import { jitterColor } from '../../shared/colorJitter'
 
 interface HslColor {
   h: number
@@ -10,35 +11,24 @@ interface HslColor {
 }
 
 /**
- * Soft, desaturated editorial palette — nothing saturated/primary. Kept out
- * of near-white territory (lightness capped ~0.72) since thousands of
- * overlapping translucent layers add up towards white fast; without headroom
- * the whole field bleaches out under lighting + bloom.
+ * Lightness cap for every anchor derived below — thousands of overlapping
+ * translucent petal layers add up towards white fast, so even a palette
+ * whose `dominantHues` run pale (Mist, Summer Sky) needs headroom left
+ * before bloom, or the whole field bleaches out.
  */
-const PETAL_PALETTE: HslColor[] = [
-  { h: 0.97, s: 0.62, l: 0.6 }, // blush pink
-  { h: 0.91, s: 0.48, l: 0.65 }, // pale rose
-  { h: 0.77, s: 0.46, l: 0.58 }, // soft lavender
-  { h: 0.03, s: 0.58, l: 0.6 }, // peach / coral
-  { h: 0.1, s: 0.4, l: 0.68 }, // ivory cream
-  { h: 0.87, s: 0.4, l: 0.56 }, // muted mauve
-]
+const MAX_PETAL_LIGHTNESS = 0.72
 
-const CENTER_PALETTE: HslColor[] = [
-  { h: 0.12, s: 0.72, l: 0.63 },
-  { h: 0.09, s: 0.68, l: 0.58 },
-  { h: 0.14, s: 0.55, l: 0.7 },
-]
+function toHsl(hex: string): HslColor {
+  const hsl = { h: 0, s: 0, l: 0 }
+  new THREE.Color(hex).getHSL(hsl)
+  return hsl
+}
 
 function wrap01(value: number): number {
   return ((value % 1) + 1) % 1
 }
 
-function sampleFromPalette(
-  rng: Rng,
-  palette: readonly HslColor[],
-  jitter: HslColor,
-): THREE.Color {
+function sampleFromPalette(rng: Rng, palette: readonly HslColor[], jitter: HslColor): THREE.Color {
   const base = palette[Math.floor(rng() * palette.length) % palette.length]
   const h = wrap01(base.h + range(rng, -jitter.h, jitter.h))
   const s = THREE.MathUtils.clamp(base.s + range(rng, -jitter.s, jitter.s), 0, 1)
@@ -46,12 +36,39 @@ function sampleFromPalette(
   return new THREE.Color().setHSL(h, s, l)
 }
 
-export function samplePetalBaseColor(rng: Rng): THREE.Color {
-  return sampleFromPalette(rng, PETAL_PALETTE, { h: 0.02, s: 0.08, l: 0.06 })
+/** The palette's `dominantHues`, converted to HSL anchors and capped below bloom-bleach territory — this render's petal "family". */
+function petalAnchors(palette: ColorPalette): HslColor[] {
+  return palette.dominantHues.map((hex) => {
+    const hsl = toHsl(hex)
+    return { ...hsl, l: Math.min(hsl.l, MAX_PETAL_LIGHTNESS) }
+  })
 }
 
-export function sampleCenterColor(rng: Rng): THREE.Color {
-  return sampleFromPalette(rng, CENTER_PALETTE, { h: 0.02, s: 0.1, l: 0.08 })
+/**
+ * Flower centres read as warm pollen/stamen regardless of petal colour on
+ * a real flower, so these derive from `highlight` (the palette's "colour
+ * of light" — already warm on Golden Hour/Autumn, paler on Mist/Lavender)
+ * rather than `dominantHues`, with a little of the first dominant hue and
+ * a little `shadow` mixed in for some depth instead of one flat tone.
+ */
+function centerAnchors(palette: ColorPalette): HslColor[] {
+  const highlight = new THREE.Color(palette.highlight)
+  const towardsHue = new THREE.Color(palette.dominantHues[0])
+  const towardsShadow = new THREE.Color(palette.shadow)
+
+  return [
+    toHsl(`#${highlight.clone().lerp(new THREE.Color('#ffffff'), 0.1).getHexString()}`),
+    toHsl(`#${highlight.clone().lerp(towardsHue, 0.3).getHexString()}`),
+    toHsl(`#${highlight.clone().lerp(towardsShadow, 0.2).getHexString()}`),
+  ]
+}
+
+export function samplePetalBaseColor(rng: Rng, palette: ColorPalette): THREE.Color {
+  return sampleFromPalette(rng, petalAnchors(palette), { h: 0.02, s: 0.08, l: 0.06 })
+}
+
+export function sampleCenterColor(rng: Rng, palette: ColorPalette): THREE.Color {
+  return sampleFromPalette(rng, centerAnchors(palette), { h: 0.02, s: 0.1, l: 0.08 })
 }
 
 export { jitterColor }

@@ -4,6 +4,12 @@
  * and colour, not to compete with it, and it's mostly seen through heavy
  * depth of field, so photographic plausibility matters far more than
  * geometric detail.
+ *
+ * Colour lives in paletteColors.ts, not here — ground/grass/vegetation/fog/
+ * horizon colours all derive from the active render's palette (see
+ * shared/palette.ts) so the environment stays cohesive with the flowers
+ * growing in it instead of picking its own independent colours. This file
+ * only holds structural/geometric tuning: counts, ranges, extents.
  */
 export const ENVIRONMENT_CONFIG = {
   seed: 4242,
@@ -21,13 +27,6 @@ export const ENVIRONMENT_CONFIG = {
     centerZ: -25,
   },
 
-  /** Ground vertex-colour palette — kept low-saturation so flowers stay the focal colour. */
-  groundColors: {
-    dry: '#a3946f', // path / bare dirt
-    sparse: '#8c9370', // dry, sparse grass
-    lush: '#5c6e4c', // dense grass
-    shadow: '#3d4936', // damp hollows / shadowed patches
-  },
   /** How much the environment's own fine soil texture contributes vs. the shared meadow cluster field. */
   groundSoilNoiseFrequency: 0.09,
   groundSoilWeight: 0.35,
@@ -41,7 +40,6 @@ export const ENVIRONMENT_CONFIG = {
     zNear: 9,
     zFar: -30,
     xHalf: 30,
-    colorPalette: ['#63754a', '#748656', '#4f6039', '#8a9560', '#576a45'],
   },
 
   wildVegetation: {
@@ -52,12 +50,10 @@ export const ENVIRONMENT_CONFIG = {
     zNear: 9,
     zFar: -26,
     xHalf: 28,
-    colorPalette: ['#5a6a3c', '#707d49', '#48582f', '#818a55'],
   },
 
   /** Softer and slightly denser than before — overcast haze hanging in the air, not dust. */
   fog: {
-    color: '#d8d2c6',
     density: 0.021,
   },
 
@@ -65,14 +61,12 @@ export const ENVIRONMENT_CONFIG = {
    * skyColor and horizonColor are kept close together on purpose — overcast
    * skies are famously flat (cloud cover scatters everything into a near-
    * uniform white-gray), so there's little vertical gradient to speak of,
-   * unlike a clear-sky sunset gradient. horizonColor matches fog.color so
-   * the terrain's far edge blends into it seamlessly.
+   * unlike a clear-sky sunset gradient. horizonColor matches the fog colour
+   * (both derive from the palette's hazeTint) so the terrain's far edge
+   * blends into it seamlessly.
    */
   horizon: {
     radius: 130,
-    skyColor: '#e9e6dd',
-    horizonColor: '#d8d2c6',
-    groundColor: '#94886f',
     horizonHeight: -1.5,
     spread: 75,
   },

@@ -14,9 +14,12 @@ const VARIANT_COUNT = 4
  * Small sparse weed/leaf clumps — a handful of tiny leaflets fanning out
  * from a shared point — scattered between the grass to break up its
  * uniformity without introducing anything as visually loud as a flower.
+ * `colorPalette` comes from the active render's palette (see
+ * paletteColors.ts) rather than fixed config, so vegetation colour stays
+ * cohesive with the rest of the scene.
  */
-export function generateWildVegetation(): GrassGroup[] {
-  const { clumpCount, leafletsPerClumpRange, clumpRadius, scaleRange, zNear, zFar, xHalf, colorPalette } =
+export function generateWildVegetation(colorPalette: readonly string[]): GrassGroup[] {
+  const { clumpCount, leafletsPerClumpRange, clumpRadius, scaleRange, zNear, zFar, xHalf } =
     ENVIRONMENT_CONFIG.wildVegetation
   const rng = createRng(ENVIRONMENT_CONFIG.seed + 2000)
 

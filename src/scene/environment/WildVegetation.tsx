@@ -2,10 +2,12 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { InstancedGroup } from '../shared/InstancedGroup'
 import { generateWildVegetation } from './generateWildVegetation'
+import { useEnvironmentPaletteColors } from './paletteColors'
 
 /** Small sparse weed/leaf clumps scattered through the grass. */
 export function WildVegetation() {
-  const groups = useMemo(() => generateWildVegetation(), [])
+  const { wildVegetationColorPalette } = useEnvironmentPaletteColors()
+  const groups = useMemo(() => generateWildVegetation(wildVegetationColorPalette), [wildVegetationColorPalette])
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({

@@ -31,9 +31,8 @@ export const POST_PROCESSING_CONFIG = {
    * that respects edges, rather than a flat full-frame blur.
    */
   atmosphere: {
+    /** `haze.color` isn't set here — it's the active palette's `hazeTint` (see PostProcessing.tsx), so it matches environment/Fog.tsx's fog colour instead of drifting from it. */
     haze: {
-      /** Matches environment/config.ts's fog.color — reads as one atmosphere, not two competing effects. */
-      color: '#d8d2c6',
       frequency: 1.8,
       driftSpeed: 0.02,
       strength: 0.12,
@@ -48,6 +47,23 @@ export const POST_PROCESSING_CONFIG = {
       spatialSigma: 1,
       rangeSigma: 0.15,
     },
+  },
+
+  /**
+   * Structural tuning for PaletteGradePass — colours themselves come from
+   * the active palette's `highlight`/`shadow`/`bloomTint` (see
+   * PostProcessing.tsx), this is just how strongly each is felt. Kept
+   * gentle for the two-point grade (0.12 each) so it reads as mood, not a
+   * colour-filter override; the bloom bias is stronger (0.35) since that's
+   * the whole mechanism behind `bloomTint` actually colouring the glow.
+   * `bloomBiasThreshold` should sit close to `bloom.luminanceThreshold`
+   * above — the point is to catch the same pixels Bloom is about to bloom.
+   */
+  paletteGrade: {
+    highlightStrength: 0.12,
+    shadowStrength: 0.12,
+    bloomBiasStrength: 0.35,
+    bloomBiasThreshold: 0.55,
   },
 
   /** Weaker in the middle, stronger towards the edges — how a real lens's fringing actually behaves, not a full-frame colour shift. */

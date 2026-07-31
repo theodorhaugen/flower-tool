@@ -1,10 +1,16 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { buildTerrainGeometry } from './buildTerrainGeometry'
+import { createGroundColorSampler } from './groundColor'
+import { useEnvironmentPaletteColors } from './paletteColors'
 
 /** Undulating, vertex-coloured ground plane beneath the flower field. */
 export function Terrain() {
-  const geometry = useMemo(() => buildTerrainGeometry(), [])
+  const { groundColors } = useEnvironmentPaletteColors()
+  const geometry = useMemo(
+    () => buildTerrainGeometry(createGroundColorSampler(groundColors)),
+    [groundColors],
+  )
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
