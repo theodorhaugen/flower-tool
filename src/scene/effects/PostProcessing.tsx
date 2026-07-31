@@ -4,6 +4,7 @@ import { Vector2 } from 'three'
 import { POST_PROCESSING_CONFIG } from './config'
 import { LensDistortion } from './LensDistortion'
 import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
+import { LongExposureBlur } from './LongExposureBlur'
 
 /**
  * Post-processing pipeline, styled after analogue photography rather than a
@@ -21,6 +22,9 @@ import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
  *   full-frame colour shift.
  * - LensDistortion: a slight barrel bow, not a fisheye.
  * - Vignette: gentle edge falloff.
+ * - LongExposureBlur: simulated handheld-long-exposure blur, blending in a
+ *   decaying history of recent frames — driven by the scene's own existing
+ *   camera drift, not a synthetic per-object velocity streak.
  * - Noise: film grain last, on top of the fully-formed image — the
  *   emulsion layer, not a digital overlay — and premultiplied so it fades
  *   in shadows rather than sitting uniformly over everything.
@@ -44,6 +48,7 @@ export function PostProcessing() {
       />
       <LensDistortion />
       <Vignette eskil={false} offset={vignette.offset} darkness={vignette.darkness} />
+      <LongExposureBlur />
       <Noise premultiply blendFunction={BlendFunction.OVERLAY} opacity={grain.opacity} />
     </EffectComposer>
   )

@@ -30,6 +30,18 @@ export const POST_PROCESSING_CONFIG = {
     opacity: 0.09,
   },
 
+  /**
+   * Simulated handheld-long-exposure blur: blends each frame with a
+   * decaying history of recent frames, so the existing subtle camera
+   * movement (HandheldDrift, user orbit) softly smears the whole image
+   * rather than streaking individual objects. `halfLifeSeconds` is how
+   * long that history takes to fade to half strength — kept short so it
+   * reads as a soft, barely-there trail, not an obvious comet-streak.
+   */
+  motionBlur: {
+    halfLifeSeconds: 0.12,
+  },
+
   vignette: {
     offset: 0.2,
     darkness: 0.6,
