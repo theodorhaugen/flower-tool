@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { usePalette } from '../shared/paletteContext'
+import { usePalette } from '../shared/generativeContext'
 
 function mix(a: string, b: string, t: number): string {
   return `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`

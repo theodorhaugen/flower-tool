@@ -1,15 +1,13 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+import { useGenerative } from '../../shared/generativeContext'
 import { InstancedGroup } from '../../shared/InstancedGroup'
-import { usePalette } from '../../shared/paletteContext'
+import { useMeadowLayout } from '../../shared/meadowLayoutConfig'
+import { useTerrainShape } from '../../shared/terrainShapeConfig'
 import { FLOWER_FIELD_CONFIG } from './config'
 import { generateFlowerField } from './generateFlowerField'
 import { buildCenterGeometry, buildPetalGeometryVariants } from './geometryVariants'
 import { buildCenterMaterialProps, buildPetalMaterialVariants } from './materials'
-
-interface FlowerFieldProps {
-  seed?: number
-}
 
 /**
  * Thousands of non-botanical "flowers" — clusters of translucent petals
@@ -17,20 +15,35 @@ interface FlowerFieldProps {
  * of the camera. Everything is instanced: a handful of unique petal/center
  * geometries and materials, each backing one InstancedMesh with thousands
  * of per-instance transforms/colors.
+ *
+ * Placement/species/colour all derive from the active render's generative
+ * seed (see shared/generative.ts) rather than a fixed seed — `flowerFieldSeed`
+ * drives this component's own per-flower choices, while `meadowLayoutSeed`/
+ * `terrainShapeSeed` rebuild the *shared* layout/terrain fields (also used
+ * by environment/) so flowers keep sitting in the same clusters/on the same
+ * ground as the grass growing around them, just at a different seed.
  */
-export function FlowerField({ seed = FLOWER_FIELD_CONFIG.seed }: FlowerFieldProps) {
-  const palette = usePalette()
+export function FlowerField() {
+  const { palette, flowerFieldSeed, meadowLayoutSeed, terrainShapeSeed } = useGenerative()
+  const meadowLayout = useMeadowLayout(meadowLayoutSeed)
+  const terrainShape = useTerrainShape(terrainShapeSeed)
 
-  const petalGeometries = useMemo(() => buildPetalGeometryVariants(seed), [seed])
+  const petalGeometries = useMemo(() => buildPetalGeometryVariants(flowerFieldSeed), [flowerFieldSeed])
   const centerGeometry = useMemo(() => buildCenterGeometry(), [])
 
-  const petalMaterials = useMemo(() => buildPetalMaterialVariants(seed, palette), [seed, palette])
+  const petalMaterials = useMemo(
+    () => buildPetalMaterialVariants(flowerFieldSeed, palette),
+    [flowerFieldSeed, palette],
+  )
   const centerMaterial = useMemo(
     () => new THREE.MeshStandardMaterial(buildCenterMaterialProps(palette)),
     [palette],
   )
 
-  const field = useMemo(() => generateFlowerField(seed, palette), [seed, palette])
+  const field = useMemo(
+    () => generateFlowerField(flowerFieldSeed, palette, meadowLayout, terrainShape),
+    [flowerFieldSeed, palette, meadowLayout, terrainShape],
+  )
 
   useEffect(() => {
     return () => {

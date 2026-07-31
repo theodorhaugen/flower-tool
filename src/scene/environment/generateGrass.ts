@@ -1,10 +1,12 @@
 import * as THREE from 'three'
 import { jitterColor } from '../shared/colorJitter'
+import type { MeadowLayoutConfig } from '../shared/meadowLayout'
 import { createRng, range } from '../shared/random'
 import { createTaperedBladeGeometry } from '../shared/taperedBlade'
+import { sampleTerrainHeight } from '../shared/terrainHeight'
+import type { TerrainShapeConfig } from '../shared/terrainHeight'
 import { ENVIRONMENT_CONFIG } from './config'
 import { samplePathFactor } from './groundColor'
-import { sampleTerrainHeight } from './terrainHeight'
 
 export interface GrassGroup {
   geometry: THREE.BufferGeometry
@@ -17,13 +19,19 @@ const UP = new THREE.Vector3(0, 1, 0)
  * Dense grass, grown only where blades would actually resolve before blur
  * takes over (near/mid ground) and thinned along the same worn path the
  * flowers avoid — otherwise as uniformly dense as a real meadow floor.
- * `colorPalette` comes from the active render's palette (see
- * paletteColors.ts) rather than fixed config, so grass colour stays
- * cohesive with the rest of the scene.
+ * `colorPalette`, `environmentSeed`, `meadowLayout`, and `terrainShape` all
+ * come from the active render's generative seed (see shared/generative.ts)
+ * rather than fixed config, so grass colour/placement/height stay cohesive
+ * with the rest of the scene instead of being independently fixed.
  */
-export function generateGrass(colorPalette: readonly string[]): GrassGroup[] {
+export function generateGrass(
+  colorPalette: readonly string[],
+  environmentSeed: number,
+  meadowLayout: MeadowLayoutConfig,
+  terrainShape: TerrainShapeConfig,
+): GrassGroup[] {
   const { count, variantCount, widthScale, heightRange, zNear, zFar, xHalf } = ENVIRONMENT_CONFIG.grass
-  const rng = createRng(ENVIRONMENT_CONFIG.seed + 1000)
+  const rng = createRng(environmentSeed + 1000)
 
   const groups: GrassGroup[] = Array.from({ length: variantCount }, () => ({
     geometry: createTaperedBladeGeometry(rng, {
@@ -48,9 +56,9 @@ export function generateGrass(colorPalette: readonly string[]): GrassGroup[] {
     const x = range(rng, -xHalf, xHalf)
     const z = range(rng, zFar, zNear)
 
-    if (rng() > samplePathFactor(x, z)) continue // thinned on the path, otherwise kept
+    if (rng() > samplePathFactor(x, z, meadowLayout)) continue // thinned on the path, otherwise kept
 
-    const y = sampleTerrainHeight(x, z)
+    const y = sampleTerrainHeight(x, z, terrainShape)
     const height = range(rng, heightRange[0], heightRange[1])
     const spin = range(rng, 0, Math.PI * 2)
     const lean = range(rng, -0.22, 0.22)

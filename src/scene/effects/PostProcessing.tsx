@@ -1,6 +1,7 @@
 import { Bloom, ChromaticAberration, EffectComposer, Noise, Vignette } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import { Vector2 } from 'three'
+import { useGenerative } from '../shared/generativeContext'
 import { AtmosphericHaze } from './AtmosphericHaze'
 import { BilateralSoft } from './BilateralSoft'
 import { POST_PROCESSING_CONFIG } from './config'
@@ -21,7 +22,9 @@ import { PaletteGrade } from './PaletteGrade'
  *   `bloomTint` rather than being recoloured after the fact.
  * - Bloom: highlights glowing into their surroundings, listed early so
  *   depth of field blurs those highlights into soft bokeh discs rather than
- *   leaving them crisp on top of the blur.
+ *   leaving them crisp on top of the blur. `intensity` comes from the
+ *   active render's generative state (a jitter around
+ *   `POST_PROCESSING_CONFIG.bloom.intensity` — see shared/generative.ts).
  * - LensOpticsDepthOfField: the dominant characteristic — a thin,
  *   physically-derived focus slice, everything else melting into bokeh.
  * - AtmosphericHaze: low-frequency haze + volumetric scatter, both gated
@@ -44,12 +47,13 @@ import { PaletteGrade } from './PaletteGrade'
  */
 export function PostProcessing() {
   const { bloom, chromaticAberration, grain, vignette } = POST_PROCESSING_CONFIG
+  const { bloomIntensity } = useGenerative()
 
   return (
     <EffectComposer multisampling={4}>
       <PaletteGrade />
       <Bloom
-        intensity={bloom.intensity}
+        intensity={bloomIntensity}
         luminanceThreshold={bloom.luminanceThreshold}
         luminanceSmoothing={bloom.luminanceSmoothing}
         mipmapBlur

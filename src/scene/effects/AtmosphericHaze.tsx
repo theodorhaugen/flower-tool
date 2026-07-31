@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { usePalette } from '../shared/paletteContext'
+import { usePalette } from '../shared/generativeContext'
 import { POST_PROCESSING_CONFIG } from './config'
 import { AtmosphericHazeEffect } from './AtmosphericHazeEffect'
 

@@ -29,9 +29,12 @@ function zAtDepthFraction(fraction: number): number {
   return MEADOW_DEPTH_NEAR + fraction * (MEADOW_DEPTH_FAR - MEADOW_DEPTH_NEAR)
 }
 
-/** Central tuning knobs — no GUI yet, but every future control should read from here. */
+/**
+ * Central tuning knobs — no GUI yet, but every future control should read
+ * from here. `seed` isn't here — it comes from the active render's
+ * generative state (see shared/generative.ts) instead of a fixed value.
+ */
 export const FLOWER_FIELD_CONFIG = {
-  seed: 1337,
   flowerCount: 4600,
   variantsPerArchetype: 4,
 

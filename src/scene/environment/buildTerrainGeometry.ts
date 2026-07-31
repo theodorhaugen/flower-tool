@@ -1,18 +1,22 @@
 import * as THREE from 'three'
+import { sampleTerrainHeight } from '../shared/terrainHeight'
+import type { TerrainShapeConfig } from '../shared/terrainHeight'
 import { ENVIRONMENT_CONFIG } from './config'
-import { sampleTerrainHeight } from './terrainHeight'
 
 /**
  * A displaced, vertex-coloured ground grid built directly in world space
  * (rather than a rotated+offset PlaneGeometry) so `sampleTerrainHeight`/
  * `sampleGroundColor` — which key off world x/z to stay aligned with the
  * flower field's meadow layout — need no extra transform bookkeeping.
- * `sampleGroundColor` is passed in (from groundColor.ts's
- * `createGroundColorSampler`, bound to the active render's palette-derived
- * ground colours) rather than imported directly, since those colours vary
- * per render now instead of being fixed config.
+ * `sampleGroundColor` and `terrainShape` are passed in (from
+ * groundColor.ts's `createGroundColorSampler` and the active render's
+ * generative seed, respectively) rather than imported directly, since both
+ * vary per render now instead of being fixed config.
  */
-export function buildTerrainGeometry(sampleGroundColor: (x: number, z: number) => THREE.Color): THREE.BufferGeometry {
+export function buildTerrainGeometry(
+  sampleGroundColor: (x: number, z: number) => THREE.Color,
+  terrainShape: TerrainShapeConfig,
+): THREE.BufferGeometry {
   const { width, depth, widthSegments, depthSegments, centerX, centerZ } = ENVIRONMENT_CONFIG.terrain
   const cols = widthSegments + 1
   const rows = depthSegments + 1
@@ -25,7 +29,7 @@ export function buildTerrainGeometry(sampleGroundColor: (x: number, z: number) =
     const worldZ = centerZ + (r / depthSegments - 0.5) * depth
     for (let c = 0; c < cols; c++) {
       const worldX = centerX + (c / widthSegments - 0.5) * width
-      const worldY = sampleTerrainHeight(worldX, worldZ)
+      const worldY = sampleTerrainHeight(worldX, worldZ, terrainShape)
       const color = sampleGroundColor(worldX, worldZ)
 
       positions[i * 3] = worldX

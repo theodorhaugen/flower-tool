@@ -1,15 +1,22 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+import { useGenerative } from '../shared/generativeContext'
+import { useMeadowLayout } from '../shared/meadowLayoutConfig'
+import { useTerrainShape } from '../shared/terrainShapeConfig'
 import { buildTerrainGeometry } from './buildTerrainGeometry'
 import { createGroundColorSampler } from './groundColor'
 import { useEnvironmentPaletteColors } from './paletteColors'
 
 /** Undulating, vertex-coloured ground plane beneath the flower field. */
 export function Terrain() {
+  const { meadowLayoutSeed, terrainShapeSeed, environmentSeed } = useGenerative()
   const { groundColors } = useEnvironmentPaletteColors()
+  const meadowLayout = useMeadowLayout(meadowLayoutSeed)
+  const terrainShape = useTerrainShape(terrainShapeSeed)
+
   const geometry = useMemo(
-    () => buildTerrainGeometry(createGroundColorSampler(groundColors)),
-    [groundColors],
+    () => buildTerrainGeometry(createGroundColorSampler(groundColors, meadowLayout, environmentSeed), terrainShape),
+    [groundColors, meadowLayout, environmentSeed, terrainShape],
   )
   const material = useMemo(
     () =>

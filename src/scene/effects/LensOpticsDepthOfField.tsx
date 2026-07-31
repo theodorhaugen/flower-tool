@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { CAMERA_CONFIG } from '../camera/config'
+import { useGenerative } from '../shared/generativeContext'
 import { LensOpticsDepthOfFieldEffect } from './LensOpticsDepthOfFieldEffect'
 
 /**
@@ -14,12 +15,16 @@ import { LensOpticsDepthOfFieldEffect } from './LensOpticsDepthOfFieldEffect'
  * declared attributes.
  *
  * `focus` is in meters and `focalLength` in mm — real physical units the
- * lens equation needs — so the world-space `focusDistance` is converted via
- * `metersPerWorldUnit`. See camera/config.ts for all three configurable
- * lens parameters (aperture/fStop, focus distance, focal length).
+ * lens equation needs — so the world-space focus distance is converted via
+ * `metersPerWorldUnit`. That world-space distance comes from the active
+ * render's generative state (a jitter around `CAMERA_CONFIG.dof.focusDistance`
+ * — see shared/generative.ts) rather than the static config value, so every
+ * seed pulls focus to a different depth in the field. See camera/config.ts
+ * for the other configurable lens parameters (aperture/fStop, focal length).
  */
 export function LensOpticsDepthOfField() {
-  const { focusDistance, metersPerWorldUnit, focalLength, fStop, maxBlur, rings, samples } = CAMERA_CONFIG.dof
+  const { metersPerWorldUnit, focalLength, fStop, maxBlur, rings, samples } = CAMERA_CONFIG.dof
+  const { focusDistance } = useGenerative()
 
   const effect = useMemo(
     () =>

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { useMemo } from 'react'
 import type { ColorPalette } from '../shared/palette'
-import { usePalette } from '../shared/paletteContext'
+import { usePalette } from '../shared/generativeContext'
 import type { GroundColors } from './groundColor'
 
 /** Fixed vegetation/soil anchors — grass stays believably green and dirt stays believably brown across every palette; only the light hitting them changes. */

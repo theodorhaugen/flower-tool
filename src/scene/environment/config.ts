@@ -8,12 +8,12 @@
  * Colour lives in paletteColors.ts, not here — ground/grass/vegetation/fog/
  * horizon colours all derive from the active render's palette (see
  * shared/palette.ts) so the environment stays cohesive with the flowers
- * growing in it instead of picking its own independent colours. This file
- * only holds structural/geometric tuning: counts, ranges, extents.
+ * growing in it instead of picking its own independent colours. Seeds
+ * (environment RNG, meadow layout, terrain shape) come from the active
+ * render's generative seed (see shared/generative.ts) too, not here. This
+ * file only holds structural/geometric tuning: counts, ranges, extents.
  */
 export const ENVIRONMENT_CONFIG = {
-  seed: 4242,
-
   // Terrain height itself (baseY, noise frequencies/amplitudes) lives in
   // shared/terrainShapeConfig.ts — the flower field samples the same shape
   // to sit flowers on the ground instead of floating at an unrelated height.

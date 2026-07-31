@@ -1,11 +1,11 @@
 import * as THREE from 'three'
 import { CAMERA_Z, frustumWidthHalfAt } from '../../shared/frustum'
 import { sampleMeadowDensity } from '../../shared/meadowLayout'
-import { MEADOW_LAYOUT } from '../../shared/meadowLayoutConfig'
+import type { MeadowLayoutConfig } from '../../shared/meadowLayout'
 import type { ColorPalette } from '../../shared/palette'
 import { createRng, gaussianish, intRange, range } from '../../shared/random'
 import { sampleTerrainHeight } from '../../shared/terrainHeight'
-import { TERRAIN_SHAPE } from '../../shared/terrainShapeConfig'
+import type { TerrainShapeConfig } from '../../shared/terrainHeight'
 import { FLOWER_FIELD_CONFIG, PETAL_ARCHETYPES } from './config'
 import type { DepthBand } from './config'
 import { jitterColor, sampleCenterColor, samplePetalBaseColor } from './palette'
@@ -49,7 +49,7 @@ function allocateBandCounts(depthBands: readonly DepthBand[], flowerCount: numbe
  * clearings. Y is left at 0 — the caller sets it from the terrain height
  * once the flower's own scale (and thus stem height) is known.
  */
-function sampleBandPosition(rng: () => number, band: DepthBand): THREE.Vector3 {
+function sampleBandPosition(rng: () => number, band: DepthBand, meadowLayout: MeadowLayoutConfig): THREE.Vector3 {
   const { minCameraDistance, maxSampleAttemptsPerFlower } = FLOWER_FIELD_CONFIG
   const nearestZ = CAMERA_Z - minCameraDistance
 
@@ -58,7 +58,7 @@ function sampleBandPosition(rng: () => number, band: DepthBand): THREE.Vector3 {
     const widthHalf = frustumWidthHalfAt(z)
     const x = range(rng, -widthHalf, widthHalf)
 
-    const density = sampleMeadowDensity(x, z, widthHalf, MEADOW_LAYOUT)
+    const density = sampleMeadowDensity(x, z, widthHalf, meadowLayout)
     if (rng() < density || attempt === maxSampleAttemptsPerFlower - 1) {
       return new THREE.Vector3(x, 0, z)
     }
@@ -71,10 +71,16 @@ function sampleBandPosition(rng: () => number, band: DepthBand): THREE.Vector3 {
 /**
  * Generates a full flower field as instance-ready transforms/colors, grouped
  * by petal geometry variant so each group can back its own InstancedMesh.
- * Pure function of `seed` and `palette` — same inputs always reproduce the
- * same field.
+ * Pure function of its inputs — same seed/palette/meadowLayout/terrainShape
+ * always reproduce the same field. All four come from the active render's
+ * generative seed (see shared/generative.ts).
  */
-export function generateFlowerField(seed: number, palette: ColorPalette): FlowerFieldData {
+export function generateFlowerField(
+  seed: number,
+  palette: ColorPalette,
+  meadowLayout: MeadowLayoutConfig,
+  terrainShape: TerrainShapeConfig,
+): FlowerFieldData {
   const rng = createRng(seed)
   const {
     flowerCount,
@@ -104,11 +110,11 @@ export function generateFlowerField(seed: number, palette: ColorPalette): Flower
     const bandCount = bandCounts[bandIndex]
 
     for (let i = 0; i < bandCount; i++) {
-      const flowerPosition = sampleBandPosition(rng, band)
+      const flowerPosition = sampleBandPosition(rng, band, meadowLayout)
 
       const flowerScale = range(rng, band.scaleRange[0], band.scaleRange[1])
       const stemHeight = flowerScale * range(rng, band.stemHeightFactorRange[0], band.stemHeightFactorRange[1])
-      flowerPosition.y = sampleTerrainHeight(flowerPosition.x, flowerPosition.z, TERRAIN_SHAPE) + stemHeight
+      flowerPosition.y = sampleTerrainHeight(flowerPosition.x, flowerPosition.z, terrainShape) + stemHeight
 
       const petalCount = intRange(rng, band.petalCountRange[0], band.petalCountRange[1])
       const cupAngle = range(rng, cupAngleRange[0], cupAngleRange[1])

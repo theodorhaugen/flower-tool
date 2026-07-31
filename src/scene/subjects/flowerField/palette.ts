@@ -36,6 +36,18 @@ function sampleFromPalette(rng: Rng, palette: readonly HslColor[], jitter: HslCo
   return new THREE.Color().setHSL(h, s, l)
 }
 
+/**
+ * California-poppy orange (hue ≈ 27°) — deliberately independent of the
+ * active palette, and rolled *before* falling back to it, so this specific
+ * warm accent shows up fairly often across every mood/palette rather than
+ * only when a palette happens to include something orange. Real meadows
+ * do this too: a poppy or two shows up in a field that's otherwise mostly
+ * some other colour, not always matching the "official" dominant hue.
+ */
+const POPPY_ANCHOR: HslColor = { h: 27 / 360, s: 0.62, l: 0.56 }
+/** Roughly 1 in 7 flowers — "often" without taking over the field or drowning out the active palette's own dominantHues. */
+const POPPY_ACCENT_PROBABILITY = 0.15
+
 /** The palette's `dominantHues`, converted to HSL anchors and capped below bloom-bleach territory — this render's petal "family". */
 function petalAnchors(palette: ColorPalette): HslColor[] {
   return palette.dominantHues.map((hex) => {
@@ -64,6 +76,9 @@ function centerAnchors(palette: ColorPalette): HslColor[] {
 }
 
 export function samplePetalBaseColor(rng: Rng, palette: ColorPalette): THREE.Color {
+  if (rng() < POPPY_ACCENT_PROBABILITY) {
+    return sampleFromPalette(rng, [POPPY_ANCHOR], { h: 0.015, s: 0.1, l: 0.08 })
+  }
   return sampleFromPalette(rng, petalAnchors(palette), { h: 0.02, s: 0.08, l: 0.06 })
 }
 

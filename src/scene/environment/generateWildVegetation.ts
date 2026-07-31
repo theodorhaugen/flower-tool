@@ -1,11 +1,13 @@
 import * as THREE from 'three'
 import { jitterColor } from '../shared/colorJitter'
+import type { MeadowLayoutConfig } from '../shared/meadowLayout'
 import { createRng, intRange, range } from '../shared/random'
 import { createTaperedBladeGeometry } from '../shared/taperedBlade'
+import { sampleTerrainHeight } from '../shared/terrainHeight'
+import type { TerrainShapeConfig } from '../shared/terrainHeight'
 import { ENVIRONMENT_CONFIG } from './config'
-import { samplePathFactor } from './groundColor'
-import { sampleTerrainHeight } from './terrainHeight'
 import type { GrassGroup } from './generateGrass'
+import { samplePathFactor } from './groundColor'
 
 const UP = new THREE.Vector3(0, 1, 0)
 const VARIANT_COUNT = 4
@@ -14,14 +16,20 @@ const VARIANT_COUNT = 4
  * Small sparse weed/leaf clumps — a handful of tiny leaflets fanning out
  * from a shared point — scattered between the grass to break up its
  * uniformity without introducing anything as visually loud as a flower.
- * `colorPalette` comes from the active render's palette (see
- * paletteColors.ts) rather than fixed config, so vegetation colour stays
- * cohesive with the rest of the scene.
+ * `colorPalette`, `environmentSeed`, `meadowLayout`, and `terrainShape` all
+ * come from the active render's generative seed (see shared/generative.ts)
+ * rather than fixed config, so vegetation colour/placement stays cohesive
+ * with the rest of the scene.
  */
-export function generateWildVegetation(colorPalette: readonly string[]): GrassGroup[] {
+export function generateWildVegetation(
+  colorPalette: readonly string[],
+  environmentSeed: number,
+  meadowLayout: MeadowLayoutConfig,
+  terrainShape: TerrainShapeConfig,
+): GrassGroup[] {
   const { clumpCount, leafletsPerClumpRange, clumpRadius, scaleRange, zNear, zFar, xHalf } =
     ENVIRONMENT_CONFIG.wildVegetation
-  const rng = createRng(ENVIRONMENT_CONFIG.seed + 2000)
+  const rng = createRng(environmentSeed + 2000)
 
   const groups: GrassGroup[] = Array.from({ length: VARIANT_COUNT }, () => ({
     geometry: createTaperedBladeGeometry(rng, {
@@ -45,7 +53,7 @@ export function generateWildVegetation(colorPalette: readonly string[]): GrassGr
     attempts++
     const cx = range(rng, -xHalf, xHalf)
     const cz = range(rng, zFar, zNear)
-    if (rng() > samplePathFactor(cx, cz)) continue
+    if (rng() > samplePathFactor(cx, cz, meadowLayout)) continue
 
     const leafletCount = intRange(rng, leafletsPerClumpRange[0], leafletsPerClumpRange[1])
     const baseColor = new THREE.Color(colorPalette[Math.floor(rng() * colorPalette.length) % colorPalette.length])
@@ -55,7 +63,7 @@ export function generateWildVegetation(colorPalette: readonly string[]): GrassGr
       const radial = range(rng, 0, clumpRadius)
       const x = cx + Math.cos(angle) * radial
       const z = cz + Math.sin(angle) * radial
-      const y = sampleTerrainHeight(x, z)
+      const y = sampleTerrainHeight(x, z, terrainShape)
 
       const scale = range(rng, scaleRange[0], scaleRange[1])
       const outwardTilt = range(rng, 0.15, 0.55)

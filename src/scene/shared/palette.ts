@@ -7,6 +7,11 @@
  * together, because everything is derived from the same five values rather
  * than five unrelated tuning knobs that happen to look okay side by side.
  *
+ * Which palette a render belongs to is picked in shared/generative.ts, as
+ * one of many things derived from that render's single generative seed —
+ * this file only defines what a palette *is* and the registry to pick
+ * from.
+ *
  * - `dominantHues`: the flower "family" this render draws from — petal and
  *   centre colours are sampled from these (see subjects/flowerField/palette.ts).
  * - `highlight`: the colour of light hitting something — sunlit grass
@@ -89,17 +94,7 @@ export const PALETTES: readonly ColorPalette[] = [
   },
 ]
 
-/**
- * Picks the one palette this render belongs to. Random by default — "every
- * render should belong to one palette" reads as "reload it and you might
- * get a different mood," not a fixed content seed — but `forceName` (an
- * exact `ColorPalette.name`) overrides that, for reproducing a specific
- * palette while tuning or screenshotting one deliberately.
- */
-export function pickPalette(forceName?: string): ColorPalette {
-  if (forceName) {
-    const forced = PALETTES.find((p) => p.name === forceName)
-    if (forced) return forced
-  }
-  return PALETTES[Math.floor(Math.random() * PALETTES.length)]
+/** Exact-name lookup, used by shared/generative.ts to let a `?palette=` override win over the seed-picked one. */
+export function findPaletteByName(name: string): ColorPalette | undefined {
+  return PALETTES.find((p) => p.name === name)
 }

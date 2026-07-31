@@ -5,7 +5,7 @@ import { MainCamera } from './camera/MainCamera'
 import { Environment } from './environment/Environment'
 import { PostProcessing } from './effects/PostProcessing'
 import { SceneLighting } from './lighting/SceneLighting'
-import { PaletteProvider } from './shared/PaletteProvider'
+import { GenerativeProvider } from './shared/GenerativeProvider'
 import { FlowerField } from './subjects/flowerField/FlowerField'
 
 /**
@@ -14,11 +14,13 @@ import { FlowerField } from './subjects/flowerField/FlowerField'
  * procedural flower work can land in `subjects/` and the meadow it grows in
  * can land in `environment/` without either touching the rest of this file.
  *
- * `PaletteProvider` wraps everything else — it picks the one colour
- * palette this render belongs to (see shared/palette.ts) and every
- * colourful subsystem below (flowers, environment, lighting, effects)
- * reads it via `usePalette()`, which is what keeps the whole image
- * cohesive rather than each system inventing its own colours.
+ * `GenerativeProvider` wraps everything else — it picks the one integer
+ * seed this render belongs to and derives every generative axis (flower
+ * placement/species/colour, meadow layout, terrain, camera, palette, focus
+ * distance, bloom intensity, wind — see shared/generative.ts) from it, so
+ * every subsystem below reads the same generative state via
+ * `useGenerative()`/`usePalette()` rather than each picking its own
+ * independent randomness.
  *
  * HandheldDrift/CameraSweep are mounted right after CameraControls so their
  * per-frame nudges layer on top of, rather than fight, the orbit controls'
@@ -27,7 +29,7 @@ import { FlowerField } from './subjects/flowerField/FlowerField'
  */
 export function Experience() {
   return (
-    <PaletteProvider>
+    <GenerativeProvider>
       <MainCamera />
       <CameraControls />
       <HandheldDrift />
@@ -36,6 +38,6 @@ export function Experience() {
       <Environment />
       <FlowerField />
       <PostProcessing />
-    </PaletteProvider>
+    </GenerativeProvider>
   )
 }

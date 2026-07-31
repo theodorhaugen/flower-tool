@@ -1,16 +1,21 @@
 import { OrbitControls } from '@react-three/drei'
-import { CAMERA_CONFIG } from './config'
+import { useGenerative } from '../shared/generativeContext'
 
 /**
  * Orbit controls tuned for slow, deliberate movement — this is meant to
  * drift through a flower field, not fly around a scene. Distance range is
- * sized to the field's depth (see flowerField/config.ts).
+ * sized to the field's depth (see flowerField/config.ts). Target comes
+ * from the active render's generative state (a jitter around
+ * `CAMERA_CONFIG.target` — see shared/generative.ts), matching MainCamera's
+ * generative position.
  */
 export function CameraControls() {
+  const { camera } = useGenerative()
+
   return (
     <OrbitControls
       makeDefault
-      target={CAMERA_CONFIG.target}
+      target={camera.target}
       enableDamping
       dampingFactor={0.08}
       enablePan={false}

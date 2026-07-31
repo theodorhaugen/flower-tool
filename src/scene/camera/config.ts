@@ -11,6 +11,13 @@ export const CAMERA_CONFIG = {
    * on the ground rather than floating in front of a level, eye-height lens.
    * position=(0, 9.4, 3), target=(1.2, -2.6, -9): the vertical drop (12)
    * and horizontal reach (~12) are equal, i.e. a 45° depression angle.
+   *
+   * These are the *base* values — the active render's generative seed
+   * jitters both within a bounded range around them (see
+   * shared/generative.ts), so every seed gets a different vantage point
+   * while staying this same deliberate macro-photography framing rather
+   * than an unbounded/arbitrary camera placement. MainCamera.tsx/
+   * CameraControls.tsx read the derived value, not these directly.
    */
   position: [0, 9.4, 3] as const,
   target: [1.2, -2.6, -9] as const,
@@ -22,7 +29,13 @@ export const CAMERA_CONFIG = {
    * The three lens parameters the equation actually needs are all here.
    */
   dof: {
-    /** Focus distance, world units from the camera — roughly where the target/foreground blooms sit. */
+    /**
+     * Focus distance, world units from the camera — roughly where the
+     * target/foreground blooms sit. This is the *base* value; the active
+     * render's generative seed varies around it (see shared/generative.ts,
+     * consumed by LensOpticsDepthOfField.tsx) so different seeds pull
+     * focus to a different depth in the field.
+     */
     focusDistance: 17,
     /**
      * The lens formula needs a real physical scale (it works in meters/mm),

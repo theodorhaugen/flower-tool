@@ -47,16 +47,18 @@ src/
       random.ts               seeded PRNG — same seed always reproduces the same output
       noise.ts                 layered value noise (fbm) + a 1D slice for path curves
       meadowLayout.ts          combines noise into density(x, z)/pathFactor(x, z)/clusterField(x, z)
-      meadowLayoutConfig.ts    the one meadow layout both flowers and environment sample
+      meadowLayoutConfig.ts    factory + useMeadowLayout() hook — the one meadow layout both flowers and environment sample, seeded generatively
       frustum.ts               "how wide/deep is the meadow" — keeps placement in sync with the camera
       terrainHeight.ts         layered-noise ground height, shared so flowers sit on it, not float above it
-      terrainShapeConfig.ts    the one terrain shape both the environment mesh and the flowers sample
-      taperedBlade.ts          deformed-plane geometry (taper/curl/twist/jitter) for petals, grass, leaves
+      terrainShapeConfig.ts    factory + useTerrainShape() hook — the one terrain shape both the environment mesh and the flowers sample, seeded generatively
+      taperedBlade.ts          deformed-plane geometry (taper/curl/twist/jitter) for petals, grass, leaves; local Y runs 0 (base)..1 (tip), which windMaterial.ts also relies on
+      windMaterial.ts          injects per-vertex wind sway into a MeshStandardMaterial via onBeforeCompile — no extra geometry attributes needed
       colorJitter.ts           small per-instance HSL nudge away from a base color
       instancing.ts / InstancedGroup.tsx   generic InstancedMesh renderer
-      palette.ts               the ColorPalette type, the 7 named palettes, and pickPalette() — see "Colour palette" below
-      paletteContext.ts        React context + usePalette() hook
-      PaletteProvider.tsx      picks the one palette a render belongs to, once, and provides it
+      palette.ts               the ColorPalette type and the 7 named palettes — see "Colour palette" below
+      generative.ts            deriveGenerativeState(seed) — the one function everything generative comes from, see "Generative seed" below
+      generativeContext.ts     React context + useGenerative()/usePalette() hooks
+      GenerativeProvider.tsx   picks the one seed a render belongs to, once, and provides the derived state
     subjects/
       flowerField/            the flowers — see below
     environment/             the meadow the flowers grow in — see below
@@ -68,17 +70,68 @@ post effects (depth of field, grain, chromatic aberration) extend
 `scene/effects/PostProcessing.tsx` without touching the rest of the
 scene graph.
 
-### Colour palette (`shared/palette.ts`, `shared/PaletteProvider.tsx`)
+### Generative seed (`shared/generative.ts`, `shared/GenerativeProvider.tsx`)
+
+Every render belongs to exactly one integer seed, picked once when
+`<GenerativeProvider>` (wrapping everything in `Experience.tsx`) mounts,
+and every generative axis in the scene derives from it via
+`deriveGenerativeState(seed)`:
+
+- **Flower placement** — the shared meadow density/cluster/path field
+  (`meadowLayoutSeed`) both the flower field and environment sample.
+- **Flower species variation** — which of the two petal archetypes
+  (rounded/elongated) and which geometry variant each flower gets
+  (`flowerFieldSeed`, `generateFlowerField.ts`).
+- **Flower colour variation** — which `dominantHues` anchor each flower
+  samples from, plus jitter (`flowerFieldSeed`,
+  `subjects/flowerField/palette.ts`). About 1 in 7 flowers instead gets
+  a California-poppy orange (hue ≈ 27°) regardless of the active
+  palette — a deliberately palette-independent accent, "often" without
+  taking over the field.
+- **Camera position** — `MainCamera.tsx`/`CameraControls.tsx`'s
+  position/target jitter around `CAMERA_CONFIG`'s tuned base framing.
+- **Colour palette** — which of the 7 named palettes this render
+  belongs to (see "Colour palette" below).
+- **Focus distance** — `LensOpticsDepthOfField.tsx`'s focus point,
+  jittered around `CAMERA_CONFIG.dof.focusDistance`.
+- **Bloom intensity** — `PostProcessing.tsx`'s Bloom, jittered around
+  `POST_PROCESSING_CONFIG.bloom.intensity`.
+- **Wind** — strength/speed/direction/frequency for the per-vertex
+  grass/vegetation sway (`shared/windMaterial.ts`, see "Environment"
+  below).
+- Also (not explicitly asked for, but "everything" derives from the
+  seed): the shared terrain height field (`terrainShapeSeed`) and the
+  environment's own per-instance RNG (`environmentSeed`, grass/
+  vegetation placement, soil/damp texture) — so the *ground itself*,
+  not just what's growing on it, changes with the seed too.
+
+Every sub-seed is `seed + offset`, spaced 100,000 apart specifically so
+they never collide with the small internal offsets (+300, +1000,
++2000, ...) individual generators already add on top of *their* seed —
+see `SEED_OFFSETS` in `generative.ts`. Camera position/target, focus
+distance, and bloom intensity all vary *around* their system's own
+tuned base value (`CAMERA_CONFIG`/`POST_PROCESSING_CONFIG`) rather than
+across an arbitrary absolute range, so every seed still looks like a
+deliberate macro-photography shot instead of a randomly-aimed camera or
+an arbitrarily blown-out bloom.
+
+Reproduce or pin a specific render via `?seed=12345` (and optionally
+`?palette=Golden%20Hour` to additionally override just the palette) URL
+query params — see `GenerativeProvider.tsx`. The active seed is also
+logged to the console on load (`[flower-tool] seed=... palette="..." —
+reproduce with ?seed=...`) specifically so a render worth keeping can be
+noted down and revisited.
+
+### Colour palette (`shared/palette.ts`)
 
 Every render belongs to exactly one of seven named palettes — Spring
 Meadow, Early Morning, Golden Hour, Lavender Field, Summer Sky, Autumn
-Wildflowers, Mist — picked once, randomly, when `<PaletteProvider>`
-(wrapping everything in `Experience.tsx`) mounts. That's the mechanism
-behind "cohesive": every colourful subsystem below reads the *same*
-palette instance via `usePalette()` rather than inventing its own
-colours, so swapping the palette changes the whole image's mood
-together instead of five independent tuning knobs that happen to look
-okay side by side.
+Wildflowers, Mist — picked as one of the many things `deriveGenerativeState`
+derives from the seed above. That's the mechanism behind "cohesive":
+every colourful subsystem below reads the *same* palette instance via
+`usePalette()` rather than inventing its own colours, so swapping the
+palette changes the whole image's mood together instead of five
+independent tuning knobs that happen to look okay side by side.
 
 A `ColorPalette` is exactly five fields, each with one clear job and
 (mostly) one clear consumer:
@@ -115,10 +168,6 @@ under every palette, but those anchors are tinted by `highlight`/
 `shadow` — the same way real grass looks different in different light.
 See `environment/paletteColors.ts`'s `deriveEnvironmentColors`.
 
-Pin a specific palette (for tuning/screenshotting one deliberately)
-via a `?palette=Golden%20Hour` URL query param — see
-`PaletteProvider.tsx`.
-
 ### Flower field (`subjects/flowerField/`)
 
 Not botanically accurate by design — each "flower" is a small cluster
@@ -130,7 +179,9 @@ per-instance transforms/colors, so it's a handful of draw calls
 regardless of flower count. Base colour (`palette.ts` in this folder,
 distinct from `shared/palette.ts`) samples from the active render's
 `dominantHues` for petals and `highlight` for centres — see "Colour
-palette" above.
+palette" above — with a roughly 1-in-7 chance per flower of a
+California-poppy orange accent (hue ≈ 27°) instead, independent of the
+active palette; see "Generative seed" above.
 
 Placement is meadow-like rather than uniformly random
 (`shared/meadowLayout.ts`): a low-frequency noise field decides
@@ -250,6 +301,26 @@ prioritized over geometric detail.
   — small sparse leaf/weed clumps (a few leaflets fanning out from a
   point) scattered between the grass to break up its uniformity
   without introducing anything as visually loud as a flower.
+- **Wind** (`shared/windMaterial.ts`) — grass/vegetation blades sway via
+  a per-vertex displacement injected into their `MeshStandardMaterial`
+  through `onBeforeCompile`, not per-instance matrix updates (tens of
+  thousands of instances, updated every frame in JS, would be far more
+  expensive than one shader doing it on the GPU). Two things make this
+  work without any extra geometry attribute: blade-local Y already runs
+  0 (base)..1 (tip) (`shared/taperedBlade.ts`), so `position.y` alone
+  is "how far towards the tip" — real blades bend more near the tip
+  than the rooted base; and since neither mesh has a group-level
+  transform, the vertex shader's `transformed` value is already
+  effectively world-space by the time the injected code runs (right
+  before `<project_vertex>`, after the instance matrix has been
+  applied), so wind direction can be expressed once in world terms
+  instead of needing to counter-rotate each instance's own random
+  spin/lean. The travelling-wave phase (`transformed.x/z * frequency`)
+  makes gusts sweep across the field spatially instead of every blade
+  swaying in unison. Strength/speed/direction/frequency come from the
+  active render's generative seed (see "Generative seed" above); wild
+  vegetation sways at 60% of grass's strength (smaller, stiffer
+  leaflets).
 - **Fog** (`Fog.tsx`) — `FogExp2` for atmospheric depth; its colour is
   what the horizon and the terrain's far edge both blend into.
 - **Horizon** (`Horizon.tsx`) — a large backdrop sphere with a plain
@@ -280,13 +351,19 @@ The camera is styled as a macro lens, not a generic 3D viewport:
   `camera/config.ts`; `metersPerWorldUnit` bridges our otherwise-arbitrary
   world units to the real meters/mm the equation needs. Bloom is listed
   before it in the effect chain so its highlights blur into soft bokeh
-  discs instead of staying crisp on top of the blur.
+  discs instead of staying crisp on top of the blur. `focusDistance`
+  itself is generative — the active render's seed jitters it around
+  `camera/config.ts`'s base value (see "Generative seed" above), so
+  different seeds pull focus to a different depth in the field.
 - **A ~45° downward angle** — the camera is elevated and angled down
   at the meadow floor (`camera/config.ts`'s `position`/`target`) so
   flowers read as growing out of the ground it's looking at, rather
   than a level, eye-height view that made a floating field of flowers
   obvious. The orbit target is also nudged off-axis so the composition
-  isn't dead-centered.
+  isn't dead-centered. Both position and target are generative too — the
+  seed jitters each within a bounded range around these base values, a
+  different vantage point every time while staying this same deliberate
+  framing rather than an arbitrary camera placement.
 - **Handheld drift** (`HandheldDrift.tsx`) — a small per-frame sway
   built from two layered noise frequencies (slow sway + a faster
   tremor) rather than one sine wave, so it reads as organic hand
@@ -352,6 +429,10 @@ fully-formed image, not a digital overlay.
     bloom itself read as atmosphere rather than a lens flare.
     `intensity` is trimmed slightly (`0.4` → `0.35`) to compensate, so
     the extra surfaces blooming don't just wash the frame brighter.
+    That `0.35` is itself just the base value now — the active render's
+    generative seed jitters the actual intensity around it (see
+    "Generative seed" above), so bloom reads a little stronger or
+    weaker from render to render.
 - **Chromatic aberration** uses `radialModulation` so the fringing
   only shows up towards the edges the way a real lens's does, not as
   a full-frame colour shift.
