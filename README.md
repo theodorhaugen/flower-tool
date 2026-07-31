@@ -20,12 +20,11 @@ npm run dev
 src/
   scene/
     SceneCanvas.tsx        R3F <Canvas> — renderer/color-management setup
-    CinematicFrame.tsx     letterboxes the canvas to a fixed cinematic aspect ratio
     Experience.tsx         composition root for the scene graph
     camera/
-      config.ts              lens tuning: fov, DoF, handheld drift, letterbox aspect
-      MainCamera.tsx          perspective camera, narrow fov (long-lens compression)
-      CameraControls.tsx      orbit controls, slightly off-axis target
+      config.ts              lens tuning: fov, position/target, DoF, handheld drift
+      MainCamera.tsx          perspective camera, narrow fov, elevated ~45° down at the meadow
+      CameraControls.tsx      orbit controls, off-axis target
       HandheldDrift.tsx       subtle per-frame sway layered on top of the controls
     lighting/
       SceneLighting.tsx     ambient + directional lighting rig
@@ -37,6 +36,8 @@ src/
       meadowLayout.ts          combines noise into density(x, z)/pathFactor(x, z)/clusterField(x, z)
       meadowLayoutConfig.ts    the one meadow layout both flowers and environment sample
       frustum.ts               "how wide/deep is the meadow" — keeps placement in sync with the camera
+      terrainHeight.ts         layered-noise ground height, shared so flowers sit on it, not float above it
+      terrainShapeConfig.ts    the one terrain shape both the environment mesh and the flowers sample
       taperedBlade.ts          deformed-plane geometry (taper/curl/twist/jitter) for petals, grass, leaves
       colorJitter.ts           small per-instance HSL nudge away from a base color
       instancing.ts / InstancedGroup.tsx   generic InstancedMesh renderer
@@ -80,6 +81,13 @@ multiplier, not a fixed share, so a near band (small on-screen area)
 doesn't get packed as densely as a far one just because they were
 each assigned "X% of the flowers."
 
+Each flower's height comes from `shared/terrainHeight.ts` (the same
+ground the environment's terrain mesh is built from) plus a stem —
+`stemHeightFactorRange` × the flower's own scale, so bigger blooms sit
+on proportionally taller stems — rather than an independent random
+altitude, which is what used to make the field look like it was
+floating above the grass instead of growing out of it.
+
 ### Environment (`environment/`)
 
 The meadow the flowers grow in. It exists to give the flower field
@@ -91,8 +99,9 @@ prioritized over geometric detail.
 
 - **Terrain** (`buildTerrainGeometry.ts`, `terrainHeight.ts`) — a
   single displaced, vertex-coloured ground mesh built directly in
-  world space; height comes from layered noise (broad rolling
-  undulation + a finer bump layer).
+  world space; height comes from `shared/terrainHeight.ts`'s layered
+  noise (broad rolling undulation + a finer bump layer) — the same
+  height function the flower field samples to plant flowers on it.
 - **Ground colour** (`groundColor.ts`) — blends a muted dry/sparse/lush
   palette using the *same* shared meadow cluster field the flowers
   sample, plus the environment's own fine soil noise, so the ground
@@ -130,10 +139,12 @@ The camera is styled as a macro lens, not a generic 3D viewport:
   `dof.focusRange`), melting everything else into bokeh; bloom is
   listed before it in the effect chain so its highlights blur into
   soft bokeh discs instead of staying crisp on top of the blur.
-- **Cinematic framing** — `CinematicFrame.tsx` letterboxes the canvas
-  to a fixed aspect ratio regardless of the browser window's shape,
-  and the orbit target is nudged off-axis so the composition isn't
-  dead-centered.
+- **A ~45° downward angle** — the camera is elevated and angled down
+  at the meadow floor (`camera/config.ts`'s `position`/`target`) so
+  flowers read as growing out of the ground it's looking at, rather
+  than a level, eye-height view that made a floating field of flowers
+  obvious. The orbit target is also nudged off-axis so the composition
+  isn't dead-centered.
 - **Handheld drift** (`HandheldDrift.tsx`) — a small per-frame sway
   built from two layered noise frequencies (slow sway + a faster
   tremor) rather than one sine wave, so it reads as organic hand
@@ -142,4 +153,5 @@ The camera is styled as a macro lens, not a generic 3D viewport:
   can't run away, and it's mounted after `CameraControls` so its sway
   layers on top of, rather than fights, the controls' own update.
 
-No GUI/controls panel yet by design.
+No GUI/controls panel, and no fixed-aspect-ratio cropping, yet by
+design — this is expected to end up behind a canvas-based editor later.

@@ -4,8 +4,13 @@
  * placement instead of each system inventing its own sense of scale.
  */
 
-/** Matches MainCamera's default position — the field/meadow is composed for this vantage point. */
-export const CAMERA_Z = 6
+/**
+ * Matches MainCamera's default z position — the field/meadow is composed
+ * for this vantage point. This is a 1D simplification (the camera is also
+ * elevated and angled down, see camera/config.ts) used only to bias scatter
+ * width/density by depth, not for anything that needs to be exact.
+ */
+export const CAMERA_Z = 3
 
 /** z bounds of the meadow, world units. Near edge, far edge (far is more negative). */
 export const MEADOW_DEPTH_NEAR = 0

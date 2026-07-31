@@ -17,8 +17,12 @@ export interface DepthBand {
   densityMultiplier: number
   scaleRange: readonly [number, number]
   petalCountRange: readonly [number, number]
-  /** Multiplies the depth-based vertical spread — bigger for hazier/busier bands. */
-  yJitterScale: number
+  /**
+   * Stem height above the ground, as a multiple of the flower's own scale
+   * (so bigger blooms sit on proportionally taller stems) — this is what
+   * lifts flowers off the terrain instead of centering them on it.
+   */
+  stemHeightFactorRange: readonly [number, number]
 }
 
 function zAtDepthFraction(fraction: number): number {
@@ -43,14 +47,13 @@ export const FLOWER_FIELD_CONFIG = {
   // camera. Sampled positions are clamped against `minCameraDistance` so
   // nothing ends up on top of the lens.
   minCameraDistance: 5,
-  yHalfBase: 1.8,
-  yHalfPerDepth: 0.4,
 
   /**
    * Foreground/midground/background read: a few large near flowers, a busy
    * mid-body, and a much smaller/simpler haze of far ones — the depth cue a
-   * macro shot relies on, and exactly what a future depth-of-field pass will
-   * key off of.
+   * macro shot relies on, and exactly what the depth-of-field pass keys off
+   * of. Every band plants flowers on the shared terrain height (see
+   * generateFlowerField.ts) rather than at an independent random altitude.
    */
   depthBands: [
     {
@@ -60,7 +63,7 @@ export const FLOWER_FIELD_CONFIG = {
       densityMultiplier: 0.22,
       scaleRange: [0.55, 1.05] as const,
       petalCountRange: [6, 13] as const,
-      yJitterScale: 0.7,
+      stemHeightFactorRange: [0.5, 1.0] as const,
     },
     {
       name: 'midground',
@@ -69,7 +72,7 @@ export const FLOWER_FIELD_CONFIG = {
       densityMultiplier: 1,
       scaleRange: [0.3, 0.75] as const,
       petalCountRange: [5, 12] as const,
-      yJitterScale: 1,
+      stemHeightFactorRange: [0.4, 0.9] as const,
     },
     {
       name: 'background',
@@ -78,7 +81,7 @@ export const FLOWER_FIELD_CONFIG = {
       densityMultiplier: 1.5,
       scaleRange: [0.12, 0.35] as const,
       petalCountRange: [4, 8] as const,
-      yJitterScale: 1.35,
+      stemHeightFactorRange: [0.3, 0.7] as const,
     },
   ] satisfies readonly DepthBand[],
 

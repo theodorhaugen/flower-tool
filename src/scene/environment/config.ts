@@ -8,6 +8,9 @@
 export const ENVIRONMENT_CONFIG = {
   seed: 4242,
 
+  // Terrain height itself (baseY, noise frequencies/amplitudes) lives in
+  // shared/terrainShapeConfig.ts — the flower field samples the same shape
+  // to sit flowers on the ground instead of floating at an unrelated height.
   terrain: {
     width: 260,
     depth: 260,
@@ -16,13 +19,6 @@ export const ENVIRONMENT_CONFIG = {
     /** World-space centre; keeps the mesh under the meadow regardless of camera orbit. */
     centerX: 0,
     centerZ: -25,
-    baseY: -2.6,
-    /** Broad rolling undulation. */
-    noiseFrequency: 0.022,
-    amplitude: 1.1,
-    /** Finer bumps layered on top. */
-    detailNoiseFrequency: 0.11,
-    detailAmplitude: 0.22,
   },
 
   /** Ground vertex-colour palette — kept low-saturation so flowers stay the focal colour. */
