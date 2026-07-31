@@ -43,6 +43,24 @@ export const FLOWER_FIELD_CONFIG = {
 
   centerRadiusRange: [0.16, 0.26] as const,
 
+  /**
+   * Soft base-to-tip vertex-color gradient baked into every petal — deeper/
+   * richer near the attachment point (more tissue for pigment to sit in),
+   * paler towards the thin tip (less tissue for light to pass through, the
+   * "soft colour bleeding" that makes it feel like one continuous, unevenly
+   * pigmented surface rather than a flat-tinted cutout). `jitter`
+   * randomizes where the transition falls per vertex so it reads as an
+   * organic bleed, not a printed gradient line.
+   */
+  petalColorGradient: {
+    innerColor: '#cabcc2',
+    outerColor: '#fffcfb',
+    jitter: 0.2,
+  },
+
+  /** Roughness variance applied on top of each archetype's base roughness, per geometry variant. */
+  roughnessJitter: 0.12,
+
   // The field spans the meadow depth (see shared/frustum.ts) in front of the
   // camera. Sampled positions are clamped against `minCameraDistance` so
   // nothing ends up on top of the lens.

@@ -4,7 +4,7 @@ import { InstancedGroup } from '../../shared/InstancedGroup'
 import { FLOWER_FIELD_CONFIG } from './config'
 import { generateFlowerField } from './generateFlowerField'
 import { buildCenterGeometry, buildPetalGeometryVariants } from './geometryVariants'
-import { CENTER_MATERIAL_PROPS, PETAL_MATERIAL_PROPS } from './materials'
+import { CENTER_MATERIAL_PROPS, buildPetalMaterialVariants } from './materials'
 
 interface FlowerFieldProps {
   seed?: number
@@ -21,10 +21,7 @@ export function FlowerField({ seed = FLOWER_FIELD_CONFIG.seed }: FlowerFieldProp
   const petalGeometries = useMemo(() => buildPetalGeometryVariants(seed), [seed])
   const centerGeometry = useMemo(() => buildCenterGeometry(), [])
 
-  const petalMaterials = useMemo(
-    () => PETAL_MATERIAL_PROPS.map((props) => new THREE.MeshStandardMaterial(props)),
-    [],
-  )
+  const petalMaterials = useMemo(() => buildPetalMaterialVariants(seed), [seed])
   const centerMaterial = useMemo(() => new THREE.MeshStandardMaterial(CENTER_MATERIAL_PROPS), [])
 
   const field = useMemo(() => generateFlowerField(seed), [seed])
@@ -46,7 +43,7 @@ export function FlowerField({ seed = FLOWER_FIELD_CONFIG.seed }: FlowerFieldProp
           <InstancedGroup
             key={`petal-${geometryIndex}`}
             geometry={petalGeometries[geometryIndex]}
-            material={petalMaterials[group.archetypeIndex]}
+            material={petalMaterials[geometryIndex]}
             instances={group.instances}
           />
         )

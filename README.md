@@ -90,6 +90,44 @@ on proportionally taller stems — rather than an independent random
 altitude, which is what used to make the field look like it was
 floating above the grass instead of growing out of it.
 
+**Petal materials** (`materials.ts`) are `MeshPhysicalMaterial`, not
+plain `MeshStandardMaterial`, in service of a few things real
+translucent tissue does that a flat tint can't:
+
+- **Subsurface-like translucency** — alpha blending still carries the
+  base "you can partly see through this" read (real `transmission`
+  remains deliberately avoided: with tens of thousands of overlapping
+  instances, its extra background-sampling pass and per-fragment
+  refraction cost would multiply with the overdraw this scene already
+  has). `sheen` adds a soft, cheap rim-light term on top — light
+  catching a thin, slightly fibrous edge — which combined with a
+  boosted emissive reads as light re-emerging through tissue rather
+  than merely reflecting off it.
+- **Soft colour bleeding** — `petalGeometry.ts` bakes a base-to-tip
+  vertex-colour gradient into each geometry variant (deeper/richer
+  near the attachment point, paler at the thin tip), jittered per
+  vertex so the transition reads as an organic bleed rather than a
+  printed gradient line. Vertex colour and per-instance colour
+  multiply together automatically (three.js's `USE_COLOR` +
+  `USE_INSTANCING_COLOR`), so this cost nothing extra at the instance
+  level — it's baked into the same handful of unique meshes already
+  doing double duty for shape variety.
+- **Subtle roughness variation** — `buildPetalMaterialVariants` makes
+  one material per petal *geometry variant* (not just per archetype),
+  each with its own small roughness jitter around the archetype's
+  base value, so glossiness varies group to group instead of being
+  identical across thousands of petals.
+- **Believable bloom response** falls out of the above rather than
+  needing its own mechanism: the brighter tips/edges (from the colour
+  gradient and sheen) cross Bloom's luminance threshold while the
+  darker petal bases don't, so glow concentrates where a real
+  translucent tip would catch light instead of the whole shape
+  blooming uniformly.
+
+All of this still resolves into soft colour and light once the depth-
+of-field pass gets hold of it — none of these are hard-edged effects,
+so the abstraction the brief calls for survives the blur.
+
 ### Lighting (`lighting/SceneLighting.tsx`)
 
 Styled as an overcast summer afternoon, not a sunny establishing shot:
