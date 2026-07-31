@@ -20,8 +20,8 @@ const [PITCH_WEIGHT, YAW_WEIGHT, ROLL_WEIGHT] = CAMERA_CONFIG.sweep.axisWeights
  *
  * Same non-cumulative pattern as HandheldDrift: recomputed fresh from
  * elapsed time every frame and applied via `camera.rotateX/Y/Z` after
- * OrbitControls' own update, so it layers on top of the controls rather
- * than fighting them, and can't run away.
+ * CameraFraming's own per-frame look-at reset, so it layers on top of
+ * that fixed base pose rather than fighting it, and can't run away.
  *
  * `cameraMovementMultiplier` (Leva's Camera > Movement) scales this
  * together with HandheldDrift's amplitude — see that component's docstring.

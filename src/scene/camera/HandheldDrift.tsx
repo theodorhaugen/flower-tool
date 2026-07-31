@@ -16,13 +16,13 @@ function driftAxis(t: number, seed: number, slowFreq: number, fastFreq: number):
 }
 
 /**
- * Subtle handheld sway layered on top of OrbitControls every frame — small
- * enough to read as a hand holding a macro lens, not camera shake. Must be
- * mounted after CameraControls in the tree so its useFrame callback runs
- * later in the same (default-priority) frame. Each frame's offset is
- * recomputed fresh from elapsed time rather than accumulated, so it can
- * never run away or fight the controls — next frame OrbitControls resets
- * from its own internal state regardless of what this nudged last frame.
+ * Subtle handheld sway layered on top of CameraFraming's per-frame look-at
+ * reset — small enough to read as a hand holding a macro lens, not camera
+ * shake. Must be mounted after CameraFraming in the tree so its useFrame
+ * callback runs later in the same (default-priority) frame. Each frame's
+ * offset is recomputed fresh from elapsed time rather than accumulated, so
+ * it can never run away or fight that reset — next frame CameraFraming
+ * resets to its fixed base pose regardless of what this nudged last frame.
  *
  * `cameraMovementMultiplier` (Leva's Camera > Movement, see
  * shared/GenerativeProvider.tsx) scales this together with CameraSweep's

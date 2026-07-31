@@ -1,26 +1,31 @@
-import { useThree } from '@react-three/fiber'
 import { button, useControls } from 'leva'
+import { getCaptureState } from '../shared/captureStore'
 import { useGenerative } from '../shared/generativeContext'
 
 /**
  * Designer-facing export actions — not a rendered effect, just two Leva
- * buttons. Needs `gl` (the renderer/canvas), so unlike the Scene fold this
- * has to live inside `<Canvas>`; mounted alongside PostProcessing in
- * Experience.tsx.
+ * buttons.
+ *
+ * "Save Image" downloads shared/captureStore.ts's already-captured
+ * image rather than re-capturing the canvas itself — this is deliberate:
+ * it guarantees the export is *exactly* the pixels CapturedView.tsx has
+ * been showing on screen, not a fresh (and potentially different, if a
+ * regeneration happened to be mid-flight) render. That guarantee is the
+ * whole point of the capture-first flow — no more exporting an image you
+ * hadn't actually seen yet.
  */
 export function ExportControls() {
-  const { gl } = useThree()
   const { seed, palette } = useGenerative()
 
   useControls(
     'Export',
     () => ({
       'Save Image': button(() => {
+        const { imageUrl } = getCaptureState()
+        if (!imageUrl) return
         const link = document.createElement('a')
         link.download = `flower-field-seed-${seed}.png`
-        // Requires SceneCanvas.tsx's preserveDrawingBuffer — otherwise this
-        // can capture a blank/cleared buffer instead of the last frame.
-        link.href = gl.domElement.toDataURL('image/png')
+        link.href = imageUrl
         link.click()
       }),
       'Copy Seed Link': button(() => {
@@ -30,7 +35,7 @@ export function ExportControls() {
         navigator.clipboard?.writeText(url.toString())
       }),
     }),
-    [seed, palette, gl],
+    [seed, palette],
   )
 
   return null

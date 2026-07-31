@@ -17,7 +17,7 @@ export const CAMERA_CONFIG = {
    * shared/generative.ts), so every seed gets a different vantage point
    * while staying this same deliberate macro-photography framing rather
    * than an unbounded/arbitrary camera placement. MainCamera.tsx/
-   * CameraControls.tsx read the derived value, not these directly.
+   * CameraFraming.tsx read the derived value, not these directly.
    */
   position: [0, 9.4, 3] as const,
   target: [1.2, -2.6, -9] as const,

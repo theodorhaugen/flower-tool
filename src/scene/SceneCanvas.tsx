@@ -4,15 +4,29 @@ import { Suspense } from 'react'
 
 interface SceneCanvasProps {
   children: ReactNode
+  /**
+   * Passed straight through to `<Canvas>`. Deliberately a *prop* driven by
+   * CapturedView.tsx's `isGenerating` (shared/captureStore.ts), not a
+   * fixed value SettleDriver.tsx fights with an imperative
+   * `store.setFrameloop()` call: R3F's `<Canvas>` re-syncs the store's
+   * frameloop back to whatever this prop says on every internal config
+   * check, so an imperative override from deep inside the tree just gets
+   * silently stomped back the next time that check runs — which is
+   * exactly the bug that made settle bursts die after 1-2 frames before
+   * this was a prop. Routing the toggle through React state instead means
+   * the prop *is* the desired value at all times, so there's nothing left
+   * to fight.
+   */
+  frameloop: 'always' | 'demand'
 }
 
 /**
  * Top-level R3F canvas. Owns renderer/color-management setup so every
  * downstream component (camera, lighting, effects) can stay unopinionated
- * about it. `preserveDrawingBuffer` is for effects/ExportControls.tsx's
- * "Save Image" button — without it, `gl.domElement.toDataURL()` can
- * capture a blank/cleared buffer since the browser is otherwise free to
- * clear it right after each frame.
+ * about it. `preserveDrawingBuffer` is for shared/SettleDriver.tsx's
+ * capture step — without it, `gl.domElement.toDataURL()` can capture a
+ * blank/cleared buffer since the browser is otherwise free to clear it
+ * right after each frame.
  *
  * Deliberately does *not* set `toneMapping`/`toneMappingExposure` here:
  * effects/PostProcessing.tsx's `<EffectComposer>` force-sets
@@ -21,23 +35,17 @@ interface SceneCanvasProps {
  * silently inert. Real ACES tone mapping lives as a `<ToneMapping>` effect
  * inside that composer instead — see its docstring for why.
  *
- * `frameloop="demand"`: nothing here free-runs on its own — every
- * animated system (camera sweep/drift, wind, haze drift, film grain, the
- * long-exposure blur trail) reads shared/virtualClock.ts's virtual time
- * rather than real elapsed time, and shared/SettleDriver.tsx is the only
- * thing that advances it, in a short deterministic burst rather than
- * forever. Rendering only actually happens when something calls
- * `invalidate()` — SettleDriver during a settle burst, or `OrbitControls`
- * on drag (it calls `invalidate()` itself, no extra wiring needed) — so
- * the canvas genuinely sits idle on an unchanging frame once settled,
- * rather than a live loop that just happens to look the same frame to
- * frame.
+ * This canvas is never actually looked at directly — CapturedView.tsx
+ * (src/CapturedView.tsx, this component's caller) renders it fully hidden
+ * and displays a captured still image on top instead (shared/
+ * captureStore.ts). It exists purely so shared/SettleDriver.tsx has a
+ * live WebGL scene to generate that image from.
  */
-export function SceneCanvas({ children }: SceneCanvasProps) {
+export function SceneCanvas({ children, frameloop }: SceneCanvasProps) {
   return (
     <Canvas
       dpr={[1, 2]}
-      frameloop="demand"
+      frameloop={frameloop}
       gl={{
         antialias: true,
         preserveDrawingBuffer: true,

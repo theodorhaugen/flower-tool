@@ -1,4 +1,4 @@
-import { CameraControls } from './camera/CameraControls'
+import { CameraFraming } from './camera/CameraFraming'
 import { CameraSweep } from './camera/CameraSweep'
 import { HandheldDrift } from './camera/HandheldDrift'
 import { MainCamera } from './camera/MainCamera'
@@ -24,22 +24,25 @@ import { FlowerField } from './subjects/flowerField/FlowerField'
  * `useGenerative()`/`usePalette()` rather than each picking its own
  * independent randomness.
  *
- * HandheldDrift/CameraSweep are mounted right after CameraControls so their
- * per-frame nudges layer on top of, rather than fight, the orbit controls'
- * own per-frame update — see HandheldDrift's docstring for why ordering
- * matters here.
+ * HandheldDrift/CameraSweep are mounted right after CameraFraming so their
+ * per-frame nudges layer on top of, rather than fight, its per-frame
+ * look-at reset — see HandheldDrift's docstring for why ordering matters
+ * here.
  *
  * SettleDriver settles the whole scene (camera sweep/drift, wind, haze
  * drift, film grain, the long-exposure blur trail) into one reproducible
- * still per seed/parameter-set instead of animating forever — see its
- * docstring. It needs `useGenerative()`, so it has to sit inside
- * `GenerativeProvider` like everything else here.
+ * still per seed/parameter-set instead of animating forever, and captures
+ * it as the image CapturedView.tsx (src/CapturedView.tsx, outside this
+ * whole tree) actually displays — this `<Canvas>` itself stays hidden,
+ * existing only to generate that image. See SettleDriver's docstring. It
+ * needs `useGenerative()`, so it has to sit inside `GenerativeProvider`
+ * like everything else here.
  */
 export function Experience() {
   return (
     <GenerativeProvider>
       <MainCamera />
-      <CameraControls />
+      <CameraFraming />
       <HandheldDrift />
       <CameraSweep />
       <SettleDriver />
