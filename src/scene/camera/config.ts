@@ -42,8 +42,31 @@ export const CAMERA_CONFIG = {
     samples: 3,
   },
 
+  /** Fine tremor — barely-there per-frame jitter, see HandheldDrift.tsx. */
   drift: {
     positionAmplitude: 0.045,
     rotationAmplitudeDeg: 0.4,
+  },
+
+  /**
+   * The wide, fast sweep that drives the strong, directional intentional-
+   * camera-movement (ICM) blur look (LongExposureBlurPass, see
+   * effects/config.ts) — much bigger and faster than `drift` above, which
+   * stays a separate, barely-there tremor layered on top for texture.
+   *
+   * A sine wave is locally near-linear around its zero-crossings, which is
+   * what turns into a clean directional streak once blended, rather than a
+   * fuzzy back-and-forth smear — but only if the blur's `halfLifeSeconds`
+   * (effects/config.ts) stays well *under* `periodSeconds / 2` (the time
+   * one directional half-swing takes); otherwise the blend starts pulling
+   * in the reversed half of the swing and cancels the streak out. Almost
+   * pure yaw (`axisWeights[1]`) for a mostly-horizontal streak — panning is
+   * what a handheld ICM shot actually does. See CameraSweep.tsx.
+   */
+  sweep: {
+    rotationAmplitudeDeg: 20,
+    periodSeconds: 2.4,
+    /** [pitch, yaw, roll] — relative weights, not absolute degrees. */
+    axisWeights: [0.1, 1, 0.05] as const,
   },
 }

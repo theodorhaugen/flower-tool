@@ -1,4 +1,5 @@
 import { CameraControls } from './camera/CameraControls'
+import { CameraSweep } from './camera/CameraSweep'
 import { HandheldDrift } from './camera/HandheldDrift'
 import { MainCamera } from './camera/MainCamera'
 import { Environment } from './environment/Environment'
@@ -12,9 +13,10 @@ import { FlowerField } from './subjects/flowerField/FlowerField'
  * procedural flower work can land in `subjects/` and the meadow it grows in
  * can land in `environment/` without either touching the rest of this file.
  *
- * HandheldDrift is mounted right after CameraControls so its per-frame sway
- * is layered on top of, rather than fought by, the orbit controls' own
- * per-frame update — see its docstring for why ordering matters here.
+ * HandheldDrift/CameraSweep are mounted right after CameraControls so their
+ * per-frame nudges layer on top of, rather than fight, the orbit controls'
+ * own per-frame update — see HandheldDrift's docstring for why ordering
+ * matters here.
  */
 export function Experience() {
   return (
@@ -22,6 +24,7 @@ export function Experience() {
       <MainCamera />
       <CameraControls />
       <HandheldDrift />
+      <CameraSweep />
       <SceneLighting />
       <Environment />
       <FlowerField />

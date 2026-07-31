@@ -22,10 +22,11 @@ src/
     SceneCanvas.tsx        R3F <Canvas> — renderer/color-management setup
     Experience.tsx         composition root for the scene graph
     camera/
-      config.ts              lens tuning: fov, position/target, DoF, handheld drift
+      config.ts              lens tuning: fov, position/target, DoF, handheld drift, ICM sweep
       MainCamera.tsx          perspective camera, narrow fov, elevated ~45° down at the meadow
       CameraControls.tsx      orbit controls, off-axis target
-      HandheldDrift.tsx       subtle per-frame sway layered on top of the controls
+      HandheldDrift.tsx       tiny per-frame tremor layered on top of the controls
+      CameraSweep.tsx         wide, fast sine-wave pan — the motion that drives the ICM blur streak
     lighting/
       SceneLighting.tsx     overcast "sky dome" rig — hemisphere + ambient dominate, directional lights are just a whisper
     effects/
@@ -35,7 +36,7 @@ src/
       LensOpticsDepthOfFieldEffect.ts   the thin-lens circle-of-confusion Effect itself
       LensDistortion.tsx               R3F wrapper for postprocessing's (unwrapped) LensDistortionEffect
       LongExposureBlur.tsx             R3F wrapper — constructs the Pass below from effects/config.ts
-      LongExposureBlurPass.ts          custom Pass: two-buffer temporal accumulation, not a velocity-buffer streak
+      LongExposureBlurPass.ts          custom Pass: two-buffer temporal accumulation driven by CameraSweep, not a velocity-buffer streak
     shared/                 procedural primitives used by more than one system
       random.ts               seeded PRNG — same seed always reproduces the same output
       noise.ts                 layered value noise (fbm) + a 1D slice for path curves
@@ -220,6 +221,15 @@ The camera is styled as a macro lens, not a generic 3D viewport:
   offset from elapsed time every frame rather than accumulated, so it
   can't run away, and it's mounted after `CameraControls` so its sway
   layers on top of, rather than fights, the controls' own update.
+- **Camera sweep** (`CameraSweep.tsx`) — a much wider, faster,
+  yaw-dominant rotation (`camera/config.ts`'s `sweep`), mounted right
+  after `HandheldDrift` and following the same non-cumulative,
+  time-driven, apply-after-`CameraControls` pattern. This is the actual
+  motion behind the intentional-camera-movement blur streak below — a
+  sine wave rather than noise, deliberately, since a sine is locally
+  near-linear around its zero-crossings, which is what turns into a
+  clean directional streak once blended rather than a fuzzy
+  back-and-forth smear.
 
 ### Post-processing (`effects/`)
 
@@ -240,11 +250,11 @@ digital overlay.
   `@react-three/postprocessing` so it's constructed directly in
   `LensDistortion.tsx`, same pattern as the depth-of-field effect) is
   a slight barrel bow — enough to feel like a real lens, not a fisheye.
-- **Simulated handheld long exposure** (`LongExposureBlurPass.ts`) —
-  blends each frame with a decaying history of recent frames, so the
-  scene's *existing* subtle camera movement (`HandheldDrift`, user
-  orbit) softly smears the whole image the way a slow shutter would,
-  rather than streaking individual moving objects the way a
+- **Simulated intentional-camera-movement (ICM) long exposure**
+  (`LongExposureBlurPass.ts`) — blends each frame with a decaying
+  history of recent frames, so `CameraSweep`'s wide pan drags the whole
+  image into directional streaks the way a real ICM long exposure
+  would, rather than streaking individual moving objects the way a
   per-object velocity-buffer motion blur does (nothing here moves
   independently of the camera, so that technique wouldn't even apply).
   It's a `Pass`, not an `Effect` — postprocessing's `Effect` model
@@ -256,7 +266,13 @@ digital overlay.
   effect, which reads as digital streaking, not soft exposure blur).
   `halfLifeSeconds` (how long the blended history takes to fade to
   half strength) is computed against real elapsed time each frame, so
-  the effect is framerate-independent.
+  the effect is framerate-independent. It's the main knob for streak
+  strength/reach, and it's tuned opposite `CameraSweep`'s
+  `periodSeconds`: keep `halfLifeSeconds` comfortably under half the
+  sweep's period so the blended history stays within one directional
+  half-swing — go past that and the blend starts pulling in the
+  reversed half of the swing, which cancels the streak back out into a
+  directionless wash instead of a clean smear.
 - **Grain** (`Noise`, `premultiply`d) fades in shadows the way real
   emulsion grain does rather than sitting at uniform strength over the
   whole frame.
@@ -267,6 +283,23 @@ validated by temporarily cranking it *up* rather than guessing "subtle"
 was even wired correctly) — worth checking any new effect here at an
 exaggerated value first, then dialing back, rather than trusting a
 guessed value blind.
+
+Headless screenshot testing for the ICM sweep/blur combo hit a real
+limit worth knowing about: this sandbox's headless Chromium falls back
+to software rendering (SwiftShader — check
+`gl.getExtension('WEBGL_debug_renderer_info')`), which renders this
+scene at well under 1fps. `CameraSweep`'s rotation and the blur's decay
+are both computed from real elapsed time rather than accumulated
+per-frame, so the *strength* of the effect at any given moment is
+correct regardless of framerate — but at <1fps there are far too few
+samples for the blend to look like a continuous streak; it shows up as
+a few discrete ghosted copies instead. That's a sandbox artifact, not a
+bug: a real browser with GPU acceleration blends dozens of samples per
+`halfLifeSeconds` window at 60fps, which is what actually smooths the
+discrete ghosting seen here into the continuous streak this was tuned
+for. Confirm the *mechanism* (camera genuinely sweeping, buffer
+genuinely accumulating history rather than snapping) in a sandbox like
+this if needed, but don't chase pixel-perfect streak smoothness there.
 
 No GUI/controls panel, and no fixed-aspect-ratio cropping, yet by
 design — this is expected to end up behind a canvas-based editor later.

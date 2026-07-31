@@ -31,15 +31,17 @@ export const POST_PROCESSING_CONFIG = {
   },
 
   /**
-   * Simulated handheld-long-exposure blur: blends each frame with a
-   * decaying history of recent frames, so the existing subtle camera
-   * movement (HandheldDrift, user orbit) softly smears the whole image
-   * rather than streaking individual objects. `halfLifeSeconds` is how
-   * long that history takes to fade to half strength — kept short so it
-   * reads as a soft, barely-there trail, not an obvious comet-streak.
+   * Simulated intentional-camera-movement (ICM) long-exposure blur: blends
+   * each frame with a decaying history of recent frames, so CameraSweep's
+   * wide, slow pan (see camera/config.ts's `sweep` block) streaks the whole
+   * frame into directional colour bands rather than a fuzzy static smear.
+   * `halfLifeSeconds` is how long that history takes to fade to half
+   * strength — this is the main knob for streak "reach": too short and the
+   * sweep never accumulates into a visible trail, too long and it stops
+   * reading as motion and starts reading as a soft double-exposure ghost.
    */
   motionBlur: {
-    halfLifeSeconds: 0.12,
+    halfLifeSeconds: 0.9,
   },
 
   vignette: {

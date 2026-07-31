@@ -47,12 +47,13 @@ export interface LongExposureBlurPassOptions {
 const DEFAULT_HALF_LIFE_SECONDS = 0.12
 
 /**
- * A cheap, screen-space simulation of a handheld long exposure: blends each
- * frame with a decaying accumulation of recent frames, so the tiny
- * continuous camera movement already in this scene (HandheldDrift, user
- * orbit) softly smears the *whole* image together rather than streaking
- * individual moving objects. There's no per-object velocity buffer here —
- * that's exactly why it doesn't read as typical "digital" motion blur.
+ * A cheap, screen-space simulation of an intentional-camera-movement (ICM)
+ * long exposure: blends each frame with a decaying accumulation of recent
+ * frames, so continuous camera movement (CameraSweep's wide pan, plus
+ * HandheldDrift's fine tremor and any user orbit) smears the *whole* image
+ * together into directional streaks rather than streaking individual moving
+ * objects. There's no per-object velocity buffer here — that's exactly why
+ * it doesn't read as typical "digital" motion blur.
  *
  * postprocessing's `Effect` model composes fragment shaders into a single
  * pass and has no concept of "last frame's render," so this needs to be a
