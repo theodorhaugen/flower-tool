@@ -24,13 +24,13 @@ export function generateGrass(): GrassGroup[] {
 
   const groups: GrassGroup[] = Array.from({ length: variantCount }, () => ({
     geometry: createTaperedBladeGeometry(rng, {
-      tipSharpness: range(rng, 0.9, 1.5),
-      curl: range(rng, 0.05, 0.25),
-      twist: range(rng, 0, 0.15),
+      tipSharpness: range(rng, 1.0, 1.7),
+      curl: range(rng, 0.15, 0.45),
+      twist: range(rng, 0, 0.1),
       widthScale,
       widthSegments: 1,
-      heightSegments: 2,
-      jitterAmount: 1.6,
+      heightSegments: 3,
+      jitterAmount: 0.7,
     }),
     instances: [],
   }))

@@ -35,8 +35,8 @@ export const ENVIRONMENT_CONFIG = {
   grass: {
     count: 42000,
     variantCount: 5,
-    widthScale: 0.55,
-    heightRange: [0.16, 0.4] as const,
+    widthScale: 0.4,
+    heightRange: [0.35, 0.8] as const,
     /** Grass only where blades would actually resolve before blur takes over — near/mid ground only. */
     zNear: 9,
     zFar: -30,
