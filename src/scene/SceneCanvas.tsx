@@ -1,7 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import type { ReactNode } from 'react'
 import { Suspense } from 'react'
-import * as THREE from 'three'
 
 interface SceneCanvasProps {
   children: ReactNode
@@ -14,6 +13,13 @@ interface SceneCanvasProps {
  * "Save Image" button — without it, `gl.domElement.toDataURL()` can
  * capture a blank/cleared buffer since the browser is otherwise free to
  * clear it right after each frame.
+ *
+ * Deliberately does *not* set `toneMapping`/`toneMappingExposure` here:
+ * effects/PostProcessing.tsx's `<EffectComposer>` force-sets
+ * `renderer.toneMapping = NoToneMapping` for as long as it's mounted
+ * (which is always, in this app), so a renderer-level setting would be
+ * silently inert. Real ACES tone mapping lives as a `<ToneMapping>` effect
+ * inside that composer instead — see its docstring for why.
  */
 export function SceneCanvas({ children }: SceneCanvasProps) {
   return (
@@ -21,8 +27,6 @@ export function SceneCanvas({ children }: SceneCanvasProps) {
       dpr={[1, 2]}
       gl={{
         antialias: true,
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.0,
         preserveDrawingBuffer: true,
       }}
       style={{ position: 'absolute', inset: 0 }}

@@ -12,9 +12,27 @@ export const POST_PROCESSING_CONFIG = {
    * surfaces blooming don't just wash the frame brighter overall.
    */
   bloom: {
-    intensity: 0.35,
-    luminanceThreshold: 0.42,
-    luminanceSmoothing: 0.45,
+    intensity: 0.26,
+    luminanceThreshold: 0.48,
+    luminanceSmoothing: 0.35,
+  },
+
+  /**
+   * A second, deliberately tighter/hotter bloom layered on top of the soft
+   * atmosphere one above — high threshold + narrow smoothing so *only*
+   * genuinely blown-out highlights (direct sun catching a petal edge, the
+   * brightest sky) glow hard, the way real optical bloom does in strongly
+   * backlit macro/ICM photography (see the reference images this was tuned
+   * against) — rather than the soft, even glow the low-threshold bloom
+   * above produces on its own, which reads as haze rather than a highlight
+   * blowing out. `intensity` is Leva's Lens > Highlight Bloom control (see
+   * shared/generative.ts's `highlightBloomIntensity`), the value below is
+   * only its starting default.
+   */
+  highlightBloom: {
+    intensity: 0.55,
+    luminanceThreshold: 0.82,
+    luminanceSmoothing: 0.12,
   },
 
   /**
@@ -35,17 +53,26 @@ export const POST_PROCESSING_CONFIG = {
     haze: {
       frequency: 1.8,
       driftSpeed: 0.02,
-      strength: 0.12,
+      strength: 0.09,
       depthFalloff: 0.06,
     },
     volumetric: {
-      strength: 0.3,
+      strength: 0.22,
       radius: 3,
     },
+    /**
+     * Trimmed from the original (radius 1.5, rangeSigma 0.15): this filter
+     * has no depth gating of its own, so at the old settings it was
+     * smoothing fine petal/grass texture on the in-focus subject right
+     * along with the background, which was a real contributor to the
+     * overall "muddy" look. A smaller radius and tighter rangeSigma still
+     * catch the fine noise haze/bloom/DoF leave behind without eating as
+     * much of the subject's own detail.
+     */
     bilateral: {
-      radius: 1.5,
+      radius: 1,
       spatialSigma: 1,
-      rangeSigma: 0.15,
+      rangeSigma: 0.12,
     },
   },
 
@@ -64,6 +91,12 @@ export const POST_PROCESSING_CONFIG = {
     shadowStrength: 0.12,
     bloomBiasStrength: 0.35,
     bloomBiasThreshold: 0.55,
+    /** Kept at 1 (unchanged) — SceneLighting.tsx's stronger key light is the actual exposure fix; this stays here only so the shader/uniform exists for future tuning. */
+    exposure: 1,
+    /** A mild punch-up, not a filter-strength swing — see PaletteGradePass.ts's shader comment for why contrast/vibrance run *before* the two-point grade below. */
+    contrast: 1.12,
+    /** Strongest on already-muddy/desaturated pixels, tapers off on already-vivid ones — see the shader for the exact falloff. */
+    vibrance: 0.4,
   },
 
   /** Weaker in the middle, stronger towards the edges — how a real lens's fringing actually behaves, not a full-frame colour shift. */
@@ -81,9 +114,20 @@ export const POST_PROCESSING_CONFIG = {
     skew: 0,
   },
 
-  /** Film grain — premultiplied so it fades in shadows the way real emulsion grain does, not a uniform digital-noise overlay. */
+  /**
+   * Film grain — see effects/FilmGrainPass.ts. Premultiplied (scaled by the
+   * underlying pixel colour) so it fades in shadows/deep colour the way
+   * real emulsion density fades, not a uniform digital-noise overlay.
+   * `size` is the grain cell width in screen pixels — real 35mm grain isn't
+   * 1px, it's a handful of pixels wide at typical viewing resolutions, so a
+   * flat 1px noise texture (the previous implementation) read as sensor
+   * noise rather than film. Both are Leva's Film fold ("Grain
+   * Amount"/"Grain Size", see shared/generative.ts) multipliers of these
+   * base values — 1 = as tuned here.
+   */
   grain: {
-    opacity: 0.09,
+    opacity: 0.16,
+    size: 1.6,
   },
 
   /**

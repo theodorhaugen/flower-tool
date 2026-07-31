@@ -1,16 +1,18 @@
 import { useEffect, useMemo } from 'react'
-import { usePalette } from '../shared/generativeContext'
+import { useGenerative, usePalette } from '../shared/generativeContext'
 import { POST_PROCESSING_CONFIG } from './config'
 import { PaletteGradePass } from './PaletteGradePass'
 
 /**
  * R3F wrapper — constructs PaletteGradePass from the active palette
- * (colours) and effects/config.ts's `paletteGrade` block (strengths),
- * same pattern as LongExposureBlur.tsx.
+ * (colours), effects/config.ts's `paletteGrade` block (base tuning), and
+ * the generative state's `contrastAmount`/`vibranceAmount` (Leva's Colour >
+ * Contrast/Vibrance, 1 = as tuned), same pattern as LongExposureBlur.tsx.
  */
 export function PaletteGrade() {
   const palette = usePalette()
-  const { highlightStrength, shadowStrength, bloomBiasStrength, bloomBiasThreshold } =
+  const { contrastAmount, vibranceAmount } = useGenerative()
+  const { highlightStrength, shadowStrength, bloomBiasStrength, bloomBiasThreshold, exposure, contrast, vibrance } =
     POST_PROCESSING_CONFIG.paletteGrade
 
   const pass = useMemo(
@@ -23,8 +25,22 @@ export function PaletteGrade() {
         shadowStrength,
         bloomBiasStrength,
         bloomBiasThreshold,
+        exposure,
+        contrast: contrast * contrastAmount,
+        vibrance: vibrance * vibranceAmount,
       }),
-    [palette, highlightStrength, shadowStrength, bloomBiasStrength, bloomBiasThreshold],
+    [
+      palette,
+      highlightStrength,
+      shadowStrength,
+      bloomBiasStrength,
+      bloomBiasThreshold,
+      exposure,
+      contrast,
+      contrastAmount,
+      vibrance,
+      vibranceAmount,
+    ],
   )
 
   useEffect(() => {

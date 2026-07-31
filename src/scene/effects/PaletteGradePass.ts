@@ -18,6 +18,9 @@ const FRAGMENT_SHADER = `
   uniform float shadowStrength;
   uniform float bloomBiasStrength;
   uniform float bloomBiasThreshold;
+  uniform float exposure;
+  uniform float contrast;
+  uniform float vibrance;
   varying vec2 vUv;
 
   float relLuminance(vec3 color) {
@@ -27,6 +30,30 @@ const FRAGMENT_SHADER = `
   void main() {
     vec4 texel = texture2D(tDiffuse, vUv);
     vec3 color = texel.rgb;
+
+    // Exposure/contrast/vibrance run first, ahead of the palette grade and
+    // bloom bias below, so those two still operate on (and measure
+    // luminance from) the final graded tones rather than the flat/muddy
+    // input — this is the actual fix for the "washed, low-contrast, muted"
+    // look: not more colour tinting, but real tonal separation first.
+    color *= exposure;
+
+    // Contrast: a simple pivot around mid-grey. Cheap and matches how a
+    // print/film contrast grade reads — it isn't trying to be a filmic
+    // S-curve, just a linear punch-up.
+    color = (color - 0.5) * contrast + 0.5;
+
+    // Vibrance: boosts saturation more on already-desaturated pixels
+    // (muddy midtones, the exact thing making the render feel flat) and
+    // backs off automatically on pixels that are already vivid, so it
+    // can't push already-saturated petal colour into garish clipping.
+    float maxChannel = max(color.r, max(color.g, color.b));
+    float minChannel = min(color.r, min(color.g, color.b));
+    float currentSaturation = maxChannel - minChannel;
+    vec3 gray = vec3(relLuminance(color));
+    float vibranceAmount = vibrance * (1.0 - currentSaturation);
+    color = mix(gray, color, 1.0 + vibranceAmount);
+
     float luminance = relLuminance(color);
 
     // Two-point grade: shadows lift towards shadowColor, highlights tint
@@ -61,6 +88,12 @@ export interface PaletteGradeOptions {
   bloomBiasStrength?: number
   /** Luminance (0-1) above which the bloom-tint bias starts ramping in — should sit close to Bloom's own `luminanceThreshold`. */
   bloomBiasThreshold?: number
+  /** Linear brightness multiplier, applied before contrast/vibrance/grading. 1 = unchanged. */
+  exposure?: number
+  /** Pivot-around-mid-grey contrast multiplier. 1 = unchanged, >1 punchier. */
+  contrast?: number
+  /** Saturation boost, strongest on already-desaturated (muddy) pixels. 0 = unchanged. */
+  vibrance?: number
 }
 
 /**
@@ -85,6 +118,9 @@ export class PaletteGradePass extends Pass {
     shadowStrength = 0.12,
     bloomBiasStrength = 0.35,
     bloomBiasThreshold = 0.65,
+    exposure = 1,
+    contrast = 1,
+    vibrance = 0,
   }: PaletteGradeOptions = {}) {
     super('PaletteGradePass')
 
@@ -98,6 +134,9 @@ export class PaletteGradePass extends Pass {
         shadowStrength: { value: shadowStrength },
         bloomBiasStrength: { value: bloomBiasStrength },
         bloomBiasThreshold: { value: bloomBiasThreshold },
+        exposure: { value: exposure },
+        contrast: { value: contrast },
+        vibrance: { value: vibrance },
       },
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,

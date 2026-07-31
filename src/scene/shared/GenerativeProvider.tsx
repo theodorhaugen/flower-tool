@@ -117,12 +117,14 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     [seed],
   )
 
-  // --- Colour: which palette, plus one creative move (hue shift) it can't already do ---
+  // --- Colour: which palette, hue shift, plus tonal punch/vibrancy — not the raw shader strengths ---
   const [colourControls] = useControls(
     'Colour',
     () => ({
       palette: { value: base.palette.name, options: PALETTE_NAMES, label: 'Palette' },
       hueShift: { value: 0, min: -180, max: 180, label: 'Hue Shift' },
+      contrast: { value: 1, min: 0.5, max: 1.8, label: 'Contrast' },
+      vibrance: { value: 1, min: 0, max: 2.5, label: 'Vibrance' },
     }),
     [seed],
   )
@@ -147,6 +149,17 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       blurAmount: { value: base.maxBlur, min: 0.2, max: 3, label: 'Blur Amount' },
       aperture: { value: base.fStop, min: 0.5, max: 4, label: 'Aperture' },
       glowIntensity: { value: base.bloomIntensity, min: 0, max: 1, label: 'Glow Intensity' },
+      highlightBloom: { value: base.highlightBloomIntensity, min: 0, max: 1.5, label: 'Highlight Bloom' },
+    }),
+    [seed],
+  )
+
+  // --- Film: emulsion grain — not exposed anywhere else since it's purely a "look", not a scene property ---
+  const [filmControls] = useControls(
+    'Film',
+    () => ({
+      grainAmount: { value: 1, min: 0, max: 3, label: 'Grain Amount' },
+      grainSize: { value: 1, min: 0.5, max: 4, label: 'Grain Size' },
     }),
     [seed],
   )
@@ -168,6 +181,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       bloomIntensity: lensControls.glowIntensity,
       maxBlur: lensControls.blurAmount,
       fStop: lensControls.aperture,
+      highlightBloomIntensity: lensControls.highlightBloom,
       wind: { ...base.wind, strength: atmosphereControls.windStrength },
       cameraMovementMultiplier: cameraControls.movement,
       lightingOvercast: lightingControls.overcast,
@@ -177,11 +191,24 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       flowerScale: flowerControls.scale,
       poppyAccentProbability: flowerControls.poppyAccent,
       hueShiftDeg: colourControls.hueShift,
+      contrastAmount: colourControls.contrast,
+      vibranceAmount: colourControls.vibrance,
       hazeAmount: atmosphereControls.haze,
       softness: atmosphereControls.softness,
       fogDensityMultiplier: atmosphereControls.fog,
+      grainAmount: filmControls.grainAmount,
+      grainSize: filmControls.grainSize,
     }
-  }, [base, cameraControls, lightingControls, flowerControls, colourControls, atmosphereControls, lensControls])
+  }, [
+    base,
+    cameraControls,
+    lightingControls,
+    flowerControls,
+    colourControls,
+    atmosphereControls,
+    lensControls,
+    filmControls,
+  ])
 
   useEffect(() => {
     // Deliberately logs base.palette (the seed's own pick), not the

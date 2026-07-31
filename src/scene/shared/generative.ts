@@ -96,6 +96,16 @@ export interface GenerativeState {
   maxBlur: number
   /** Lens fold "Aperture" — overrides CAMERA_CONFIG.dof.fStop (lower = shallower). */
   fStop: number
+  /** Lens fold "Highlight Bloom" — intensity of the second, high-threshold bloom pass (PostProcessing.tsx). Direct value, not a multiplier, same as bloomIntensity. */
+  highlightBloomIntensity: number
+  /** Colour fold "Contrast" — scales PaletteGradePass's contrast pivot. 1 = as tuned. */
+  contrastAmount: number
+  /** Colour fold "Vibrance" — scales PaletteGradePass's vibrance boost. 1 = as tuned. */
+  vibranceAmount: number
+  /** Film fold "Grain Amount" — scales FilmGrainPass's opacity. 1 = as tuned. */
+  grainAmount: number
+  /** Film fold "Grain Size" — scales FilmGrainPass's grain cell size. 1 = as tuned. */
+  grainSize: number
 }
 
 export interface DeriveGenerativeStateOptions {
@@ -174,6 +184,11 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     fogDensityMultiplier: 1,
     maxBlur: CAMERA_CONFIG.dof.maxBlur,
     fStop: CAMERA_CONFIG.dof.fStop,
+    highlightBloomIntensity: POST_PROCESSING_CONFIG.highlightBloom.intensity,
+    contrastAmount: 1,
+    vibranceAmount: 1,
+    grainAmount: 1,
+    grainSize: 1,
   }
 }
 

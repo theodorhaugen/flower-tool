@@ -18,6 +18,15 @@ import { FLOWER_FIELD_CONFIG } from './config'
  * petalGeometry.ts) and the boosted emissive, it reads as subsurface
  * scattering — light entering the tissue and softly re-emerging — without
  * the cost of the real thing.
+ *
+ * `clearcoat` is the other physically-cheap addition: a thin, glossy
+ * top layer (also built into MeshPhysicalMaterial) standing in for the
+ * waxy cuticle real petals have — it's what actually produces a small,
+ * bright specular highlight where the key light catches a petal edge, the
+ * way the poppy reference photo's petals show one. Without it the surface
+ * only has the diffuse+sheen response above, which never forms a genuine
+ * bright point no matter how strong the light is — that missing highlight
+ * was a real part of the "flat/muddy" read.
  */
 const sharedPetalProps = {
   color: new THREE.Color('#ffffff'),
@@ -27,6 +36,8 @@ const sharedPetalProps = {
   metalness: 0,
   vertexColors: true,
   sheenRoughness: 0.7,
+  clearcoat: 0.28,
+  clearcoatRoughness: 0.32,
 } as const
 
 interface PetalArchetypeMaterialBase {
