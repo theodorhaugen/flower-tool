@@ -1,6 +1,8 @@
 import { Bloom, ChromaticAberration, EffectComposer, Noise, Vignette } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import { Vector2 } from 'three'
+import { AtmosphericHaze } from './AtmosphericHaze'
+import { BilateralSoft } from './BilateralSoft'
 import { POST_PROCESSING_CONFIG } from './config'
 import { LensDistortion } from './LensDistortion'
 import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
@@ -17,6 +19,12 @@ import { LongExposureBlur } from './LongExposureBlur'
  *   leaving them crisp on top of the blur.
  * - LensOpticsDepthOfField: the dominant characteristic — a thin,
  *   physically-derived focus slice, everything else melting into bokeh.
+ * - AtmosphericHaze: low-frequency haze + volumetric scatter, both gated
+ *   by view-space distance so the focal subject stays close to untouched
+ *   and the background reads hazier — aerial perspective, not a flat veil.
+ * - BilateralSoft: edge-aware softening on top — smooths the fine texture
+ *   haze/bloom/DoF leave behind while its luminance-difference term keeps
+ *   real contrast edges (the subject's silhouette) intact.
  * - ChromaticAberration: radially modulated, so the colour fringing only
  *   shows up towards the edges the way a real lens's does, not as a
  *   full-frame colour shift.
@@ -41,6 +49,8 @@ export function PostProcessing() {
         mipmapBlur
       />
       <LensOpticsDepthOfField />
+      <AtmosphericHaze />
+      <BilateralSoft />
       <ChromaticAberration
         offset={new Vector2(...chromaticAberration.offset)}
         radialModulation={chromaticAberration.radialModulation}

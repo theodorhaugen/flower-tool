@@ -31,9 +31,13 @@ src/
       SceneLighting.tsx     overcast "sky dome" rig — hemisphere + ambient dominate, directional lights are just a whisper
     effects/
       config.ts                        every post-processing tuning knob
-      PostProcessing.tsx               EffectComposer pipeline — bloom, DoF, chromatic aberration, lens distortion, vignette, grain
+      PostProcessing.tsx               EffectComposer pipeline — bloom, DoF, atmospheric haze, bilateral soft, chromatic aberration, lens distortion, vignette, grain
       LensOpticsDepthOfField.tsx       R3F wrapper — constructs the effect below from camera/config.ts
       LensOpticsDepthOfFieldEffect.ts   the thin-lens circle-of-confusion Effect itself
+      AtmosphericHaze.tsx              R3F wrapper — constructs the effect below from effects/config.ts
+      AtmosphericHazeEffect.ts         custom Effect: depth-gated low-frequency haze + volumetric scatter
+      BilateralSoft.tsx                R3F wrapper — constructs the effect below from effects/config.ts
+      BilateralSoftEffect.ts           custom Effect: edge-aware (luminance-weighted) softening
       LensDistortion.tsx               R3F wrapper for postprocessing's (unwrapped) LensDistortionEffect
       LongExposureBlur.tsx             R3F wrapper — constructs the Pass below from effects/config.ts
       LongExposureBlurPass.ts          custom Pass: two-buffer temporal accumulation driven by CameraSweep, not a velocity-buffer streak
@@ -237,12 +241,48 @@ Styled after analogue photography, not a digital/social filter — every
 effect is something a real lens or a real strip of film would do, all
 tuned in `effects/config.ts` to be felt rather than noticed on its
 own. Pipeline order (`PostProcessing.tsx`) matters: Bloom first so
-depth of field blurs its highlights into soft bokeh discs, then the
-lens-level effects (chromatic aberration, lens distortion), then
-Vignette, then simulated long-exposure blur, with film grain last —
-the emulsion layer sitting on top of the fully-formed image, not a
-digital overlay.
+depth of field blurs its highlights into soft bokeh discs, then
+atmospheric haze/scatter and bilateral softening on the already-
+defocused image, then the lens-level effects (chromatic aberration,
+lens distortion), then Vignette, then simulated long-exposure blur,
+with film grain last — the emulsion layer sitting on top of the
+fully-formed image, not a digital overlay.
 
+- **Atmospheric softness** (`AtmosphericHazeEffect.ts` +
+  `BilateralSoftEffect.ts`, tuned together under `effects/config.ts`'s
+  `atmosphere` block) is three techniques deliberately combined rather
+  than tuned in isolation:
+  - A **low-frequency haze** veil — a slow-drifting, large-scale noise
+    pattern (two octaves, both under ~2 cycles per screen-width on
+    purpose, so it reads as soft haze density rather than visible
+    grain) tinted toward the same colour as the scene's own `FogExp2`
+    (`environment/config.ts`), so the two read as one atmosphere.
+  - A **volumetric softness** term — a few wide taps standing in for
+    light scattering through that haze.
+  - Both of the above are gated by real view-space distance
+    (`depthFalloff`, shaped like the scene fog's own exponential
+    falloff), not applied evenly — the foreground/focal subject stays
+    close to untouched and the background reads hazier, the aerial-
+    perspective way real atmosphere behaves. An even veil would just
+    lighten and flatten the whole frame, which is the contrast loss
+    this is built to avoid.
+  - **Bilateral softening** then smooths whatever fine texture that
+    haze/DoF/bloom leave behind (grass and petal micro-detail, the
+    haze noise itself), but its neighbour-averaging weight also drops
+    with how different a neighbour's *brightness* is from the centre
+    pixel, not just how far away it is — that's what keeps a real
+    contrast edge (a flower's silhouette against the grass) crisp
+    while still blurring low-contrast texture into something softer. A
+    plain Gaussian blur here would have eaten exactly the contrast the
+    DoF/bloom pipeline relies on to keep the focal subject legible.
+  - **Bloom's threshold/smoothing** (`luminanceThreshold: 0.42`,
+    `luminanceSmoothing: 0.45`, both loosened from a "highlights only"
+    bloom) is the fourth lever tuned alongside these three: glow now
+    spreads from more of the pale, diffusely-lit petals and haze
+    itself, not just the brightest few pixels, which is what makes the
+    bloom itself read as atmosphere rather than a lens flare.
+    `intensity` is trimmed slightly (`0.4` → `0.35`) to compensate, so
+    the extra surfaces blooming don't just wash the frame brighter.
 - **Chromatic aberration** uses `radialModulation` so the fringing
   only shows up towards the edges the way a real lens's does, not as
   a full-frame colour shift.
