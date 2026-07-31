@@ -1,5 +1,6 @@
 import { Pass } from 'postprocessing'
 import * as THREE from 'three'
+import { CAMERA_CONFIG } from '../camera/config'
 import { virtualClock } from '../shared/virtualClock'
 
 const VERTEX_SHADER = `
@@ -10,14 +11,43 @@ const VERTEX_SHADER = `
   }
 `
 
+// Per-tap count for the within-frame streak sample below — a compile-time
+// constant since GLSL loop bounds need to be. Needs to be fairly high (not
+// a cheap 4-8 tap box blur): too few taps sampled across a wide step lands
+// on the scene's own fine periodic detail (grass jitter, film-grain-scale
+// noise) at a coarse, evenly-spaced interval, aliasing into a comb/moiré
+// banding pattern instead of a smooth streak.
+const STREAK_TAPS = 20
+
 const BLEND_FRAGMENT_SHADER = `
   uniform sampler2D tOld;
   uniform sampler2D tNew;
   uniform float decay;
+  // Screen-space UV displacement the camera's yaw swept *during this one
+  // rendered frame* (see LongExposureBlurPass.render()'s docstring) — pre-
+  // streaking tNew along it before the temporal blend is what keeps thin,
+  // high-frequency geometry (grass blades) from diluting into an invisible
+  // wash: a bare temporal accumulation only ever sees each frame's blade at
+  // one discrete, barely-overlapping position, so it averages towards
+  // whatever's *behind* it instead of a visible streak. Sampling continuously
+  // along the known motion vector within a single already-sharp frame gives
+  // every accumulated sample its own soft smear instead of a lone thin line,
+  // which is what a real shutter integrating continuous motion would do.
+  uniform vec2 blurStep;
   varying vec2 vUv;
+
+  vec4 streakedSample(sampler2D tex, vec2 uv, vec2 step) {
+    vec4 sum = vec4(0.0);
+    for (int i = 0; i < ${STREAK_TAPS}; i++) {
+      float t = float(i) / float(${STREAK_TAPS - 1}) - 0.5;
+      sum += texture2D(tex, uv + step * t);
+    }
+    return sum / float(${STREAK_TAPS});
+  }
+
   void main() {
     vec4 texelOld = texture2D(tOld, vUv);
-    vec4 texelNew = texture2D(tNew, vUv);
+    vec4 texelNew = streakedSample(tNew, vUv, blurStep);
     // A plain weighted blend, not a max()-based ghost trail (the classic
     // "afterimage" shader) — the whole frame drifts together here, from
     // camera movement, rather than isolated bright objects moving against a
@@ -44,9 +74,40 @@ export interface LongExposureBlurPassOptions {
    * many real frames a given virtual-time step happened to take.
    */
   halfLifeSeconds?: number
+  /** Camera fold "Movement" (see shared/generative.ts) — same multiplier CameraSweep.tsx scales its yaw sweep by, so this pass's own yaw-delta estimate (used for the within-frame streak, see `render()`) tracks whatever the sweep is actually doing. 1 = as tuned. */
+  movementMultiplier?: number
 }
 
 const DEFAULT_HALF_LIFE_SECONDS = 0.12
+
+// Mirrors CameraSweep.tsx's own constants — that component is the dominant
+// source of the sweep this pass is estimating, so the estimate has to use
+// the exact same amplitude/frequency/axis-weight it does, not an independent
+// guess. Only yaw is modelled (axisWeights' pitch/roll are 5-10x smaller and
+// this is just an estimate for streak *direction/length*, not an exact
+// reprojection), matching the sweep's own "almost pure yaw" design.
+const YAW_AMPLITUDE_RAD =
+  THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg) * CAMERA_CONFIG.sweep.axisWeights[1]
+const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
+const VERTICAL_FOV_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.fov)
+/**
+ * The full per-frame yaw delta is the physically "correct" streak length —
+ * a real continuous exposure would smear *everything* by exactly that much
+ * — but applying that in full reads as an across-the-board blur increase,
+ * not just a grass fix, since the existing multi-frame temporal
+ * accumulation (below) already does most of the work of building up a
+ * trail for larger features. This only needs to be large enough to close
+ * the *gap* a thin blade would otherwise fall entirely into between
+ * discrete accumulated frames, not to re-derive the whole exposure from
+ * scratch, so it's dialled back well under 1.
+ */
+const STREAK_STRENGTH = 0.08
+/** Caps the within-frame streak to a sane fraction of the screen — a guard against a single unusually large virtual-time step (e.g. a slow real frame) producing an absurdly long smear rather than a subtle one. */
+const MAX_STREAK_UV = 0.02
+
+function yawAt(virtualTime: number, movementMultiplier: number): number {
+  return YAW_AMPLITUDE_RAD * movementMultiplier * Math.sin(virtualTime * ANGULAR_FREQUENCY)
+}
 
 /**
  * A cheap, screen-space simulation of an intentional-camera-movement (ICM)
@@ -97,19 +158,28 @@ export class LongExposureBlurPass extends Pass {
   private readonly blendMaterial: THREE.ShaderMaterial
   private readonly copyMaterial: THREE.ShaderMaterial
   private halfLifeSeconds: number
+  private readonly movementMultiplier: number
   private lastVirtualTime = 0
+  /** Tracked from `setSize()` purely to convert the yaw estimate below into a UV displacement — see `render()`. */
+  private aspect = 1
 
-  constructor({ halfLifeSeconds = DEFAULT_HALF_LIFE_SECONDS }: LongExposureBlurPassOptions = {}) {
+  constructor({ halfLifeSeconds = DEFAULT_HALF_LIFE_SECONDS, movementMultiplier = 1 }: LongExposureBlurPassOptions = {}) {
     super('LongExposureBlurPass')
 
     this.halfLifeSeconds = halfLifeSeconds
+    this.movementMultiplier = movementMultiplier
 
     const targetOptions = { type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false }
     this.accumulated = new THREE.WebGLRenderTarget(1, 1, targetOptions)
     this.composited = new THREE.WebGLRenderTarget(1, 1, targetOptions)
 
     this.blendMaterial = new THREE.ShaderMaterial({
-      uniforms: { tOld: { value: null }, tNew: { value: null }, decay: { value: 0 } },
+      uniforms: {
+        tOld: { value: null },
+        tNew: { value: null },
+        decay: { value: 0 },
+        blurStep: { value: new THREE.Vector2() },
+      },
       vertexShader: VERTEX_SHADER,
       fragmentShader: BLEND_FRAGMENT_SHADER,
       depthTest: false,
@@ -128,6 +198,7 @@ export class LongExposureBlurPass extends Pass {
   setSize(width: number, height: number): void {
     this.accumulated.setSize(width, height)
     this.composited.setSize(width, height)
+    this.aspect = height > 0 ? width / height : 1
   }
 
   render(
@@ -137,7 +208,8 @@ export class LongExposureBlurPass extends Pass {
   ): void {
     if (!inputBuffer) return
 
-    const elapsed = virtualClock.time - this.lastVirtualTime
+    const previousVirtualTime = this.lastVirtualTime
+    const elapsed = virtualClock.time - previousVirtualTime
     this.lastVirtualTime = virtualClock.time
 
     if (elapsed === 0) {
@@ -154,12 +226,34 @@ export class LongExposureBlurPass extends Pass {
     // elapsed < 0 means SettleDriver.tsx just started a fresh settle burst
     // from a new virtual time — decay=0 fully replaces the previous
     // settle's leftover history instead of blending into it (see the class
-    // docstring). elapsed > 0 is the normal mid-burst case.
+    // docstring). elapsed > 0 is the normal mid-burst case. Same guard for
+    // the within-frame streak below: `previousVirtualTime` is meaningless
+    // across that discontinuous jump, so there's no valid yaw delta to
+    // estimate — leave the incoming frame unstreaked rather than smearing
+    // it across a jump that was never actually swept through.
     const decay = elapsed > 0 ? THREE.MathUtils.clamp(Math.pow(0.5, elapsed / this.halfLifeSeconds), 0, 1) : 0
+
+    // Estimates how far the camera's own sweep panned *during this one
+    // rendered frame* (not the whole burst) and converts that yaw delta into
+    // a screen-space UV distance, so the blend shader can pre-streak the
+    // incoming frame along it before folding it into the accumulated
+    // history — see BLEND_FRAGMENT_SHADER's docstring for why that's what
+    // keeps thin geometry from diluting into invisibility under the
+    // temporal accumulation below. A small-angle tan()-based mapping from
+    // yaw radians to UV fraction of the horizontal FOV; clamped since a
+    // single unusually large virtual-time step (a slow real frame) shouldn't
+    // produce a runaway streak.
+    let blurStepU = 0
+    if (elapsed > 0) {
+      const deltaYaw = yawAt(virtualClock.time, this.movementMultiplier) - yawAt(previousVirtualTime, this.movementMultiplier)
+      const horizontalFovRad = 2 * Math.atan(Math.tan(VERTICAL_FOV_RAD / 2) * this.aspect)
+      blurStepU = THREE.MathUtils.clamp((deltaYaw * STREAK_STRENGTH) / horizontalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
+    }
 
     this.blendMaterial.uniforms.decay.value = decay
     this.blendMaterial.uniforms.tOld.value = this.accumulated.texture
     this.blendMaterial.uniforms.tNew.value = inputBuffer.texture
+    this.blendMaterial.uniforms.blurStep.value.set(blurStepU, 0)
     this.fullscreenMaterial = this.blendMaterial
     renderer.setRenderTarget(this.composited)
     renderer.render(this.scene, this.camera)
