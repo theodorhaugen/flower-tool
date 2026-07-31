@@ -12,7 +12,7 @@ import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
 export function PostProcessing() {
   return (
     <EffectComposer multisampling={4}>
-      <Bloom intensity={0.35} luminanceThreshold={0.6} luminanceSmoothing={0.2} mipmapBlur />
+      <Bloom intensity={0.4} luminanceThreshold={0.5} luminanceSmoothing={0.3} mipmapBlur />
       <LensOpticsDepthOfField />
       <Vignette eskil={false} offset={0.2} darkness={0.6} />
     </EffectComposer>

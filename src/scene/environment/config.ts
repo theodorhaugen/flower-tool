@@ -55,17 +55,25 @@ export const ENVIRONMENT_CONFIG = {
     colorPalette: ['#5a6a3c', '#707d49', '#48582f', '#818a55'],
   },
 
+  /** Softer and slightly denser than before — overcast haze hanging in the air, not dust. */
   fog: {
-    color: '#cdbfae',
-    density: 0.017,
+    color: '#d8d2c6',
+    density: 0.021,
   },
 
+  /**
+   * skyColor and horizonColor are kept close together on purpose — overcast
+   * skies are famously flat (cloud cover scatters everything into a near-
+   * uniform white-gray), so there's little vertical gradient to speak of,
+   * unlike a clear-sky sunset gradient. horizonColor matches fog.color so
+   * the terrain's far edge blends into it seamlessly.
+   */
   horizon: {
     radius: 130,
-    skyColor: '#e8ddd2',
-    horizonColor: '#cdbfae',
-    groundColor: '#8d7f68',
+    skyColor: '#e9e6dd',
+    horizonColor: '#d8d2c6',
+    groundColor: '#94886f',
     horizonHeight: -1.5,
-    spread: 60,
+    spread: 75,
   },
 }

@@ -19,15 +19,18 @@ export const PETAL_MATERIAL_PROPS: readonly THREE.MeshStandardMaterialParameters
     ...sharedPetalProps,
     roughness: 0.55,
     opacity: 0.78,
+    // Slightly brighter than the diffuse light alone would produce — reads
+    // as light glowing through translucent tissue rather than just
+    // reflecting off it, the way real backlit/sidelit petals do.
     emissive: new THREE.Color('#fbdce6'),
-    emissiveIntensity: 0.08,
+    emissiveIntensity: 0.16,
   },
   {
     ...sharedPetalProps,
     roughness: 0.68,
     opacity: 0.72,
     emissive: new THREE.Color('#e6dcfb'),
-    emissiveIntensity: 0.06,
+    emissiveIntensity: 0.13,
   },
 ]
 

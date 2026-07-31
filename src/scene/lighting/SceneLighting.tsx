@@ -1,14 +1,19 @@
 /**
- * Minimal three-point-style lighting rig. Deliberately soft and low-contrast
- * to suit a defocused, atmospheric look — swap/extend here as the subject
- * matter grows more elaborate, no need to touch the rest of the scene.
+ * Overcast-summer-afternoon lighting: a big soft sky dome is the primary
+ * source rather than a hard directional sun, so form comes from gentle
+ * colour/value gradients instead of crisp shadow edges — cloud cover
+ * scatters light from the whole sky, not one point, so shadows barely read
+ * at all. The two directional lights are kept deliberately weak, there only
+ * to hint at a light direction so petals don't go completely flat, not to
+ * model anything.
  */
 export function SceneLighting() {
   return (
     <>
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[4, 5, 3]} intensity={0.9} color="#fff4e6" />
-      <directionalLight position={[-4, -2, -3]} intensity={0.3} color="#cfe0ff" />
+      <hemisphereLight color="#eef1ec" groundColor="#8a8060" intensity={0.85} />
+      <ambientLight intensity={0.3} />
+      <directionalLight position={[4, 6, 3]} intensity={0.22} color="#fdf6ec" />
+      <directionalLight position={[-3, 3, -4]} intensity={0.12} color="#dbe4e6" />
     </>
   )
 }

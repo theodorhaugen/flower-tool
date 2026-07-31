@@ -27,7 +27,7 @@ src/
       CameraControls.tsx      orbit controls, off-axis target
       HandheldDrift.tsx       subtle per-frame sway layered on top of the controls
     lighting/
-      SceneLighting.tsx     ambient + directional lighting rig
+      SceneLighting.tsx     overcast "sky dome" rig — hemisphere + ambient dominate, directional lights are just a whisper
     effects/
       PostProcessing.tsx              EffectComposer pipeline — bloom, depth of field, vignette
       LensOpticsDepthOfField.tsx       R3F wrapper — constructs the effect below from camera/config.ts
@@ -89,6 +89,24 @@ ground the environment's terrain mesh is built from) plus a stem —
 on proportionally taller stems — rather than an independent random
 altitude, which is what used to make the field look like it was
 floating above the grass instead of growing out of it.
+
+### Lighting (`lighting/SceneLighting.tsx`)
+
+Styled as an overcast summer afternoon, not a sunny establishing shot:
+a `hemisphereLight` (soft sky colour above, muted ground-bounce colour
+below) plus a plain `ambientLight` do most of the work, since cloud
+cover scatters sunlight from the whole sky rather than one direction —
+that's what keeps shading flat and shadows from reading at all. The
+two `directionalLight`s are intentionally weak, there only to hint at
+a light direction so forms don't go completely flat, not to model
+anything. Petals lean into this: their emissive intensity is tuned a
+little brighter than the diffuse light alone would produce, reading as
+light glowing through translucent tissue rather than merely
+reflecting off it — reinforced by `PostProcessing.tsx`'s bloom
+threshold, lowered enough to catch that glow. `environment/config.ts`'s
+fog and horizon colours are kept close to each other for the same
+reason: a real overcast sky is famously flat, without much of a
+vertical gradient.
 
 ### Environment (`environment/`)
 
