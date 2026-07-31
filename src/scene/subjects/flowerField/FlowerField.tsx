@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+import { InstancedGroup } from '../../shared/InstancedGroup'
 import { FLOWER_FIELD_CONFIG } from './config'
 import { generateFlowerField } from './generateFlowerField'
 import { buildCenterGeometry, buildPetalGeometryVariants } from './geometryVariants'
-import { InstancedGroup } from './InstancedGroup'
 import { CENTER_MATERIAL_PROPS, PETAL_MATERIAL_PROPS } from './materials'
 
 interface FlowerFieldProps {

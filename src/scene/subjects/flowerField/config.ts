@@ -1,3 +1,4 @@
+import { MEADOW_DEPTH_FAR, MEADOW_DEPTH_NEAR } from '../../shared/frustum'
 import type { PetalArchetype } from './petalGeometry'
 
 export interface DepthBand {
@@ -20,11 +21,8 @@ export interface DepthBand {
   yJitterScale: number
 }
 
-const DEPTH_NEAR = 0
-const DEPTH_FAR = -70
-
 function zAtDepthFraction(fraction: number): number {
-  return DEPTH_NEAR + fraction * (DEPTH_FAR - DEPTH_NEAR)
+  return MEADOW_DEPTH_NEAR + fraction * (MEADOW_DEPTH_FAR - MEADOW_DEPTH_NEAR)
 }
 
 /** Central tuning knobs — no GUI yet, but every future control should read from here. */
@@ -41,16 +39,12 @@ export const FLOWER_FIELD_CONFIG = {
 
   centerRadiusRange: [0.16, 0.26] as const,
 
-  // Camera sits at [0, 0, 6] looking towards -z; the field spans in front of it.
-  // `depthNear`/`depthFar` are targets, not hard bounds — sampled positions are
-  // clamped against `minCameraDistance` so nothing ends up on top of the lens.
-  depthNear: DEPTH_NEAR,
-  depthFar: DEPTH_FAR,
+  // The field spans the meadow depth (see shared/frustum.ts) in front of the
+  // camera. Sampled positions are clamped against `minCameraDistance` so
+  // nothing ends up on top of the lens.
   minCameraDistance: 5,
   yHalfBase: 1.8,
   yHalfPerDepth: 0.4,
-  widthHalfBase: 1.8,
-  widthHalfPerDepth: 0.55,
 
   /**
    * Foreground/midground/background read: a few large near flowers, a busy
@@ -87,22 +81,6 @@ export const FLOWER_FIELD_CONFIG = {
       yJitterScale: 1.35,
     },
   ] satisfies readonly DepthBand[],
-
-  /** Layered noise that decides where clusters/clearings fall — see meadowDensity.ts. */
-  noise: {
-    clusterFrequency: 0.05,
-    detailFrequency: 0.22,
-    /** >1 sharpens the field into clearer clusters vs. gaps. */
-    densityContrast: 2.2,
-    /** Floor so gaps stay sparse rather than perfectly, artificially empty. */
-    densityFloor: 0.03,
-  },
-
-  /** Meandering low-density corridors carved through the density field. */
-  paths: [
-    { frequency: 0.035, amplitudeFactor: 0.55, baseWidth: 2.2, widthVariance: 0.6, seedOffset: 500, minDensity: 0.08 },
-    { frequency: 0.07, amplitudeFactor: 0.32, baseWidth: 1.3, widthVariance: 0.5, seedOffset: 900, minDensity: 0.14 },
-  ],
 
   /** Rejection-sampling safety valve — see generateFlowerField.ts. */
   maxSampleAttemptsPerFlower: 40,

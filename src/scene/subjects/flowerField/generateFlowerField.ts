@@ -1,9 +1,11 @@
 import * as THREE from 'three'
+import { CAMERA_Z, distanceFromCamera, frustumWidthHalfAt } from '../../shared/frustum'
+import { sampleMeadowDensity } from '../../shared/meadowLayout'
+import { MEADOW_LAYOUT } from '../../shared/meadowLayoutConfig'
+import { createRng, gaussianish, intRange, range } from '../../shared/random'
 import { FLOWER_FIELD_CONFIG, PETAL_ARCHETYPES } from './config'
 import type { DepthBand } from './config'
-import { sampleMeadowDensity } from './meadowDensity'
 import { jitterColor, sampleCenterColor, samplePetalBaseColor } from './palette'
-import { createRng, gaussianish, intRange, range } from './random'
 import type { FlowerFieldData, InstanceDatum, PetalVariantGroup } from './types'
 
 // Flowers default to facing the camera (the field is composed for a
@@ -11,15 +13,6 @@ import type { FlowerFieldData, InstanceDatum, PetalVariantGroup } from './types'
 // relative to this axis so "randomized rotation" still reads as flowers,
 // not an edge-on tumble of disks.
 const FACE_AXIS = new THREE.Vector3(0, 0, 1)
-const CAMERA_Z = 6 // matches MainCamera's default position; only used to bias scatter extent by depth
-
-function distanceFromCamera(z: number): number {
-  return Math.max(0, CAMERA_Z - z)
-}
-
-function widthHalfAt(dist: number): number {
-  return FLOWER_FIELD_CONFIG.widthHalfBase + FLOWER_FIELD_CONFIG.widthHalfPerDepth * dist
-}
 
 function yHalfAt(dist: number): number {
   return FLOWER_FIELD_CONFIG.yHalfBase + FLOWER_FIELD_CONFIG.yHalfPerDepth * dist
@@ -31,7 +24,7 @@ function approximateBandArea(band: DepthBand, samples = 12): number {
   let area = 0
   for (let s = 0; s < samples; s++) {
     const z = band.zMin + stepZ * (s + 0.5)
-    area += widthHalfAt(distanceFromCamera(z)) * 2 * stepZ
+    area += frustumWidthHalfAt(z) * 2 * stepZ
   }
   return Math.abs(area)
 }
@@ -55,17 +48,17 @@ function allocateBandCounts(depthBands: readonly DepthBand[], flowerCount: numbe
  * pick after too many misses so generation always terminates with the
  * requested count, even if a band's slice of the field is mostly clearings.
  */
-function sampleBandPosition(rng: () => number, band: DepthBand, seed: number): THREE.Vector3 {
+function sampleBandPosition(rng: () => number, band: DepthBand): THREE.Vector3 {
   const { minCameraDistance, maxSampleAttemptsPerFlower } = FLOWER_FIELD_CONFIG
   const nearestZ = CAMERA_Z - minCameraDistance
 
   for (let attempt = 0; attempt < maxSampleAttemptsPerFlower; attempt++) {
     const z = Math.min(range(rng, band.zMin, band.zMax), nearestZ)
     const dist = distanceFromCamera(z)
-    const widthHalf = widthHalfAt(dist)
+    const widthHalf = frustumWidthHalfAt(z)
     const x = range(rng, -widthHalf, widthHalf)
 
-    const density = sampleMeadowDensity(x, z, widthHalf, seed)
+    const density = sampleMeadowDensity(x, z, widthHalf, MEADOW_LAYOUT)
     if (rng() < density || attempt === maxSampleAttemptsPerFlower - 1) {
       const yHalf = yHalfAt(dist) * band.yJitterScale
       const y = range(rng, -yHalf, yHalf)
@@ -112,7 +105,7 @@ export function generateFlowerField(seed: number = FLOWER_FIELD_CONFIG.seed): Fl
     const bandCount = bandCounts[bandIndex]
 
     for (let i = 0; i < bandCount; i++) {
-      const flowerPosition = sampleBandPosition(rng, band, seed)
+      const flowerPosition = sampleBandPosition(rng, band)
 
       const flowerScale = range(rng, band.scaleRange[0], band.scaleRange[1])
       const petalCount = intRange(rng, band.petalCountRange[0], band.petalCountRange[1])

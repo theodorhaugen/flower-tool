@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { FLOWER_FIELD_CONFIG, PETAL_ARCHETYPES } from './config'
 import { createPetalGeometry } from './petalGeometry'
-import { createRng } from './random'
+import { createRng } from '../../shared/random'
 
 /**
  * A handful of unique petal geometries per archetype, each with its own

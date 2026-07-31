@@ -12,7 +12,7 @@ export function MainCamera() {
       makeDefault
       fov={35}
       near={0.1}
-      far={100}
+      far={150}
       position={[0, 0, 6]}
     />
   )

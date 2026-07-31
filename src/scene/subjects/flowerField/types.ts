@@ -1,9 +1,6 @@
-import type * as THREE from 'three'
+import type { InstanceDatum } from '../../shared/instancing'
 
-export interface InstanceDatum {
-  matrix: THREE.Matrix4
-  color: THREE.Color
-}
+export type { InstanceDatum }
 
 export interface PetalVariantGroup {
   archetypeIndex: number

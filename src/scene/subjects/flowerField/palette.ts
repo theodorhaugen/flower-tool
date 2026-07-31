@@ -1,6 +1,7 @@
 import * as THREE from 'three'
-import type { Rng } from './random'
-import { range } from './random'
+import type { Rng } from '../../shared/random'
+import { range } from '../../shared/random'
+import { jitterColor } from '../../shared/colorJitter'
 
 interface HslColor {
   h: number
@@ -53,13 +54,4 @@ export function sampleCenterColor(rng: Rng): THREE.Color {
   return sampleFromPalette(rng, CENTER_PALETTE, { h: 0.02, s: 0.1, l: 0.08 })
 }
 
-/** Small per-petal nudge away from the flower's base color so no two petals match exactly. */
-export function jitterColor(rng: Rng, base: THREE.Color, amount: number): THREE.Color {
-  const hsl = { h: 0, s: 0, l: 0 }
-  base.getHSL(hsl)
-  return new THREE.Color().setHSL(
-    wrap01(hsl.h + range(rng, -amount, amount)),
-    THREE.MathUtils.clamp(hsl.s + range(rng, -amount * 0.6, amount * 0.6), 0, 1),
-    THREE.MathUtils.clamp(hsl.l + range(rng, -amount * 0.8, amount * 0.8), 0, 1),
-  )
-}
+export { jitterColor }

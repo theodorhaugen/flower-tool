@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import * as THREE from 'three'
-import type { InstanceDatum } from './types'
+import type { InstanceDatum } from './instancing'
 
 interface InstancedGroupProps {
   geometry: THREE.BufferGeometry
@@ -8,7 +8,7 @@ interface InstancedGroupProps {
   instances: InstanceDatum[]
 }
 
-/** Populates an InstancedMesh's transforms/colors imperatively — the instance count is fixed per field generation, so this only needs to run once per dataset. */
+/** Populates an InstancedMesh's transforms/colors imperatively — the instance count is fixed per dataset, so this only needs to run once. */
 export function InstancedGroup({ geometry, material, instances }: InstancedGroupProps) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
 
