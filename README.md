@@ -29,7 +29,9 @@ src/
     lighting/
       SceneLighting.tsx     ambient + directional lighting rig
     effects/
-      PostProcessing.tsx    EffectComposer pipeline — bloom, depth of field, vignette
+      PostProcessing.tsx              EffectComposer pipeline — bloom, depth of field, vignette
+      LensOpticsDepthOfField.tsx       R3F wrapper — constructs the effect below from camera/config.ts
+      LensOpticsDepthOfFieldEffect.ts   the thin-lens circle-of-confusion Effect itself
     shared/                 procedural primitives used by more than one system
       random.ts               seeded PRNG — same seed always reproduces the same output
       noise.ts                 layered value noise (fbm) + a 1D slice for path curves
@@ -134,11 +136,17 @@ The camera is styled as a macro lens, not a generic 3D viewport:
 
 - **Long focal length** — a narrow FOV (`camera/config.ts`) reads as
   telephoto/macro compression rather than a wide establishing shot.
-- **Shallow depth of field** — `PostProcessing.tsx`'s `DepthOfField`
-  keeps only a thin world-space slice in focus (`dof.focusDistance`/
-  `dof.focusRange`), melting everything else into bokeh; bloom is
-  listed before it in the effect chain so its highlights blur into
-  soft bokeh discs instead of staying crisp on top of the blur.
+- **Physically-inspired depth of field** — the dominant visual
+  characteristic, not a finishing touch. `LensOpticsDepthOfFieldEffect.ts`
+  computes the blur radius per pixel from the actual thin-lens
+  circle-of-confusion equation (object depth, focal length, focus
+  distance, and f-stop/aperture — the same formula a real lens obeys),
+  not a hand-tuned near/far falloff. All three lens parameters
+  (`focusDistance`, `focalLength`, `fStop`) are configurable in
+  `camera/config.ts`; `metersPerWorldUnit` bridges our otherwise-arbitrary
+  world units to the real meters/mm the equation needs. Bloom is listed
+  before it in the effect chain so its highlights blur into soft bokeh
+  discs instead of staying crisp on top of the blur.
 - **A ~45° downward angle** — the camera is elevated and angled down
   at the meadow floor (`camera/config.ts`'s `position`/`target`) so
   flowers read as growing out of the ground it's looking at, rather
