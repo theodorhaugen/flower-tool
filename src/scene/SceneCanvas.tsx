@@ -19,7 +19,7 @@ export function SceneCanvas({ children }: SceneCanvasProps) {
       gl={{
         antialias: true,
         toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.1,
+        toneMappingExposure: 1.0,
       }}
       style={{ position: 'absolute', inset: 0 }}
     >

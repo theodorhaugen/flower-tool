@@ -6,9 +6,9 @@
 export function SceneLighting() {
   return (
     <>
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[4, 5, 3]} intensity={1.2} color="#fff4e6" />
-      <directionalLight position={[-4, -2, -3]} intensity={0.4} color="#cfe0ff" />
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[4, 5, 3]} intensity={0.9} color="#fff4e6" />
+      <directionalLight position={[-4, -2, -3]} intensity={0.3} color="#cfe0ff" />
     </>
   )
 }

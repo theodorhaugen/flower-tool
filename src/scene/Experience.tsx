@@ -2,7 +2,7 @@ import { CameraControls } from './camera/CameraControls'
 import { MainCamera } from './camera/MainCamera'
 import { PostProcessing } from './effects/PostProcessing'
 import { SceneLighting } from './lighting/SceneLighting'
-import { PlaceholderSubject } from './subjects/PlaceholderSubject'
+import { FlowerField } from './subjects/flowerField/FlowerField'
 
 /**
  * Composition root for the scene graph. Keeps camera/controls/lighting/
@@ -15,7 +15,7 @@ export function Experience() {
       <MainCamera />
       <CameraControls />
       <SceneLighting />
-      <PlaceholderSubject />
+      <FlowerField />
       <PostProcessing />
     </>
   )
