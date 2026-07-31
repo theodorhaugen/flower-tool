@@ -1,6 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGenerative } from '../shared/generativeContext'
+import { virtualClock } from '../shared/virtualClock'
 import { CAMERA_CONFIG } from './config'
 
 const BASE_ROTATION_AMPLITUDE = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg)
@@ -24,13 +25,17 @@ const [PITCH_WEIGHT, YAW_WEIGHT, ROLL_WEIGHT] = CAMERA_CONFIG.sweep.axisWeights
  *
  * `cameraMovementMultiplier` (Leva's Camera > Movement) scales this
  * together with HandheldDrift's amplitude — see that component's docstring.
+ *
+ * Reads `virtualClock.time` (shared/virtualClock.ts), not real wall-clock
+ * time — see that module's docstring for why: this is what lets the whole
+ * scene settle into a reproducible still instead of sweeping forever.
  */
 export function CameraSweep() {
-  const { camera, clock } = useThree()
+  const { camera } = useThree()
   const { cameraMovementMultiplier } = useGenerative()
 
   useFrame(() => {
-    const phase = clock.elapsedTime * ANGULAR_FREQUENCY
+    const phase = virtualClock.time * ANGULAR_FREQUENCY
     const rotationAmplitude = BASE_ROTATION_AMPLITUDE * cameraMovementMultiplier
 
     // Per-axis phase offsets keep the sweep from looking like a perfectly

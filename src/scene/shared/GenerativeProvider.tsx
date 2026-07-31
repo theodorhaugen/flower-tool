@@ -6,6 +6,7 @@ import { deriveGenerativeState, randomSeed, SEED_MAX } from './generative'
 import type { GenerativeState } from './generative'
 import { GenerativeContext } from './generativeContext'
 import { PALETTES, shiftPaletteHue } from './palette'
+import { requestReroll } from './virtualClock'
 
 interface GenerativeProviderProps {
   children: ReactNode
@@ -77,6 +78,11 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     seed: { value: initialSeed, min: 0, max: SEED_MAX, step: 1, label: 'Seed' },
   }))
   useControls('Scene', () => ({ 'New Random Scene': button(() => setScene({ seed: randomSeed() })) }), [setScene])
+  // The scene settles into one reproducible still per seed+parameter-set
+  // (shared/SettleDriver.tsx) rather than animating forever — this is the
+  // deliberate way to see a *different* settled moment (streak/wind phase)
+  // without touching the seed or any other parameter.
+  useControls('Scene', () => ({ 'Reroll Still': button(() => requestReroll()) }))
 
   const base = useMemo(
     () => deriveGenerativeState(seed, { forcePaletteName: paletteParam ?? forcePaletteName }),

@@ -2,6 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGenerative } from '../shared/generativeContext'
 import { noise1D } from '../shared/noise'
+import { virtualClock } from '../shared/virtualClock'
 import { CAMERA_CONFIG } from './config'
 
 const BASE_ROTATION_AMPLITUDE = THREE.MathUtils.degToRad(CAMERA_CONFIG.drift.rotationAmplitudeDeg)
@@ -27,13 +28,16 @@ function driftAxis(t: number, seed: number, slowFreq: number, fastFreq: number):
  * shared/GenerativeProvider.tsx) scales this together with CameraSweep's
  * amplitude, so a designer has one "how much does the shot move" dial
  * rather than two separately-named amplitude sliders.
+ *
+ * Reads `virtualClock.time` (shared/virtualClock.ts), not real wall-clock
+ * time — see CameraSweep.tsx's docstring for why.
  */
 export function HandheldDrift() {
-  const { camera, clock } = useThree()
+  const { camera } = useThree()
   const { cameraMovementMultiplier } = useGenerative()
 
   useFrame(() => {
-    const t = clock.elapsedTime
+    const t = virtualClock.time
     const positionAmplitude = BASE_POSITION_AMPLITUDE * cameraMovementMultiplier
     const rotationAmplitude = BASE_ROTATION_AMPLITUDE * cameraMovementMultiplier
 

@@ -1,6 +1,7 @@
 import { BlendFunction, Effect, EffectAttribute } from 'postprocessing'
 import { Color, Uniform } from 'three'
 import type { WebGLRenderTarget, WebGLRenderer } from 'three'
+import { virtualClock } from '../shared/virtualClock'
 
 /**
  * Screen-space aerial perspective: a slow-drifting, large-scale ("low
@@ -138,8 +139,15 @@ export class AtmosphericHazeEffect extends Effect {
     })
   }
 
-  update(_renderer: WebGLRenderer, _inputBuffer: WebGLRenderTarget, deltaTime = 0): void {
+  /**
+   * Reads `virtualClock.time` directly rather than accumulating the
+   * composer-supplied `deltaTime` — this is what makes the haze drift
+   * settle into a still along with the camera/wind (see
+   * camera/CameraSweep.tsx's docstring) instead of continuing to drift on
+   * every render-on-demand tick an orbit drag triggers.
+   */
+  update(_renderer: WebGLRenderer, _inputBuffer: WebGLRenderTarget): void {
     const time = this.uniforms.get('time')
-    if (time) time.value += deltaTime
+    if (time) time.value = virtualClock.time
   }
 }

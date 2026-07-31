@@ -41,7 +41,10 @@ export function generateGrass(
       widthScale,
       widthSegments: 1,
       heightSegments: 3,
-      jitterAmount: 0.7,
+      // Lower than the 0.7 used elsewhere — on a blade this skinny (see
+      // config.ts's widthScale) that much per-vertex jitter reads as a
+      // choppy, faceted edge rather than a clean taper.
+      jitterAmount: 0.4,
     }),
     instances: [],
   }))

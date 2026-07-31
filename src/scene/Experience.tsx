@@ -7,6 +7,7 @@ import { ExportControls } from './effects/ExportControls'
 import { PostProcessing } from './effects/PostProcessing'
 import { SceneLighting } from './lighting/SceneLighting'
 import { GenerativeProvider } from './shared/GenerativeProvider'
+import { SettleDriver } from './shared/SettleDriver'
 import { FlowerField } from './subjects/flowerField/FlowerField'
 
 /**
@@ -27,6 +28,12 @@ import { FlowerField } from './subjects/flowerField/FlowerField'
  * per-frame nudges layer on top of, rather than fight, the orbit controls'
  * own per-frame update — see HandheldDrift's docstring for why ordering
  * matters here.
+ *
+ * SettleDriver settles the whole scene (camera sweep/drift, wind, haze
+ * drift, film grain, the long-exposure blur trail) into one reproducible
+ * still per seed/parameter-set instead of animating forever — see its
+ * docstring. It needs `useGenerative()`, so it has to sit inside
+ * `GenerativeProvider` like everything else here.
  */
 export function Experience() {
   return (
@@ -35,6 +42,7 @@ export function Experience() {
       <CameraControls />
       <HandheldDrift />
       <CameraSweep />
+      <SettleDriver />
       <SceneLighting />
       <Environment />
       <FlowerField />

@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { GenerativeWind } from './generative'
+import { virtualClock } from './virtualClock'
 
 interface WindShaderRef {
   uniforms: { uWindTime: { value: number } }
@@ -73,12 +74,17 @@ export function applyWindDisplacement(
   material.needsUpdate = true
 }
 
-/** Advances every wind-displaced material's animation together — call once per frame with real elapsed time. */
+/**
+ * Advances every wind-displaced material's animation together — reads
+ * `virtualClock.time` (not real wall-clock time) so grass/vegetation sway
+ * settles into a still frame along with the camera, see
+ * camera/CameraSweep.tsx's docstring.
+ */
 export function useWindAnimation(materials: readonly THREE.Material[]): void {
-  useFrame(({ clock }) => {
+  useFrame(() => {
     for (const material of materials) {
       const shader = material.userData.windShader as WindShaderRef | undefined
-      if (shader) shader.uniforms.uWindTime.value = clock.elapsedTime
+      if (shader) shader.uniforms.uWindTime.value = virtualClock.time
     }
   })
 }

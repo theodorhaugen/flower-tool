@@ -1,5 +1,6 @@
 import { Pass } from 'postprocessing'
 import * as THREE from 'three'
+import { virtualClock } from '../shared/virtualClock'
 
 const VERTEX_SHADER = `
   varying vec2 vUv;
@@ -60,16 +61,18 @@ export interface FilmGrainPassOptions {
  * film — a `grainSize` texel-quantisation step — while keeping the same
  * premultiply-by-colour fade the previous effect had.
  *
- * A `Pass`, not an `Effect`, purely so `time` can accumulate real elapsed
- * seconds via the composer-supplied `deltaTime` the same way
- * AtmosphericHazeEffect/LongExposureBlurPass do — the postprocessing
- * `Effect` model would need the same custom-uniform-update wiring anyway,
- * and this keeps the pattern consistent with this project's other
- * hand-rolled full-screen passes.
+ * A `Pass`, not an `Effect`, purely so this can read a custom uniform
+ * (`time`) each render the same way AtmosphericHazeEffect/
+ * LongExposureBlurPass do — the postprocessing `Effect` model would need
+ * the same custom-uniform-update wiring anyway, and this keeps the
+ * pattern consistent with this project's other hand-rolled full-screen
+ * passes. Reads `virtualClock.time` directly (shared/virtualClock.ts)
+ * rather than accumulating real elapsed time, so the grain pattern
+ * settles into a still along with everything else instead of continuing
+ * to flicker on every render-on-demand tick an orbit drag triggers.
  */
 export class FilmGrainPass extends Pass {
   private readonly material: THREE.ShaderMaterial
-  private time = 0
 
   constructor({ opacity = 0.16, grainSize = 1.6 }: FilmGrainPassOptions = {}) {
     super('FilmGrainPass')
@@ -99,12 +102,10 @@ export class FilmGrainPass extends Pass {
     renderer: THREE.WebGLRenderer,
     inputBuffer: THREE.WebGLRenderTarget | null,
     outputBuffer: THREE.WebGLRenderTarget | null,
-    deltaTime?: number,
   ): void {
     if (!inputBuffer) return
 
-    this.time += deltaTime ?? 1 / 60
-    this.material.uniforms.time.value = this.time
+    this.material.uniforms.time.value = virtualClock.time
     this.material.uniforms.tDiffuse.value = inputBuffer.texture
     renderer.setRenderTarget(this.renderToScreen ? null : outputBuffer)
     renderer.render(this.scene, this.camera)

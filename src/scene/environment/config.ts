@@ -34,7 +34,14 @@ export const ENVIRONMENT_CONFIG = {
   grass: {
     count: 42000,
     variantCount: 5,
-    widthScale: 0.4,
+    /**
+     * Real grass blades run roughly 0.03-0.06 width:height — this was 0.4,
+     * closer to a leaf/petal than a blade, which combined with the coarse
+     * 1-segment-wide taper (see generateGrass.ts) read as chunky, faceted
+     * polygons once the brighter/higher-contrast post pass (PostProcessing.tsx)
+     * stopped blurring that texture into mush.
+     */
+    widthScale: 0.12,
     heightRange: [0.35, 0.8] as const,
     /** Grass only where blades would actually resolve before blur takes over — near/mid ground only. */
     zNear: 9,
