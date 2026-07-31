@@ -1,20 +1,50 @@
-import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing'
+import { Bloom, ChromaticAberration, EffectComposer, Noise, Vignette } from '@react-three/postprocessing'
+import { BlendFunction } from 'postprocessing'
+import { Vector2 } from 'three'
+import { POST_PROCESSING_CONFIG } from './config'
+import { LensDistortion } from './LensDistortion'
 import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
 
 /**
- * Post-processing pipeline. Depth of field is the dominant visual
- * characteristic here, not a subtle finishing touch — everything outside a
- * thin, physically-derived focus slice melts into bokeh (see
- * LensOpticsDepthOfField.tsx). Bloom is listed first so its highlights get
- * blurred into soft bokeh discs by the DoF pass rather than staying crisp on
- * top of it.
+ * Post-processing pipeline, styled after analogue photography rather than a
+ * digital/social filter — every effect here is something a real lens or a
+ * real strip of film would do, kept subtle enough to be felt rather than
+ * noticed on its own:
+ *
+ * - Bloom: highlights glowing into their surroundings, listed first so
+ *   depth of field blurs those highlights into soft bokeh discs rather than
+ *   leaving them crisp on top of the blur.
+ * - LensOpticsDepthOfField: the dominant characteristic — a thin,
+ *   physically-derived focus slice, everything else melting into bokeh.
+ * - ChromaticAberration: radially modulated, so the colour fringing only
+ *   shows up towards the edges the way a real lens's does, not as a
+ *   full-frame colour shift.
+ * - LensDistortion: a slight barrel bow, not a fisheye.
+ * - Vignette: gentle edge falloff.
+ * - Noise: film grain last, on top of the fully-formed image — the
+ *   emulsion layer, not a digital overlay — and premultiplied so it fades
+ *   in shadows rather than sitting uniformly over everything.
  */
 export function PostProcessing() {
+  const { bloom, chromaticAberration, grain, vignette } = POST_PROCESSING_CONFIG
+
   return (
     <EffectComposer multisampling={4}>
-      <Bloom intensity={0.4} luminanceThreshold={0.5} luminanceSmoothing={0.3} mipmapBlur />
+      <Bloom
+        intensity={bloom.intensity}
+        luminanceThreshold={bloom.luminanceThreshold}
+        luminanceSmoothing={bloom.luminanceSmoothing}
+        mipmapBlur
+      />
       <LensOpticsDepthOfField />
-      <Vignette eskil={false} offset={0.2} darkness={0.6} />
+      <ChromaticAberration
+        offset={new Vector2(...chromaticAberration.offset)}
+        radialModulation={chromaticAberration.radialModulation}
+        modulationOffset={chromaticAberration.modulationOffset}
+      />
+      <LensDistortion />
+      <Vignette eskil={false} offset={vignette.offset} darkness={vignette.darkness} />
+      <Noise premultiply blendFunction={BlendFunction.OVERLAY} opacity={grain.opacity} />
     </EffectComposer>
   )
 }

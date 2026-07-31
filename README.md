@@ -29,9 +29,11 @@ src/
     lighting/
       SceneLighting.tsx     overcast "sky dome" rig — hemisphere + ambient dominate, directional lights are just a whisper
     effects/
-      PostProcessing.tsx              EffectComposer pipeline — bloom, depth of field, vignette
+      config.ts                        every post-processing tuning knob
+      PostProcessing.tsx               EffectComposer pipeline — bloom, DoF, chromatic aberration, lens distortion, vignette, grain
       LensOpticsDepthOfField.tsx       R3F wrapper — constructs the effect below from camera/config.ts
       LensOpticsDepthOfFieldEffect.ts   the thin-lens circle-of-confusion Effect itself
+      LensDistortion.tsx               R3F wrapper for postprocessing's (unwrapped) LensDistortionEffect
     shared/                 procedural primitives used by more than one system
       random.ts               seeded PRNG — same seed always reproduces the same output
       noise.ts                 layered value noise (fbm) + a 1D slice for path curves
@@ -216,6 +218,33 @@ The camera is styled as a macro lens, not a generic 3D viewport:
   offset from elapsed time every frame rather than accumulated, so it
   can't run away, and it's mounted after `CameraControls` so its sway
   layers on top of, rather than fights, the controls' own update.
+
+### Post-processing (`effects/`)
+
+Styled after analogue photography, not a digital/social filter — every
+effect is something a real lens or a real strip of film would do, all
+tuned in `effects/config.ts` to be felt rather than noticed on its
+own. Pipeline order (`PostProcessing.tsx`) matters: Bloom first so
+depth of field blurs its highlights into soft bokeh discs, then the
+lens-level effects (chromatic aberration, lens distortion), then
+Vignette, with film grain last — the emulsion layer sitting on top of
+the fully-formed image, not a digital overlay.
+
+- **Chromatic aberration** uses `radialModulation` so the fringing
+  only shows up towards the edges the way a real lens's does, not as
+  a full-frame colour shift.
+- **Lens distortion** (`LensDistortionEffect`, not wrapped by
+  `@react-three/postprocessing` so it's constructed directly in
+  `LensDistortion.tsx`, same pattern as the depth-of-field effect) is
+  a slight barrel bow — enough to feel like a real lens, not a fisheye.
+- **Grain** (`Noise`, `premultiply`d) fades in shadows the way real
+  emulsion grain does rather than sitting at uniform strength over the
+  whole frame.
+
+Both distortion and aberration were initially tuned an order of
+magnitude too strong — worth checking any new effect here at an
+exaggerated value first to confirm it's actually wired up, then
+dialing back, rather than guessing "subtle" blind.
 
 No GUI/controls panel, and no fixed-aspect-ratio cropping, yet by
 design — this is expected to end up behind a canvas-based editor later.
