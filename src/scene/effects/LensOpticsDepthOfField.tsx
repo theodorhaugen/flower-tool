@@ -16,15 +16,17 @@ import { LensOpticsDepthOfFieldEffect } from './LensOpticsDepthOfFieldEffect'
  *
  * `focus` is in meters and `focalLength` in mm — real physical units the
  * lens equation needs — so the world-space focus distance is converted via
- * `metersPerWorldUnit`. That world-space distance comes from the active
- * render's generative state (a jitter around `CAMERA_CONFIG.dof.focusDistance`
- * — see shared/generative.ts) rather than the static config value, so every
- * seed pulls focus to a different depth in the field. See camera/config.ts
- * for the other configurable lens parameters (aperture/fStop, focal length).
+ * `metersPerWorldUnit`. `focusDistance`/`maxBlur`/`fStop` all come from the
+ * active render's generative state (Leva's Lens fold overrides them, see
+ * shared/GenerativeProvider.tsx) rather than the static config values
+ * directly, so every seed — and every designer tweak — can pull focus to a
+ * different depth/blur/aperture. `focalLength`/`rings`/`samples` stay
+ * fixed config: focal length barely changes the "macro" read at these
+ * apertures, and rings/samples are pure sampling quality, not creative.
  */
 export function LensOpticsDepthOfField() {
-  const { metersPerWorldUnit, focalLength, fStop, maxBlur, rings, samples } = CAMERA_CONFIG.dof
-  const { focusDistance } = useGenerative()
+  const { metersPerWorldUnit, focalLength, rings, samples } = CAMERA_CONFIG.dof
+  const { focusDistance, maxBlur, fStop } = useGenerative()
 
   const effect = useMemo(
     () =>

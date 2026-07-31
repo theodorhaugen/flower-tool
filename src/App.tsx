@@ -1,11 +1,15 @@
+import { Leva } from 'leva'
 import { Experience } from './scene/Experience'
 import { SceneCanvas } from './scene/SceneCanvas'
 
 function App() {
   return (
-    <SceneCanvas>
-      <Experience />
-    </SceneCanvas>
+    <>
+      <Leva titleBar={{ title: 'Flower Field' }} collapsed />
+      <SceneCanvas>
+        <Experience />
+      </SceneCanvas>
+    </>
   )
 }
 

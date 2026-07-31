@@ -1,3 +1,5 @@
+import * as THREE from 'three'
+
 /**
  * A named, cohesive colour family for one whole render — the single source
  * every colourful thing in the scene (flowers, grass/vegetation, sky/haze,
@@ -97,4 +99,33 @@ export const PALETTES: readonly ColorPalette[] = [
 /** Exact-name lookup, used by shared/generative.ts to let a `?palette=` override win over the seed-picked one. */
 export function findPaletteByName(name: string): ColorPalette | undefined {
   return PALETTES.find((p) => p.name === name)
+}
+
+/**
+ * Rotates every colour in a palette by the same hue amount and returns a
+ * new palette — used by the Leva panel's Colour > Hue Shift control
+ * (shared/GenerativeProvider.tsx) so a designer can nudge a whole render's
+ * mood along the colour wheel without breaking the palette's internal
+ * relationships (highlight/shadow/bloomTint/hazeTint all shift together,
+ * same as dominantHues, so they stay as cohesive as the original).
+ */
+export function shiftPaletteHue(palette: ColorPalette, degrees: number): ColorPalette {
+  if (degrees === 0) return palette
+
+  const shiftHex = (hex: string): string => {
+    const color = new THREE.Color(hex)
+    const hsl = { h: 0, s: 0, l: 0 }
+    color.getHSL(hsl)
+    const h = ((hsl.h + degrees / 360) % 1 + 1) % 1
+    return `#${color.setHSL(h, hsl.s, hsl.l).getHexString()}`
+  }
+
+  return {
+    ...palette,
+    dominantHues: palette.dominantHues.map(shiftHex),
+    highlight: shiftHex(palette.highlight),
+    shadow: shiftHex(palette.shadow),
+    bloomTint: shiftHex(palette.bloomTint),
+    hazeTint: shiftHex(palette.hazeTint),
+  }
 }

@@ -68,22 +68,34 @@ function sampleBandPosition(rng: () => number, band: DepthBand, meadowLayout: Me
   return new THREE.Vector3(0, 0, band.zMax)
 }
 
+export interface FlowerFieldOptions {
+  /** Leva's Flowers > Density — multiplies FLOWER_FIELD_CONFIG.flowerCount. 1 = as tuned. */
+  densityMultiplier?: number
+  /** Leva's Flowers > Scale — multiplies every band's flower-scale range. 1 = as tuned. */
+  scaleMultiplier?: number
+  /** Leva's Flowers > Poppy Accent — see palette.ts's samplePetalBaseColor. */
+  poppyAccentProbability?: number
+}
+
 /**
  * Generates a full flower field as instance-ready transforms/colors, grouped
  * by petal geometry variant so each group can back its own InstancedMesh.
- * Pure function of its inputs — same seed/palette/meadowLayout/terrainShape
- * always reproduce the same field. All four come from the active render's
- * generative seed (see shared/generative.ts).
+ * Pure function of its inputs — same seed/palette/meadowLayout/terrainShape/
+ * options always reproduce the same field. seed/palette/meadowLayout/
+ * terrainShape come from the active render's generative seed; `options`
+ * from the same state's Leva-controlled creative overrides (see
+ * shared/generative.ts).
  */
 export function generateFlowerField(
   seed: number,
   palette: ColorPalette,
   meadowLayout: MeadowLayoutConfig,
   terrainShape: TerrainShapeConfig,
+  { densityMultiplier = 1, scaleMultiplier = 1, poppyAccentProbability = 0.15 }: FlowerFieldOptions = {},
 ): FlowerFieldData {
   const rng = createRng(seed)
   const {
-    flowerCount,
+    flowerCount: baseFlowerCount,
     depthBands,
     variantsPerArchetype,
     petalScaleJitterRange,
@@ -93,6 +105,7 @@ export function generateFlowerField(
     maxFlowerTilt,
     centerRadiusRange,
   } = FLOWER_FIELD_CONFIG
+  const flowerCount = Math.round(baseFlowerCount * densityMultiplier)
 
   const petalGroups: PetalVariantGroup[] = []
   for (let archetypeIndex = 0; archetypeIndex < PETAL_ARCHETYPES.length; archetypeIndex++) {
@@ -112,13 +125,13 @@ export function generateFlowerField(
     for (let i = 0; i < bandCount; i++) {
       const flowerPosition = sampleBandPosition(rng, band, meadowLayout)
 
-      const flowerScale = range(rng, band.scaleRange[0], band.scaleRange[1])
+      const flowerScale = range(rng, band.scaleRange[0], band.scaleRange[1]) * scaleMultiplier
       const stemHeight = flowerScale * range(rng, band.stemHeightFactorRange[0], band.stemHeightFactorRange[1])
       flowerPosition.y = sampleTerrainHeight(flowerPosition.x, flowerPosition.z, terrainShape) + stemHeight
 
       const petalCount = intRange(rng, band.petalCountRange[0], band.petalCountRange[1])
       const cupAngle = range(rng, cupAngleRange[0], cupAngleRange[1])
-      const baseColor = samplePetalBaseColor(rng, palette)
+      const baseColor = samplePetalBaseColor(rng, palette, poppyAccentProbability)
       const archetypeIndex = rng() < 0.5 ? 0 : 1
 
       // A small cone around FACE_AXIS, not a full random tumble — most

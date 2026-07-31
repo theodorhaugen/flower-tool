@@ -17,6 +17,13 @@ import { createRng, range } from './random'
  * so they never collide with the small internal offsets (+300, +1000,
  * +2000, etc.) individual generators already add on top — the same
  * decorrelation trick those generators use, just one level up.
+ *
+ * The fields below marked "creative control default" aren't derived from
+ * the seed at all — they're neutral defaults (1 = unchanged from the
+ * tuned baseline, 0 = no shift) that `shared/GenerativeProvider.tsx`'s
+ * Leva panel overrides live. They live on this same state/type so every
+ * consumer keeps reading one `useGenerative()`/`usePalette()` regardless
+ * of whether a given value came from the seed or a designer's slider.
  */
 const SEED_OFFSETS = {
   flowerField: 0,
@@ -61,6 +68,34 @@ export interface GenerativeState {
   focusDistance: number
   bloomIntensity: number
   wind: GenerativeWind
+
+  // --- Creative-control defaults (see class docstring) ---
+  /** Camera fold "Movement" — scales HandheldDrift + CameraSweep amplitude together. 1 = as tuned. */
+  cameraMovementMultiplier: number
+  /** Lighting fold "Overcast" — scales the hemisphere/ambient sky light together. 1 = as tuned. */
+  lightingOvercast: number
+  /** Lighting fold "Warmth" — scales how much `highlight`/`shadow` tint the lights. 1 = as tuned. */
+  lightingWarmth: number
+  /** Lighting fold "Shadow Depth" — scales the two directional lights' intensity (more = more defined shadow hint). 1 = as tuned. */
+  lightingShadowDepth: number
+  /** Flowers fold "Density" — multiplies flowerCount. 1 = as tuned. */
+  flowerDensity: number
+  /** Flowers fold "Scale" — multiplies every band's flower-scale range. 1 = as tuned. */
+  flowerScale: number
+  /** Flowers fold "Poppy Accent" — probability a flower uses the fixed hue-27 orange instead of the palette's own dominantHues. */
+  poppyAccentProbability: number
+  /** Colour fold "Hue Shift" — degrees every palette colour is rotated by before use. 0 = as picked. */
+  hueShiftDeg: number
+  /** Atmosphere fold "Haze" — scales AtmosphericHazeEffect's haze + volumetric strength together. 1 = as tuned. */
+  hazeAmount: number
+  /** Atmosphere fold "Softness" — scales BilateralSoftEffect's blur radius. 1 = as tuned. */
+  softness: number
+  /** Atmosphere fold "Fog" — multiplies the scene's FogExp2 density. 1 = as tuned. */
+  fogDensityMultiplier: number
+  /** Lens fold "Blur Amount" — overrides CAMERA_CONFIG.dof.maxBlur. */
+  maxBlur: number
+  /** Lens fold "Aperture" — overrides CAMERA_CONFIG.dof.fStop (lower = shallower). */
+  fStop: number
 }
 
 export interface DeriveGenerativeStateOptions {
@@ -71,7 +106,9 @@ export interface DeriveGenerativeStateOptions {
 /**
  * Derives the render's entire generative state from one integer seed. Pure
  * function — same `seed` (and `forcePaletteName`) always produce the exact
- * same state.
+ * same state. The creative-control fields are set to neutral defaults here
+ * (see the class docstring) — GenerativeProvider.tsx's Leva panel is what
+ * actually overrides them.
  */
 export function deriveGenerativeState(seed: number, { forcePaletteName }: DeriveGenerativeStateOptions = {}): GenerativeState {
   const paletteRng = createRng(seed + SEED_OFFSETS.palette)
@@ -123,10 +160,32 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     focusDistance,
     bloomIntensity,
     wind,
+
+    cameraMovementMultiplier: 1,
+    lightingOvercast: 1,
+    lightingWarmth: 1,
+    lightingShadowDepth: 1,
+    flowerDensity: 1,
+    flowerScale: 1,
+    poppyAccentProbability: 0.15,
+    hueShiftDeg: 0,
+    hazeAmount: 1,
+    softness: 1,
+    fogDensityMultiplier: 1,
+    maxBlur: CAMERA_CONFIG.dof.maxBlur,
+    fStop: CAMERA_CONFIG.dof.fStop,
   }
 }
 
-/** A fresh random 32-bit seed, for when no `?seed=` override is present. */
+/**
+ * Upper bound for a seed — shared with GenerativeProvider.tsx's Scene fold
+ * slider (`max`) so `randomSeed()` never produces a value the slider would
+ * silently clamp down to its max, which would make every "New Random
+ * Scene"/fresh-load seed collapse to the same clamped number.
+ */
+export const SEED_MAX = 999_999
+
+/** A fresh random seed within `SEED_MAX`, for when no `?seed=` override is present. */
 export function randomSeed(): number {
-  return Math.floor(Math.random() * 2 ** 31)
+  return Math.floor(Math.random() * (SEED_MAX + 1))
 }

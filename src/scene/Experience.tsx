@@ -3,6 +3,7 @@ import { CameraSweep } from './camera/CameraSweep'
 import { HandheldDrift } from './camera/HandheldDrift'
 import { MainCamera } from './camera/MainCamera'
 import { Environment } from './environment/Environment'
+import { ExportControls } from './effects/ExportControls'
 import { PostProcessing } from './effects/PostProcessing'
 import { SceneLighting } from './lighting/SceneLighting'
 import { GenerativeProvider } from './shared/GenerativeProvider'
@@ -38,6 +39,7 @@ export function Experience() {
       <Environment />
       <FlowerField />
       <PostProcessing />
+      <ExportControls />
     </GenerativeProvider>
   )
 }

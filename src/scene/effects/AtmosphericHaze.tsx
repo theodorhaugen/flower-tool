@@ -1,15 +1,17 @@
 import { useEffect, useMemo } from 'react'
-import { usePalette } from '../shared/generativeContext'
+import { useGenerative } from '../shared/generativeContext'
 import { POST_PROCESSING_CONFIG } from './config'
 import { AtmosphericHazeEffect } from './AtmosphericHazeEffect'
 
 /**
  * R3F wrapper — constructs AtmosphericHazeEffect from the active palette
  * (colour) and effects/config.ts's `atmosphere` block (structural tuning),
- * same pattern as LensOpticsDepthOfField.tsx.
+ * same pattern as LensOpticsDepthOfField.tsx. `hazeAmount` (Leva's
+ * Atmosphere > Haze) scales the haze/volumetric strength together — 1 = as
+ * tuned.
  */
 export function AtmosphericHaze() {
-  const palette = usePalette()
+  const { palette, hazeAmount } = useGenerative()
   const { haze, volumetric } = POST_PROCESSING_CONFIG.atmosphere
 
   const effect = useMemo(
@@ -18,12 +20,12 @@ export function AtmosphericHaze() {
         color: palette.hazeTint,
         frequency: haze.frequency,
         driftSpeed: haze.driftSpeed,
-        hazeStrength: haze.strength,
+        hazeStrength: haze.strength * hazeAmount,
         depthFalloff: haze.depthFalloff,
-        volumetricStrength: volumetric.strength,
+        volumetricStrength: volumetric.strength * hazeAmount,
         volumetricRadius: volumetric.radius,
       }),
-    [palette, haze, volumetric],
+    [palette, haze, volumetric, hazeAmount],
   )
 
   useEffect(() => {

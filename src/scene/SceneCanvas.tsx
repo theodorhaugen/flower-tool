@@ -10,7 +10,10 @@ interface SceneCanvasProps {
 /**
  * Top-level R3F canvas. Owns renderer/color-management setup so every
  * downstream component (camera, lighting, effects) can stay unopinionated
- * about it.
+ * about it. `preserveDrawingBuffer` is for effects/ExportControls.tsx's
+ * "Save Image" button — without it, `gl.domElement.toDataURL()` can
+ * capture a blank/cleared buffer since the browser is otherwise free to
+ * clear it right after each frame.
  */
 export function SceneCanvas({ children }: SceneCanvasProps) {
   return (
@@ -20,6 +23,7 @@ export function SceneCanvas({ children }: SceneCanvasProps) {
         antialias: true,
         toneMapping: THREE.ACESFilmicToneMapping,
         toneMappingExposure: 1.0,
+        preserveDrawingBuffer: true,
       }}
       style={{ position: 'absolute', inset: 0 }}
     >

@@ -5,7 +5,8 @@ heavily defocused macro-photography-style flower compositions. Not
 photoreal, not SVG-blob abstraction — atmospheric, organic, premium.
 
 Built with Vite + React + TypeScript + React Three Fiber (Three.js) +
-`@react-three/postprocessing`.
+`@react-three/postprocessing` + `leva` (the designer-facing control
+panel — see "Control panel" below).
 
 ## Getting started
 
@@ -43,6 +44,7 @@ src/
       LensDistortion.tsx               R3F wrapper for postprocessing's (unwrapped) LensDistortionEffect
       LongExposureBlur.tsx             R3F wrapper — constructs the Pass below from effects/config.ts
       LongExposureBlurPass.ts          custom Pass: two-buffer temporal accumulation driven by CameraSweep, not a velocity-buffer streak
+      ExportControls.tsx               Leva "Export" fold — Save Image / Copy Seed Link, mounted inside <Canvas> for gl access
     shared/                 procedural primitives used by more than one system
       random.ts               seeded PRNG — same seed always reproduces the same output
       noise.ts                 layered value noise (fbm) + a 1D slice for path curves
@@ -55,10 +57,10 @@ src/
       windMaterial.ts          injects per-vertex wind sway into a MeshStandardMaterial via onBeforeCompile — no extra geometry attributes needed
       colorJitter.ts           small per-instance HSL nudge away from a base color
       instancing.ts / InstancedGroup.tsx   generic InstancedMesh renderer
-      palette.ts               the ColorPalette type and the 7 named palettes — see "Colour palette" below
+      palette.ts               the ColorPalette type, the 7 named palettes, and shiftPaletteHue() — see "Colour palette" below
       generative.ts            deriveGenerativeState(seed) — the one function everything generative comes from, see "Generative seed" below
       generativeContext.ts     React context + useGenerative()/usePalette() hooks
-      GenerativeProvider.tsx   picks the one seed a render belongs to, once, and provides the derived state
+      GenerativeProvider.tsx   picks the one seed a render belongs to, derives its state, and layers the Leva control panel on top — see "Control panel" below
     subjects/
       flowerField/            the flowers — see below
     environment/             the meadow the flowers grow in — see below
@@ -121,6 +123,59 @@ query params — see `GenerativeProvider.tsx`. The active seed is also
 logged to the console on load (`[flower-tool] seed=... palette="..." —
 reproduce with ?seed=...`) specifically so a render worth keeping can be
 noted down and revisited.
+
+### Control panel (`leva`)
+
+A [Leva](https://github.com/pmndrs/leva) panel (collapsed by default —
+click the title bar to open it) sits on top of the generative system
+above: every fold's controls initialise from the active seed's own
+derived values, so a fresh seed still looks considered, but are then
+live-editable, and reset to the new seed's defaults whenever the seed
+changes rather than carrying a manual tweak across an otherwise-
+unrelated new composition. All of this happens in one place —
+`GenerativeProvider.tsx` — which merges "what the seed picked" with
+"what the panel overrode" into the same `GenerativeState` every
+subsystem already reads via `useGenerative()`/`usePalette()`, so no
+consumer needs to know or care which source a given value came from.
+
+Deliberately hides the technical parameters those creative controls sit
+on top of — rings/samples, noise frequencies, per-effect internal
+strengths and thresholds, axis weights, and so on — in favour of a
+small number of named, designer-facing knobs per fold:
+
+- **Scene** — `Seed` (the one control that changes *what* got
+  generated, not just how it's dressed) and a `New Random Scene`
+  button. Everything else on this list resets to that seed's own
+  derived defaults when this changes.
+- **Camera** — `Height`/`Distance`/`Pan` (spatial framing, overriding
+  the seed's own jittered position/target) and `Movement` (scales
+  HandheldDrift's tremor and CameraSweep's ICM-blur-driving sweep
+  together, rather than exposing either amplitude separately).
+- **Lighting** — `Overcast` (sky brightness), `Warmth` (how much the
+  palette's `highlight`/`shadow` tint the lights), `Shadow Depth` (the
+  two directional lights' intensity).
+- **Flowers** — `Density` (multiplies flower count), `Scale`
+  (multiplies flower size), `Poppy Accent` (probability of the
+  fixed hue-27 California-poppy accent, independent of the active
+  palette — see "Flower field" below).
+- **Colour** — `Palette` (a dropdown over the 7 named palettes,
+  overriding the seed's own pick) and `Hue Shift` (rotates every one
+  of the palette's five colours by the same amount — see
+  `shiftPaletteHue` in `palette.ts` — a creative move the palette
+  system can't already do on its own).
+- **Atmosphere** — `Haze`, `Softness`, `Fog`, `Wind` — one "amount"
+  slider per effect (`AtmosphericHazeEffect`, `BilateralSoftEffect`,
+  the scene's `FogExp2`, grass/vegetation wind strength) rather than
+  each effect's own internal shader parameters.
+- **Lens** — `Focus Distance`, `Blur Amount`, `Aperture`, `Glow
+  Intensity` — the optical character of the shot (depth of field +
+  bloom), not `rings`/`samples`/`metersPerWorldUnit`.
+- **Export** — `Save Image` (downloads the current frame as a PNG via
+  `gl.domElement.toDataURL()` — needs `SceneCanvas.tsx`'s
+  `preserveDrawingBuffer`, or this would capture a blank/cleared
+  buffer) and `Copy Seed Link` (copies a `?seed=&palette=` URL for the
+  current render to the clipboard) — `effects/ExportControls.tsx`,
+  mounted inside `<Canvas>` since it needs `gl`.
 
 ### Colour palette (`shared/palette.ts`)
 

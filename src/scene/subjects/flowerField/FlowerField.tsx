@@ -24,7 +24,15 @@ import { buildCenterMaterialProps, buildPetalMaterialVariants } from './material
  * ground as the grass growing around them, just at a different seed.
  */
 export function FlowerField() {
-  const { palette, flowerFieldSeed, meadowLayoutSeed, terrainShapeSeed } = useGenerative()
+  const {
+    palette,
+    flowerFieldSeed,
+    meadowLayoutSeed,
+    terrainShapeSeed,
+    flowerDensity,
+    flowerScale,
+    poppyAccentProbability,
+  } = useGenerative()
   const meadowLayout = useMeadowLayout(meadowLayoutSeed)
   const terrainShape = useTerrainShape(terrainShapeSeed)
 
@@ -41,8 +49,13 @@ export function FlowerField() {
   )
 
   const field = useMemo(
-    () => generateFlowerField(flowerFieldSeed, palette, meadowLayout, terrainShape),
-    [flowerFieldSeed, palette, meadowLayout, terrainShape],
+    () =>
+      generateFlowerField(flowerFieldSeed, palette, meadowLayout, terrainShape, {
+        densityMultiplier: flowerDensity,
+        scaleMultiplier: flowerScale,
+        poppyAccentProbability,
+      }),
+    [flowerFieldSeed, palette, meadowLayout, terrainShape, flowerDensity, flowerScale, poppyAccentProbability],
   )
 
   useEffect(() => {
