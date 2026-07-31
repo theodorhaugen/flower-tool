@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { FLOWER_FIELD_CONFIG, PETAL_ARCHETYPES } from './config'
+import type { DepthBand } from './config'
+import { sampleMeadowDensity } from './meadowDensity'
 import { jitterColor, sampleCenterColor, samplePetalBaseColor } from './palette'
 import { createRng, gaussianish, intRange, range } from './random'
 import type { FlowerFieldData, InstanceDatum, PetalVariantGroup } from './types'
@@ -11,56 +13,68 @@ import type { FlowerFieldData, InstanceDatum, PetalVariantGroup } from './types'
 const FACE_AXIS = new THREE.Vector3(0, 0, 1)
 const CAMERA_Z = 6 // matches MainCamera's default position; only used to bias scatter extent by depth
 
-interface Cluster {
-  x: number
-  y: number
-  z: number
-  radius: number
-}
-
 function distanceFromCamera(z: number): number {
   return Math.max(0, CAMERA_Z - z)
 }
 
-function createClusters(rng: () => number, count: number): Cluster[] {
-  const { depthNear, depthFar, minCameraDistance, widthHalfBase, widthHalfPerDepth, yHalfBase, yHalfPerDepth, clusterRadiusRange } =
-    FLOWER_FIELD_CONFIG
+function widthHalfAt(dist: number): number {
+  return FLOWER_FIELD_CONFIG.widthHalfBase + FLOWER_FIELD_CONFIG.widthHalfPerDepth * dist
+}
+
+function yHalfAt(dist: number): number {
+  return FLOWER_FIELD_CONFIG.yHalfBase + FLOWER_FIELD_CONFIG.yHalfPerDepth * dist
+}
+
+/** Approximate on-screen ground area of a band (width × depth, integrated over its z range). */
+function approximateBandArea(band: DepthBand, samples = 12): number {
+  const stepZ = (band.zMax - band.zMin) / samples
+  let area = 0
+  for (let s = 0; s < samples; s++) {
+    const z = band.zMin + stepZ * (s + 0.5)
+    area += widthHalfAt(distanceFromCamera(z)) * 2 * stepZ
+  }
+  return Math.abs(area)
+}
+
+/** Splits flowerCount across bands proportionally to area × densityMultiplier, not a fixed share. */
+function allocateBandCounts(depthBands: readonly DepthBand[], flowerCount: number): number[] {
+  const weights = depthBands.map((band) => approximateBandArea(band) * band.densityMultiplier)
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0)
+
+  const counts = weights.map((weight) => Math.round((flowerCount * weight) / totalWeight))
+  const shortfall = flowerCount - counts.reduce((sum, c) => sum + c, 0)
+  counts[counts.length - 1] += shortfall // absorb rounding drift in the last (background) band
+
+  return counts
+}
+
+/**
+ * Draws one ground-plane position for a band via rejection sampling against
+ * the meadow density field — candidates land more often inside clusters and
+ * rarely (but not never) in clearings or paths. Falls back to an unweighted
+ * pick after too many misses so generation always terminates with the
+ * requested count, even if a band's slice of the field is mostly clearings.
+ */
+function sampleBandPosition(rng: () => number, band: DepthBand, seed: number): THREE.Vector3 {
+  const { minCameraDistance, maxSampleAttemptsPerFlower } = FLOWER_FIELD_CONFIG
   const nearestZ = CAMERA_Z - minCameraDistance
 
-  return Array.from({ length: count }, () => {
-    const z = Math.min(range(rng, depthFar, depthNear), nearestZ)
+  for (let attempt = 0; attempt < maxSampleAttemptsPerFlower; attempt++) {
+    const z = Math.min(range(rng, band.zMin, band.zMax), nearestZ)
     const dist = distanceFromCamera(z)
-    const widthHalf = widthHalfBase + widthHalfPerDepth * dist
-    const yHalf = yHalfBase + yHalfPerDepth * dist
+    const widthHalf = widthHalfAt(dist)
+    const x = range(rng, -widthHalf, widthHalf)
 
-    return {
-      x: range(rng, -widthHalf, widthHalf),
-      y: range(rng, -yHalf, yHalf),
-      z,
-      radius: range(rng, clusterRadiusRange[0], clusterRadiusRange[1]),
+    const density = sampleMeadowDensity(x, z, widthHalf, seed)
+    if (rng() < density || attempt === maxSampleAttemptsPerFlower - 1) {
+      const yHalf = yHalfAt(dist) * band.yJitterScale
+      const y = range(rng, -yHalf, yHalf)
+      return new THREE.Vector3(x, y, z)
     }
-  })
-}
+  }
 
-function scatterInCluster(rng: () => number, cluster: Cluster): THREE.Vector3 {
-  const dx = gaussianish(rng) * cluster.radius
-  const dy = gaussianish(rng) * cluster.radius
-  const dz = gaussianish(rng) * cluster.radius * 0.6
-  const nearestZ = CAMERA_Z - FLOWER_FIELD_CONFIG.minCameraDistance
-  const z = Math.min(cluster.z + dz, nearestZ)
-  return new THREE.Vector3(cluster.x + dx, cluster.y + dy, z)
-}
-
-/** Scattered independently of any cluster — sparse filler so gaps between patches don't read as empty voids. */
-function scatterAmbient(rng: () => number): THREE.Vector3 {
-  const { depthNear, depthFar, minCameraDistance, widthHalfBase, widthHalfPerDepth, yHalfBase, yHalfPerDepth } =
-    FLOWER_FIELD_CONFIG
-  const nearestZ = CAMERA_Z - minCameraDistance
-  const z = Math.min(range(rng, depthFar, depthNear), nearestZ)
-  const dist = distanceFromCamera(z)
-  const widthHalf = widthHalfBase + widthHalfPerDepth * dist
-  const yHalf = yHalfBase + yHalfPerDepth * dist
-  return new THREE.Vector3(range(rng, -widthHalf, widthHalf), range(rng, -yHalf, yHalf), z)
+  // Unreachable — the loop always returns on its last attempt — but keeps TS happy.
+  return new THREE.Vector3(0, 0, band.zMax)
 }
 
 /**
@@ -72,11 +86,8 @@ export function generateFlowerField(seed: number = FLOWER_FIELD_CONFIG.seed): Fl
   const rng = createRng(seed)
   const {
     flowerCount,
-    clusterCount,
-    ambientFraction,
+    depthBands,
     variantsPerArchetype,
-    petalCountRange,
-    flowerScaleRange,
     petalScaleJitterRange,
     petalInsetRange,
     cupAngleRange,
@@ -84,8 +95,6 @@ export function generateFlowerField(seed: number = FLOWER_FIELD_CONFIG.seed): Fl
     maxFlowerTilt,
     centerRadiusRange,
   } = FLOWER_FIELD_CONFIG
-
-  const clusters = createClusters(rng, clusterCount)
 
   const petalGroups: PetalVariantGroup[] = []
   for (let archetypeIndex = 0; archetypeIndex < PETAL_ARCHETYPES.length; archetypeIndex++) {
@@ -98,70 +107,74 @@ export function generateFlowerField(seed: number = FLOWER_FIELD_CONFIG.seed): Fl
   const petalMatrix = new THREE.Matrix4()
   const centerMatrix = new THREE.Matrix4()
 
-  for (let i = 0; i < flowerCount; i++) {
-    const flowerPosition =
-      rng() < ambientFraction ? scatterAmbient(rng) : scatterInCluster(rng, clusters[Math.floor(rng() * clusters.length)])
+  const bandCounts = allocateBandCounts(depthBands, flowerCount)
+  depthBands.forEach((band, bandIndex) => {
+    const bandCount = bandCounts[bandIndex]
 
-    const flowerScale = range(rng, flowerScaleRange[0], flowerScaleRange[1])
-    const petalCount = intRange(rng, petalCountRange[0], petalCountRange[1])
-    const cupAngle = range(rng, cupAngleRange[0], cupAngleRange[1])
-    const baseColor = samplePetalBaseColor(rng)
-    const archetypeIndex = rng() < 0.5 ? 0 : 1
+    for (let i = 0; i < bandCount; i++) {
+      const flowerPosition = sampleBandPosition(rng, band, seed)
 
-    // A small cone around FACE_AXIS, not a full random tumble — most
-    // flowers stay roughly lens-facing, matching how a real macro shot
-    // would frame them, while still varying per instance.
-    const tiltAxisAngle = range(rng, 0, Math.PI * 2)
-    const tiltAxis = new THREE.Vector3(Math.cos(tiltAxisAngle), Math.sin(tiltAxisAngle), 0)
-    const tiltQuat = new THREE.Quaternion().setFromAxisAngle(tiltAxis, range(rng, 0, maxFlowerTilt))
-    const spinQuat = new THREE.Quaternion().setFromAxisAngle(FACE_AXIS, range(rng, 0, Math.PI * 2))
-    const flowerQuat = spinQuat.multiply(tiltQuat)
+      const flowerScale = range(rng, band.scaleRange[0], band.scaleRange[1])
+      const petalCount = intRange(rng, band.petalCountRange[0], band.petalCountRange[1])
+      const cupAngle = range(rng, cupAngleRange[0], cupAngleRange[1])
+      const baseColor = samplePetalBaseColor(rng)
+      const archetypeIndex = rng() < 0.5 ? 0 : 1
 
-    for (let p = 0; p < petalCount; p++) {
-      const angleBase = (p / petalCount) * Math.PI * 2
-      const angleJitter = gaussianish(rng) * ((Math.PI / petalCount) * 0.5)
-      const angle = angleBase + angleJitter
+      // A small cone around FACE_AXIS, not a full random tumble — most
+      // flowers stay roughly lens-facing, matching how a real macro shot
+      // would frame them, while still varying per instance.
+      const tiltAxisAngle = range(rng, 0, Math.PI * 2)
+      const tiltAxis = new THREE.Vector3(Math.cos(tiltAxisAngle), Math.sin(tiltAxisAngle), 0)
+      const tiltQuat = new THREE.Quaternion().setFromAxisAngle(tiltAxis, range(rng, 0, maxFlowerTilt))
+      const spinQuat = new THREE.Quaternion().setFromAxisAngle(FACE_AXIS, range(rng, 0, Math.PI * 2))
+      const flowerQuat = spinQuat.multiply(tiltQuat)
 
-      const radialLocal = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0)
-      const cup = cupAngle + gaussianish(rng) * petalDroopJitter
-      const growthLocal = new THREE.Vector3()
-        .addScaledVector(radialLocal, Math.cos(cup))
-        .addScaledVector(FACE_AXIS, Math.sin(cup))
-        .normalize()
+      for (let p = 0; p < petalCount; p++) {
+        const angleBase = (p / petalCount) * Math.PI * 2
+        const angleJitter = gaussianish(rng) * ((Math.PI / petalCount) * 0.5)
+        const angle = angleBase + angleJitter
 
-      const tangentLocal = new THREE.Vector3().crossVectors(FACE_AXIS, radialLocal).normalize()
-      const normalLocal = new THREE.Vector3().crossVectors(tangentLocal, growthLocal).normalize()
+        const radialLocal = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0)
+        const cup = cupAngle + gaussianish(rng) * petalDroopJitter
+        const growthLocal = new THREE.Vector3()
+          .addScaledVector(radialLocal, Math.cos(cup))
+          .addScaledVector(FACE_AXIS, Math.sin(cup))
+          .normalize()
 
-      const growthWorld = growthLocal.clone().applyQuaternion(flowerQuat)
-      const tangentWorld = tangentLocal.clone().applyQuaternion(flowerQuat)
-      const normalWorld = normalLocal.clone().applyQuaternion(flowerQuat)
+        const tangentLocal = new THREE.Vector3().crossVectors(FACE_AXIS, radialLocal).normalize()
+        const normalLocal = new THREE.Vector3().crossVectors(tangentLocal, growthLocal).normalize()
 
-      const petalScale = flowerScale * range(rng, petalScaleJitterRange[0], petalScaleJitterRange[1])
-      const inset = range(rng, petalInsetRange[0], petalInsetRange[1]) * flowerScale
-      const petalPosition = flowerPosition.clone().addScaledVector(growthWorld, inset)
+        const growthWorld = growthLocal.clone().applyQuaternion(flowerQuat)
+        const tangentWorld = tangentLocal.clone().applyQuaternion(flowerQuat)
+        const normalWorld = normalLocal.clone().applyQuaternion(flowerQuat)
 
-      petalMatrix.makeBasis(tangentWorld, growthWorld, normalWorld)
-      petalMatrix.scale(new THREE.Vector3(petalScale, petalScale, petalScale))
-      petalMatrix.setPosition(petalPosition)
+        const petalScale = flowerScale * range(rng, petalScaleJitterRange[0], petalScaleJitterRange[1])
+        const inset = range(rng, petalInsetRange[0], petalInsetRange[1]) * flowerScale
+        const petalPosition = flowerPosition.clone().addScaledVector(growthWorld, inset)
 
-      const variantIndex = intRange(rng, 0, variantsPerArchetype - 1)
-      const group = petalGroups[archetypeIndex * variantsPerArchetype + variantIndex]
-      group.instances.push({ matrix: petalMatrix.clone(), color: jitterColor(rng, baseColor, 0.05) })
+        petalMatrix.makeBasis(tangentWorld, growthWorld, normalWorld)
+        petalMatrix.scale(new THREE.Vector3(petalScale, petalScale, petalScale))
+        petalMatrix.setPosition(petalPosition)
+
+        const variantIndex = intRange(rng, 0, variantsPerArchetype - 1)
+        const group = petalGroups[archetypeIndex * variantsPerArchetype + variantIndex]
+        group.instances.push({ matrix: petalMatrix.clone(), color: jitterColor(rng, baseColor, 0.05) })
+      }
+
+      const worldFace = FACE_AXIS.clone().applyQuaternion(flowerQuat)
+      const rightWorld = new THREE.Vector3(1, 0, 0).applyQuaternion(flowerQuat)
+      const upWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(flowerQuat)
+
+      const centerRadius = range(rng, centerRadiusRange[0], centerRadiusRange[1]) * flowerScale
+      const centerPosition = flowerPosition.clone().addScaledVector(worldFace, centerRadius * 0.3)
+
+      centerMatrix.makeBasis(rightWorld, upWorld, worldFace)
+      centerMatrix.scale(new THREE.Vector3(centerRadius, centerRadius, centerRadius))
+      centerMatrix.setPosition(centerPosition)
+
+      centers.push({ matrix: centerMatrix.clone(), color: sampleCenterColor(rng) })
     }
-
-    const worldFace = FACE_AXIS.clone().applyQuaternion(flowerQuat)
-    const rightWorld = new THREE.Vector3(1, 0, 0).applyQuaternion(flowerQuat)
-    const upWorld = new THREE.Vector3(0, 1, 0).applyQuaternion(flowerQuat)
-
-    const centerRadius = range(rng, centerRadiusRange[0], centerRadiusRange[1]) * flowerScale
-    const centerPosition = flowerPosition.clone().addScaledVector(worldFace, centerRadius * 0.3)
-
-    centerMatrix.makeBasis(rightWorld, upWorld, worldFace)
-    centerMatrix.scale(new THREE.Vector3(centerRadius, centerRadius, centerRadius))
-    centerMatrix.setPosition(centerPosition)
-
-    centers.push({ matrix: centerMatrix.clone(), color: sampleCenterColor(rng) })
-  }
+  })
 
   return { petalGroups, centers }
 }
