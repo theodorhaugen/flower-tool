@@ -24,10 +24,12 @@ function driftAxis(t: number, seed: number, slowFreq: number, fastFreq: number):
  * it can never run away or fight that reset — next frame CameraFraming
  * resets to its fixed base pose regardless of what this nudged last frame.
  *
- * `cameraMovementMultiplier` (Leva's Camera > Movement, see
- * shared/GenerativeProvider.tsx) scales this together with CameraSweep's
- * amplitude, so a designer has one "how much does the shot move" dial
- * rather than two separately-named amplitude sliders.
+ * `cameraMovementMultiplier` (shared/generative.ts) scales this — a fixed
+ * baseline, always 1, not Leva-exposed. It used to also scale CameraSweep's
+ * amplitude (one shared "Movement" dial for both effects), but that meant
+ * fine-tuning it jointly with the sweep's own strength for one look; the
+ * sweep now has its own single dial (Leva's Camera > Blur Length, see
+ * CameraSweep.tsx) and this tremor is left at its tuned baseline.
  *
  * Reads `virtualClock.time` (shared/virtualClock.ts), not real wall-clock
  * time — see CameraSweep.tsx's docstring for why.

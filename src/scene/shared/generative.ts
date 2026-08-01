@@ -177,10 +177,13 @@ export interface GenerativeState {
    * underneath) and others sweep hard into a fully abstracted directional
    * streak, matching the spread real ICM reference photography shows
    * (some frames keep a recognizable bloom, others are pure motion
-   * texture). Multiplies together with `cameraMovementMultiplier` (the
-   * Leva "Movement" override) in CameraSweep.tsx/LongExposureBlurPass.ts
-   * rather than replacing it — one is "how strong is this shot" (per-seed
-   * variety), the other is "scale whatever that is" (a manual dial).
+   * texture). This is the *only* dial on the sweep's strength — Leva's
+   * Camera > Blur Length control (GenerativeProvider.tsx) sets this value
+   * directly, the same way Lens > Focus Distance sets `focusDistance`.
+   * There used to also be a separate "Movement" multiplier stacked on top,
+   * but two dials for one effect just meant fine-tuning both together to
+   * avoid over/under-shooting — `cameraMovementMultiplier` below is now a
+   * fixed baseline instead, not Leva-exposed for this.
    */
   motionBlurStrength: number
   /**
@@ -195,7 +198,7 @@ export interface GenerativeState {
   motionBlurDirectionAngle: number
 
   // --- Creative-control defaults (see class docstring) ---
-  /** Camera fold "Movement" — scales HandheldDrift + CameraSweep amplitude together. 1 = as tuned. */
+  /** A fixed baseline HandheldDrift's tremor scales by — no longer Leva-exposed (see `motionBlurStrength`'s docstring for why the sweep itself moved to a single dial). Always 1. */
   cameraMovementMultiplier: number
   /** Lighting fold "Overcast" — scales the hemisphere/ambient sky light together. 1 = as tuned. */
   lightingOvercast: number

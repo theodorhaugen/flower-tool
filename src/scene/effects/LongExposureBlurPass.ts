@@ -74,7 +74,7 @@ export interface LongExposureBlurPassOptions {
    * many real frames a given virtual-time step happened to take.
    */
   halfLifeSeconds?: number
-  /** Camera fold "Movement" (see shared/generative.ts) multiplied together with the per-seed `motionBlurStrength` — the same combined value CameraSweep.tsx scales its sweep amplitude by, so this pass's own yaw/pitch-delta estimate (used for the within-frame streak, see `render()`) tracks whatever the sweep is actually doing. 1 = as tuned. */
+  /** The per-seed/Leva-overridable `motionBlurStrength` (see shared/generative.ts, Leva's Camera > Blur Length) — the same value CameraSweep.tsx scales its sweep amplitude by, so this pass's own yaw/pitch-delta estimate (used for the within-frame streak, see `render()`) tracks whatever the sweep is actually doing. 1 = as tuned. */
   movementMultiplier?: number
   /** Per-seed `motionBlurDirectionAngle` (see shared/generative.ts) — same angle CameraSweep.tsx blends its yaw/pitch weights by, so this pass estimates a streak in the same direction the camera is actually sweeping instead of always assuming a horizontal pan. Radians, 0 = pure yaw. */
   directionAngle?: number

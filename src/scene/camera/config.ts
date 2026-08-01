@@ -87,17 +87,15 @@ export const CAMERA_CONFIG = {
     /** Subtle roll wobble, relative to `rotationAmplitudeDeg` — kept small and fixed regardless of `motionBlurStrength`/`motionBlurDirectionAngle`. */
     rollWeight: 0.05,
     /**
-     * Hard ceiling on the *actual* swept amplitude, in degrees, after every
-     * multiplier (`motionBlurStrength`'s per-seed default, Leva's Camera >
-     * Movement *and* Blur Strength dials, all of which multiply together in
-     * CameraSweep.tsx/LongExposureBlurPass.ts) has been applied. Verified
+     * Hard ceiling on the *actual* swept amplitude, in degrees, after
+     * `motionBlurStrength` (Leva's Camera > Blur Length — the single dial
+     * on the sweep now, see CameraSweep.tsx) has been applied. Verified
      * directly: past roughly this point (44° was tested and failed) the
      * camera swings far enough off the actual scene during the accumulation
      * window that the blended result loses all structure — flat noise, not
-     * a strong streak. Individual dials are already range-limited to stay
-     * under this on their own, but they multiply together, so this is the
-     * actual backstop — no combination of seed + both manual dials can ever
-     * exceed it, however each one is set.
+     * a strong streak. Blur Length's own slider range already stays under
+     * this on its own, but this is still the actual backstop regardless of
+     * exactly where that range ends up tuned to.
      */
     maxRotationAmplitudeDeg: 36,
   },

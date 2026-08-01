@@ -23,16 +23,21 @@ const ROLL_WEIGHT = CAMERA_CONFIG.sweep.rollWeight
  * CameraFraming's own per-frame look-at reset, so it layers on top of
  * that fixed base pose rather than fighting it, and can't run away.
  *
- * `cameraMovementMultiplier` (Leva's Camera > Movement, a manual dial) and
- * `motionBlurStrength` (shared/generative.ts, a per-seed default — how hard
- * *this* render's sweep should swing) both scale the pitch/yaw amplitude
- * together; `motionBlurDirectionAngle` (also per-seed) blends how much of
- * that swing is horizontal (yaw) vs. vertical (pitch), so the streak's
+ * `motionBlurStrength` (shared/generative.ts — a per-seed default, directly
+ * Leva-overridable via Camera > Blur Length, see GenerativeProvider.tsx)
+ * is the single dial on the pitch/yaw amplitude; `motionBlurDirectionAngle`
+ * (also per-seed/Leva-overridable, Camera > Blur Direction) blends how much
+ * of that swing is horizontal (yaw) vs. vertical (pitch), so the streak's
  * direction varies render to render instead of every seed panning the same
- * way. Roll stays fixed/small (`rollWeight`) regardless — a subtle texture
- * wobble, not the sweep's main direction. LongExposureBlurPass.ts's own
- * within-frame streak estimate reads the exact same strength/direction so
- * it never drifts out of sync with what the camera is actually doing.
+ * way. `cameraMovementMultiplier` is a separate fixed baseline (always 1,
+ * not Leva-exposed) that only HandheldDrift's tremor still reads — the two
+ * used to be one shared "Movement" dial scaling both effects together,
+ * which meant fine-tuning it *and* Blur Length jointly for one look; now
+ * Blur Length alone owns the sweep/streak's strength. Roll stays
+ * fixed/small (`rollWeight`) regardless — a subtle texture wobble, not the
+ * sweep's main direction. LongExposureBlurPass.ts's own within-frame streak
+ * estimate reads the exact same strength/direction so it never drifts out
+ * of sync with what the camera is actually doing.
  *
  * Reads `virtualClock.time` (shared/virtualClock.ts), not real wall-clock
  * time — see that module's docstring for why: this is what lets the whole
@@ -44,11 +49,11 @@ export function CameraSweep() {
 
   useFrame(() => {
     const phase = virtualClock.time * ANGULAR_FREQUENCY
-    // Movement (Leva) and motionBlurStrength (seed default, also
-    // Leva-overridable — see GenerativeProvider.tsx's "Blur Strength")
-    // multiply together, so this clamp is the actual backstop against
-    // sweeping far enough off-scene to lose all structure — see
-    // camera/config.ts's `maxRotationAmplitudeDeg` docstring.
+    // `cameraMovementMultiplier` is a fixed 1 here (see this component's
+    // docstring) — `motionBlurStrength` (Leva's "Blur Length") is what
+    // actually varies. Still clamped: even Blur Length alone, maxed, can
+    // land close to the tested-safe ceiling — see camera/config.ts's
+    // `maxRotationAmplitudeDeg` docstring.
     const rotationAmplitude = Math.min(BASE_ROTATION_AMPLITUDE * cameraMovementMultiplier * motionBlurStrength, MAX_ROTATION_AMPLITUDE)
     const yawWeight = Math.cos(motionBlurDirectionAngle)
     const pitchWeight = Math.sin(motionBlurDirectionAngle)

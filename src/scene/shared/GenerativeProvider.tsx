@@ -97,22 +97,28 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   // push position further than the classic macro shot alone did) — without
   // this, Leva would silently clamp a non-classic preset's initial value
   // right back into the old, narrower range.
+  //
+  // There used to be a separate "Movement" dial here too, scaling
+  // HandheldDrift's tremor and CameraSweep's sweep together — on top of
+  // Blur Length *also* scaling the sweep, that was two overlapping dials
+  // for what's really one effect, needing constant joint fine-tuning to
+  // avoid over/under-shooting. `cameraMovementMultiplier` is now a fixed
+  // baseline (see shared/generative.ts — always 1, no longer Leva-exposed)
+  // so Blur Length alone controls the sweep/streak's whole strength.
   const [cameraControls] = useControls(
     'Camera',
     () => ({
       height: { value: base.camera.position[1], min: CAMERA_CONFIG.position[1] - 7, max: CAMERA_CONFIG.position[1] + 8, label: 'Height' },
       distance: { value: base.camera.position[2], min: CAMERA_CONFIG.position[2] - 5, max: CAMERA_CONFIG.position[2] + 4, label: 'Distance' },
       pan: { value: base.camera.target[0], min: CAMERA_CONFIG.target[0] - 5, max: CAMERA_CONFIG.target[0] + 5, label: 'Pan' },
-      movement: { value: 1, min: 0, max: 2, label: 'Movement' },
-      // Direct values (like `focusDistance`/`maxBlur` in the Lens fold
-      // below), not multipliers on top of the seed's own pick — dragging
+      // A direct value (like `focusDistance`/`maxBlur` in the Lens fold
+      // below), not a multiplier on top of the seed's own pick — dragging
       // this slider replaces which "how blurred" this render is, the same
-      // way dragging Focus Distance replaces where it's focused. Both are
-      // still clamped against `movement` together at the physical-sweep
-      // level (camera/config.ts's `maxRotationAmplitudeDeg`) so no
-      // combination of the two dials can swing the camera far enough
-      // off-scene to lose all structure — see CameraSweep.tsx.
-      blurStrength: { value: base.motionBlurStrength, min: 0.15, max: 1.9, label: 'Blur Strength' },
+      // way dragging Focus Distance replaces where it's focused. Still
+      // clamped at the physical-sweep level (camera/config.ts's
+      // `maxRotationAmplitudeDeg`) so it alone can't swing the camera far
+      // enough off-scene to lose all structure — see CameraSweep.tsx.
+      blurLength: { value: base.motionBlurStrength, min: 0.15, max: 1.9, label: 'Blur Length' },
       blurDirection: { value: THREE.MathUtils.radToDeg(base.motionBlurDirectionAngle), min: 0, max: 360, label: 'Blur Direction' },
     }),
     [seed],
@@ -217,8 +223,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       fStop: lensControls.aperture,
       highlightBloomIntensity: lensControls.highlightBloom,
       wind: { ...base.wind, strength: atmosphereControls.windStrength },
-      cameraMovementMultiplier: cameraControls.movement,
-      motionBlurStrength: cameraControls.blurStrength,
+      motionBlurStrength: cameraControls.blurLength,
       motionBlurDirectionAngle: THREE.MathUtils.degToRad(cameraControls.blurDirection),
       lightingOvercast: lightingControls.overcast,
       lightingWarmth: lightingControls.warmth,
