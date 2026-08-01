@@ -202,7 +202,7 @@ export interface GenerativeState {
   cameraMovementMultiplier: number
   /** Lighting fold "Overcast" — scales the hemisphere/ambient sky light together. 1 = as tuned. */
   lightingOvercast: number
-  /** Lighting fold "Warmth" — scales how much `highlight`/`shadow` tint the lights. 1 = as tuned. */
+  /** Lighting fold "Warmth" — scales how much `glow`/`foliagePrimary` tint the lights. 1 = as tuned. */
   lightingWarmth: number
   /** Lighting fold "Shadow Depth" — scales the two directional lights' intensity (more = more defined shadow hint). 1 = as tuned. */
   lightingShadowDepth: number
@@ -210,7 +210,7 @@ export interface GenerativeState {
   flowerDensity: number
   /** Flowers fold "Scale" — multiplies every band's flower-scale range. 1 = as tuned. */
   flowerScale: number
-  /** Flowers fold "Poppy Accent" — probability a flower uses the fixed hue-27 orange instead of the palette's own dominantHues. */
+  /** Flowers fold "Poppy Accent" — probability a flower uses the fixed hue-27 orange instead of the palette's own petal anchors. */
   poppyAccentProbability: number
   /** Colour fold "Hue Shift" — degrees every palette colour is rotated by before use. 0 = as picked. */
   hueShiftDeg: number

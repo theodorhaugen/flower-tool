@@ -25,13 +25,15 @@ function mix(a: string, b: string, t: number): string {
  * deep-shadow/bright-highlight character calls for; the grade pass now only
  * needs to add a mild punch on top of a genuinely wide-range input.
  *
- * Colours are tinted by the active render's palette — `highlight` warms the
- * sky/key light, `shadow` cools the ground-bounce/fill light — mixed with
- * fixed neutral anchors rather than used at full strength, so lighting
- * stays plausible (sunlight is still close to white) while still reading as
- * the same mood as the flowers/environment it's lighting. Ambient stays
- * uncoloured on purpose: it lights everything uniformly, so tinting it
- * would wash the whole image rather than reading as light.
+ * Colours are tinted by the active render's palette — `glow` (the colour of
+ * light itself) warms the sky/key light, `foliagePrimary` (the meadow's own
+ * greenery, standing in for ground-bounce) cools the ground-bounce/fill
+ * light — mixed with fixed neutral anchors rather than used at full
+ * strength, so lighting stays plausible (sunlight is still close to white)
+ * while still reading as the same mood as the flowers/environment it's
+ * lighting. Ambient stays uncoloured on purpose: it lights everything
+ * uniformly, so tinting it would wash the whole image rather than reading
+ * as light.
  *
  * `lightingOvercast`/`lightingWarmth`/`lightingShadowDepth` (Leva's
  * Lighting fold) scale the sky/ambient fill brightness, how much palette
@@ -43,10 +45,10 @@ export function SceneLighting() {
 
   const colors = useMemo(
     () => ({
-      sky: mix('#eef1ec', palette.highlight, 0.45 * lightingWarmth),
-      ground: mix('#8a8060', palette.shadow, 0.45 * lightingWarmth),
-      key: mix('#fff4de', palette.highlight, 0.6 * lightingWarmth),
-      fill: mix('#dbe4e6', palette.shadow, 0.5 * lightingWarmth),
+      sky: mix('#eef1ec', palette.glow, 0.45 * lightingWarmth),
+      ground: mix('#8a8060', palette.foliagePrimary, 0.45 * lightingWarmth),
+      key: mix('#fff4de', palette.glow, 0.6 * lightingWarmth),
+      fill: mix('#dbe4e6', palette.foliagePrimary, 0.5 * lightingWarmth),
     }),
     [palette, lightingWarmth],
   )

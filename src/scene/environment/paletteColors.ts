@@ -17,6 +17,7 @@ export interface EnvironmentPaletteColors {
   groundColors: GroundColors
   grassColorPalette: readonly string[]
   wildVegetationColorPalette: readonly string[]
+  stemColorPalette: readonly string[]
   fogColor: string
   horizon: {
     skyColor: string
@@ -26,50 +27,59 @@ export interface EnvironmentPaletteColors {
 }
 
 /**
- * Derives every environment colour (ground, grass, wild vegetation, fog,
- * horizon) from the active render's palette — this is what keeps the
+ * Derives every environment colour (ground, grass, wild vegetation, stems,
+ * fog, horizon) from the active render's palette — this is what keeps the
  * meadow's colours cohesive with the flowers growing in it instead of the
  * two systems each picking their own.
  *
  * Grass/ground stay anchored to fixed green/brown base tones rather than
  * becoming literally lavender or amber under every palette — real grass
  * doesn't change species with the weather — but those anchors get tinted
- * by `highlight` (sunlit) and `shadow` (shaded), the way real grass really
- * does look different in different light. Fog/horizon read `hazeTint`
- * directly, since that's the palette's "colour of the air" by definition.
+ * by `glow` (sunlit) and `foliagePrimary` (shaded), the way real grass
+ * really does look different in different light. Stems get their own tint
+ * family from `stem` instead of reusing the grass array, so a render can
+ * give stems a colour identity distinct from the grass around them. Fog/
+ * horizon read `background`/`backgroundSecondary` — the palette's own sky
+ * gradient — since that's the palette's "colour of the air" by definition.
  */
 export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPaletteColors {
   const groundColors: GroundColors = {
-    dry: mix(BASE_DIRT, palette.highlight, 0.25),
-    sparse: mix(BASE_GREEN_SPARSE, palette.highlight, 0.18),
-    lush: mix(BASE_GREEN_LUSH, palette.shadow, 0.2),
-    shadow: mix(BASE_GREEN_LUSH, palette.shadow, 0.5),
+    dry: mix(BASE_DIRT, palette.glow, 0.25),
+    sparse: mix(BASE_GREEN_SPARSE, palette.glow, 0.18),
+    lush: mix(BASE_GREEN_LUSH, palette.foliagePrimary, 0.2),
+    shadow: mix(BASE_GREEN_LUSH, palette.foliagePrimary, 0.5),
   }
 
   const grassColorPalette = [
-    mix(BASE_GREEN_LUSH, palette.shadow, 0.35),
-    mix(BASE_GREEN_SPARSE, palette.highlight, 0.25),
-    mix(BASE_GREEN_LUSH, palette.highlight, 0.12),
-    mix(BASE_GREEN_SPARSE, palette.shadow, 0.3),
-    mix(BASE_GREEN_LUSH, palette.dominantHues[0], 0.08),
+    mix(BASE_GREEN_LUSH, palette.foliagePrimary, 0.35),
+    mix(BASE_GREEN_SPARSE, palette.glow, 0.25),
+    mix(BASE_GREEN_LUSH, palette.glow, 0.12),
+    mix(BASE_GREEN_SPARSE, palette.foliagePrimary, 0.3),
+    mix(BASE_GREEN_LUSH, palette.foliageSecondary, 0.1),
   ]
 
   const wildVegetationColorPalette = [
-    mix(BASE_GREEN_LUSH, palette.shadow, 0.25),
-    mix(BASE_GREEN_SPARSE, palette.highlight, 0.2),
-    mix(BASE_GREEN_LUSH, palette.dominantHues[0], 0.12),
-    mix(BASE_GREEN_SPARSE, palette.dominantHues[1] ?? palette.highlight, 0.1),
+    mix(BASE_GREEN_LUSH, palette.foliagePrimary, 0.25),
+    mix(BASE_GREEN_SPARSE, palette.glow, 0.2),
+    mix(BASE_GREEN_LUSH, palette.foliageSecondary, 0.12),
+    mix(BASE_GREEN_SPARSE, palette.foliageSecondary, 0.15),
   ]
 
-  const fogColor = mix(palette.hazeTint, '#ffffff', 0.05)
+  const stemColorPalette = [
+    mix(BASE_GREEN_LUSH, palette.stem, 0.45),
+    mix(BASE_GREEN_SPARSE, palette.stem, 0.3),
+    mix(BASE_GREEN_LUSH, palette.stem, 0.65),
+  ]
+
+  const fogColor = mix(palette.backgroundSecondary, '#ffffff', 0.05)
 
   const horizon = {
-    skyColor: mix(palette.hazeTint, '#ffffff', 0.3),
+    skyColor: mix(palette.background, '#ffffff', 0.3),
     horizonColor: fogColor,
-    groundColor: mix(BASE_DIRT, palette.hazeTint, 0.25),
+    groundColor: mix(BASE_DIRT, palette.backgroundSecondary, 0.25),
   }
 
-  return { groundColors, grassColorPalette, wildVegetationColorPalette, fogColor, horizon }
+  return { groundColors, grassColorPalette, wildVegetationColorPalette, stemColorPalette, fogColor, horizon }
 }
 
 export function useEnvironmentPaletteColors(): EnvironmentPaletteColors {

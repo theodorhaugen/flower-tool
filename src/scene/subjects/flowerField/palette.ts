@@ -13,8 +13,8 @@ interface HslColor {
 /**
  * Lightness cap for every anchor derived below — thousands of overlapping
  * translucent petal layers add up towards white fast, so even a palette
- * whose `dominantHues` run pale (Mist, Summer Sky) needs headroom left
- * before bloom, or the whole field bleaches out.
+ * whose petal anchors run pale (Sunlit pastel) needs headroom left before
+ * bloom, or the whole field bleaches out.
  */
 const MAX_PETAL_LIGHTNESS = 0.72
 
@@ -46,30 +46,29 @@ function sampleFromPalette(rng: Rng, palette: readonly HslColor[], jitter: HslCo
  */
 const POPPY_ANCHOR: HslColor = { h: 27 / 360, s: 0.62, l: 0.56 }
 
-/** The palette's `dominantHues`, converted to HSL anchors and capped below bloom-bleach territory — this render's petal "family". */
+/** The palette's `petalPrimary`/`petalSecondary`/`petalTertiary`, converted to HSL anchors and capped below bloom-bleach territory — this render's petal "family". */
 function petalAnchors(palette: ColorPalette): HslColor[] {
-  return palette.dominantHues.map((hex) => {
+  return [palette.petalPrimary, palette.petalSecondary, palette.petalTertiary].map((hex) => {
     const hsl = toHsl(hex)
     return { ...hsl, l: Math.min(hsl.l, MAX_PETAL_LIGHTNESS) }
   })
 }
 
 /**
- * Flower centres read as warm pollen/stamen regardless of petal colour on
- * a real flower, so these derive from `highlight` (the palette's "colour
- * of light" — already warm on Golden Hour/Autumn, paler on Mist/Lavender)
- * rather than `dominantHues`, with a little of the first dominant hue and
- * a little `shadow` mixed in for some depth instead of one flat tone.
+ * Flower centres are rooted in the palette's own `core` anchor, warmed
+ * towards `glow` (the palette's "colour of light" — already warm on Golden
+ * hour meadow/Emerald dahlia, paler on Sunlit pastel) and deepened towards
+ * `foliagePrimary` for some shadow depth, instead of one flat tone.
  */
 function centerAnchors(palette: ColorPalette): HslColor[] {
-  const highlight = new THREE.Color(palette.highlight)
-  const towardsHue = new THREE.Color(palette.dominantHues[0])
-  const towardsShadow = new THREE.Color(palette.shadow)
+  const core = new THREE.Color(palette.core)
+  const towardsGlow = new THREE.Color(palette.glow)
+  const towardsFoliage = new THREE.Color(palette.foliagePrimary)
 
   return [
-    toHsl(`#${highlight.clone().lerp(new THREE.Color('#ffffff'), 0.1).getHexString()}`),
-    toHsl(`#${highlight.clone().lerp(towardsHue, 0.3).getHexString()}`),
-    toHsl(`#${highlight.clone().lerp(towardsShadow, 0.2).getHexString()}`),
+    toHsl(`#${core.clone().lerp(new THREE.Color('#ffffff'), 0.1).getHexString()}`),
+    toHsl(`#${core.clone().lerp(towardsGlow, 0.3).getHexString()}`),
+    toHsl(`#${core.clone().lerp(towardsFoliage, 0.2).getHexString()}`),
   ]
 }
 
@@ -81,7 +80,7 @@ function centerAnchors(palette: ColorPalette): HslColor[] {
  * comes from the active render's generative state (Leva's Flowers > Poppy
  * Accent, see shared/GenerativeProvider.tsx) — defaults to 0.15 (roughly 1
  * in 7 flowers), "often" without taking over the field or drowning out the
- * active palette's own dominantHues.
+ * active palette's own petal anchors.
  */
 export function rollIsPoppy(rng: Rng, poppyAccentProbability: number): boolean {
   return rng() < poppyAccentProbability

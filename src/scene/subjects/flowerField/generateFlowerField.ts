@@ -109,9 +109,9 @@ export interface FlowerFieldOptions {
  * Pure function of its inputs — same seed/palette/stemColorPalette/
  * meadowLayout/terrainShape/options always reproduce the same field.
  * seed/palette/meadowLayout/terrainShape come from the active render's
- * generative seed; `stemColorPalette` from environment/paletteColors.ts (the
- * same green family Grass.tsx draws from, so stems read as part of the same
- * grass rather than a mismatched plant); `options` from the same state's
+ * generative seed; `stemColorPalette` from environment/paletteColors.ts
+ * (derived from the active palette's own `stem` role, its own green-family
+ * tint distinct from the grass around it); `options` from the same state's
  * Leva-controlled creative overrides (see shared/generative.ts).
  */
 export function generateFlowerField(

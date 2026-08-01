@@ -28,10 +28,10 @@ const STEM_WIND_STRENGTH_MULTIPLIER = 0.5
  * `terrainShapeSeed` rebuild the *shared* layout/terrain fields (also used
  * by environment/) so flowers keep sitting in the same clusters/on the same
  * ground as the grass growing around them, just at a different seed. Stem
- * colour reads `grassColorPalette` (environment/paletteColors.ts) directly
- * — the same green family Grass.tsx draws from — rather than deriving its
- * own, so a stem visually connects its flower to the grass around it
- * instead of the two reading as unrelated plants.
+ * colour reads `stemColorPalette` (environment/paletteColors.ts, derived
+ * from the active palette's own `stem` role) — its own green-family tint
+ * distinct from `grassColorPalette`, so stems can read as their own thing
+ * rather than simply reusing the grass around them.
  */
 export function FlowerField() {
   const {
@@ -44,7 +44,7 @@ export function FlowerField() {
     poppyAccentProbability,
     wind,
   } = useGenerative()
-  const { grassColorPalette } = useEnvironmentPaletteColors()
+  const { stemColorPalette } = useEnvironmentPaletteColors()
   const meadowLayout = useMeadowLayout(meadowLayoutSeed)
   const terrainShape = useTerrainShape(terrainShapeSeed)
 
@@ -65,9 +65,9 @@ export function FlowerField() {
     [flowerFieldSeed, palette],
   )
   const centerMaterials = useMemo(() => buildCenterMaterialVariants(palette), [palette])
-  // Plain and green like Grass.tsx's material, deliberately not palette-tinted or
-  // translucent like the petals — a stem is meant to disappear into the grass
-  // around it, coloured per-instance from that same grassColorPalette below.
+  // Plain and green like Grass.tsx's material, not translucent like the
+  // petals — coloured per-instance from stemColorPalette below, its own
+  // green-family tint derived from the palette's `stem` role.
   const stemMaterial = useMemo(() => {
     const mat = new THREE.MeshStandardMaterial({
       color: new THREE.Color('#ffffff'),
@@ -83,12 +83,12 @@ export function FlowerField() {
 
   const field = useMemo(
     () =>
-      generateFlowerField(flowerFieldSeed, palette, grassColorPalette, meadowLayout, terrainShape, {
+      generateFlowerField(flowerFieldSeed, palette, stemColorPalette, meadowLayout, terrainShape, {
         densityMultiplier: flowerDensity,
         scaleMultiplier: flowerScale,
         poppyAccentProbability,
       }),
-    [flowerFieldSeed, palette, grassColorPalette, meadowLayout, terrainShape, flowerDensity, flowerScale, poppyAccentProbability],
+    [flowerFieldSeed, palette, stemColorPalette, meadowLayout, terrainShape, flowerDensity, flowerScale, poppyAccentProbability],
   )
 
   useEffect(() => {

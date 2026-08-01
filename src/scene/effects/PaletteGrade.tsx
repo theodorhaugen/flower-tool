@@ -18,9 +18,9 @@ export function PaletteGrade() {
   const pass = useMemo(
     () =>
       new PaletteGradePass({
-        highlightColor: palette.highlight,
-        shadowColor: palette.shadow,
-        bloomTintColor: palette.bloomTint,
+        highlightColor: palette.glow,
+        shadowColor: palette.foliagePrimary,
+        bloomTintColor: palette.glow,
         highlightStrength,
         shadowStrength,
         bloomBiasStrength,

@@ -17,7 +17,7 @@ export function AtmosphericHaze() {
   const effect = useMemo(
     () =>
       new AtmosphericHazeEffect({
-        color: palette.hazeTint,
+        color: palette.background,
         frequency: haze.frequency,
         driftSpeed: haze.driftSpeed,
         hazeStrength: haze.strength * hazeAmount,

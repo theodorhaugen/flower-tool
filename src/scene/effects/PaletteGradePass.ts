@@ -114,7 +114,7 @@ export interface PaletteGradeOptions {
 
 /**
  * A simple two-point colour grade (lift shadows / tint highlights towards
- * the active palette's `shadow`/`highlight`) plus a bloom-tint pre-bias,
+ * the active palette's `foliagePrimary`/`glow`) plus a bloom-tint pre-bias,
  * placed *before* Bloom in the pipeline (see PostProcessing.tsx) so
  * Bloom's own glow inherits `bloomTint` rather than being tinted after the
  * fact. A `Pass`, not an `Effect` — postprocessing's `Effect` model can

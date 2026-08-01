@@ -49,8 +49,8 @@ interface PetalArchetypeMaterialBase {
 
 /**
  * Non-colour tuning per archetype — emissive/sheen *colour* is derived from
- * the palette below instead, so it stays cohesive with whichever family of
- * dominantHues is active. One entry per PETAL_ARCHETYPES entry (config.ts) —
+ * the palette below instead, so it stays cohesive with whichever petal
+ * family is active. One entry per PETAL_ARCHETYPES entry (config.ts) —
  * rounded/elongated/spiky/bell/poppy/ruffled, in that order. The spread here
  * (glossier+brighter bell and poppy, matte+duller spiky aster) is itself
  * part of making the six archetypes read as different species rather than
@@ -106,23 +106,24 @@ const PETAL_ARCHETYPE_MATERIAL_BASE: readonly PetalArchetypeMaterialBase[] = [
 /**
  * The emissive/sheen "glow" colour per archetype — near-white so it reads
  * as light passing through tissue rather than a second layer of pigment,
- * but tinted by the palette's `highlight` (the colour of light itself)
- * rather than a fixed pink/lavender, so translucency reads as this
- * render's light instead of always the same hues regardless of palette.
- * Cycles through `dominantHues` (up to 5 per palette) by archetype index —
- * with 6 archetypes and up to 5 hues, at most two archetypes ever share a
- * glow tint, so each still reads as its own "family" rather than one
- * uniform glow across every shape.
+ * but tinted by the palette's `glow` (the colour of light itself) rather
+ * than a fixed pink/lavender, so translucency reads as this render's light
+ * instead of always the same hues regardless of palette. Cycles through
+ * `petalPrimary`/`petalSecondary`/`petalTertiary` by archetype index —
+ * with 6 archetypes and 3 hues, every other archetype shares a glow tint,
+ * so each still reads as its own "family" rather than one uniform glow
+ * across every shape.
  */
 function archetypeGlowColors(palette: ColorPalette, archetypeCount: number): { emissive: THREE.Color; sheenColor: THREE.Color }[] {
-  const highlight = new THREE.Color(palette.highlight)
+  const glow = new THREE.Color(palette.glow)
   const white = new THREE.Color('#ffffff')
+  const petalHues = [palette.petalPrimary, palette.petalSecondary, palette.petalTertiary]
 
   return Array.from({ length: archetypeCount }, (_, i) => {
-    const hue = new THREE.Color(palette.dominantHues[i % palette.dominantHues.length])
+    const hue = new THREE.Color(petalHues[i % petalHues.length])
     return {
-      emissive: highlight.clone().lerp(hue, 0.35).lerp(white, 0.55),
-      sheenColor: highlight.clone().lerp(hue, 0.2).lerp(white, 0.75),
+      emissive: glow.clone().lerp(hue, 0.35).lerp(white, 0.55),
+      sheenColor: glow.clone().lerp(hue, 0.2).lerp(white, 0.75),
     }
   })
 }
@@ -178,16 +179,16 @@ export function buildPetalMaterialVariants(
   return materials
 }
 
-/** Flower-centre material — emissive warmth mixed from a fixed pollen-amber anchor and the palette's `highlight`, so centres stay believably warm even under a cool palette while still picking up its mood. */
+/** Flower-centre material — emissive warmth mixed from a fixed pollen-amber anchor and the palette's `accent` (the small, sparing detail-highlight role), so centres stay believably warm even under a cool palette while still picking up its mood. */
 export function buildCenterMaterialProps(palette: ColorPalette): THREE.MeshStandardMaterialParameters {
   const pollenAmber = new THREE.Color('#7a5a2a')
-  const highlight = new THREE.Color(palette.highlight)
+  const accent = new THREE.Color(palette.accent)
 
   return {
     color: new THREE.Color('#ffffff'),
     roughness: 0.6,
     metalness: 0.05,
-    emissive: pollenAmber.clone().lerp(highlight, 0.4),
+    emissive: pollenAmber.clone().lerp(accent, 0.4),
     emissiveIntensity: 0.12,
     vertexColors: true,
   }

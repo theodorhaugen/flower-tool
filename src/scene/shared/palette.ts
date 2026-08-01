@@ -6,93 +6,126 @@ import * as THREE from 'three'
  * lighting, bloom) draws from, instead of each system inventing its own
  * hardcoded hex values independently. That's what "cohesive" actually
  * means here: swap the palette and the *entire* image's mood changes
- * together, because everything is derived from the same five values rather
- * than five unrelated tuning knobs that happen to look okay side by side.
+ * together, because everything is derived from the same semantic roles
+ * rather than unrelated tuning knobs that happen to look okay side by side.
  *
  * Which palette a render belongs to is picked in shared/generative.ts, as
  * one of many things derived from that render's single generative seed —
  * this file only defines what a palette *is* and the registry to pick
- * from.
+ * from. Every field is a single hex anchor, not a literal "paint this
+ * exact colour" instruction — every consumer mixes these anchors into lit,
+ * per-instance-jittered PBR materials (see subjects/flowerField/materials.ts,
+ * environment/paletteColors.ts) rather than applying them as flat colour, so
+ * the palette sets the *mood* while lighting/shading still does the actual
+ * rendering work.
  *
- * - `dominantHues`: the flower "family" this render draws from — petal and
- *   centre colours are sampled from these (see subjects/flowerField/palette.ts).
- * - `highlight`: the colour of light hitting something — sunlit grass
- *   tips, the key light, the sky's brightness (see environment/paletteColors.ts,
- *   lighting/SceneLighting.tsx).
- * - `shadow`: the colour of the absence of that light — shadowed grass,
- *   the fill light, ground bounce.
- * - `bloomTint`: the literal colour of the post-processing bloom glow
- *   (see effects/PaletteGradePass.ts) — light doesn't just get brighter
- *   when it blooms, real bloom/glare picks up a colour.
- * - `hazeTint`: the colour of the air itself — scene fog, the horizon, and
- *   the screen-space atmospheric haze (see effects/AtmosphericHazeEffect.ts).
+ * - `background`/`backgroundSecondary`: the sky/horizon/fog gradient — sky
+ *   top and the horizon/fog/ground-haze blend respectively (see
+ *   environment/paletteColors.ts, Horizon.tsx, Fog.tsx, AtmosphericHaze.tsx).
+ * - `glow`: the colour of light itself — sunlit grass tips, the key light,
+ *   flower translucency glow, and the literal colour of the post-processing
+ *   bloom (see lighting/SceneLighting.tsx, subjects/flowerField/materials.ts,
+ *   effects/PaletteGradePass.ts).
+ * - `foliagePrimary`/`foliageSecondary`: the meadow's own greenery — grass,
+ *   wild vegetation, and (mixed with `glow`'s opposite, doing double duty as
+ *   "the colour of shadow") ground-bounce/fill-light tint (see
+ *   environment/paletteColors.ts, lighting/SceneLighting.tsx).
+ * - `petalPrimary`/`petalSecondary`/`petalTertiary`: the flower "family"
+ *   this render draws from — petal colours are sampled from these three
+ *   anchors (see subjects/flowerField/palette.ts).
+ * - `core`: flower centre/stamen colour anchor.
+ * - `accent`: a small, sparing highlight for detail elements — mixed into
+ *   the flower centres' pollen warmth here, but the natural home for any
+ *   future tiny-detail colour (dust, veining).
+ * - `stem`: stem/branch colour family, kept distinct from `foliagePrimary`/
+ *   `foliageSecondary` so stems can read as their own thing rather than
+ *   simply reusing the grass palette.
  */
 export interface ColorPalette {
   name: string
-  /** Hex anchors flower petals/centres are sampled from — a handful, not one, so the "family" has variety. */
-  dominantHues: readonly string[]
-  highlight: string
-  shadow: string
-  bloomTint: string
-  hazeTint: string
+  background: string
+  backgroundSecondary: string
+  glow: string
+  foliagePrimary: string
+  foliageSecondary: string
+  petalPrimary: string
+  petalSecondary: string
+  petalTertiary: string
+  core: string
+  accent: string
+  stem: string
 }
 
 export const PALETTES: readonly ColorPalette[] = [
   {
-    name: 'Spring Meadow',
-    dominantHues: ['#f4b9c9', '#f7e08a', '#cfe6ab', '#eaf2df', '#eec4e2'],
-    highlight: '#fff6d8',
-    shadow: '#48624a',
-    bloomTint: '#fff2c2',
-    hazeTint: '#eef3e4',
+    name: 'Golden hour meadow',
+    background: '#E9EEC7',
+    backgroundSecondary: '#D8E2B8',
+    glow: '#F5C93A',
+    foliagePrimary: '#24392B',
+    foliageSecondary: '#3B5747',
+    petalPrimary: '#6B7FB0',
+    petalSecondary: '#8C9BC4',
+    petalTertiary: '#F08A1E',
+    core: '#F5C93A',
+    accent: '#FBEFA0',
+    stem: '#1E2E22',
   },
   {
-    name: 'Early Morning',
-    dominantHues: ['#e7d8ea', '#f6e3d0', '#d7e6ea', '#f0eadf', '#e3d1d9'],
-    highlight: '#ffe3b0',
-    shadow: '#546575',
-    bloomTint: '#ffdca0',
-    hazeTint: '#dfe6ea',
+    name: 'Emerald dahlia',
+    background: '#12503D',
+    backgroundSecondary: '#0C3A2C',
+    glow: '#E8A85C',
+    foliagePrimary: '#0C3A2C',
+    foliageSecondary: '#1A5A45',
+    petalPrimary: '#F4CBD6',
+    petalSecondary: '#E88CA3',
+    petalTertiary: '#D45C7C',
+    core: '#E8A85C',
+    accent: '#F9E3B5',
+    stem: '#2B2015',
   },
   {
-    name: 'Golden Hour',
-    dominantHues: ['#f0a868', '#e8836a', '#f4c869', '#d97a8c', '#f7dca0'],
-    highlight: '#ffce7a',
-    shadow: '#5a3a3f',
-    bloomTint: '#ffb066',
-    hazeTint: '#f0cfa0',
+    name: 'Monarch sky',
+    background: '#5FA8D3',
+    backgroundSecondary: '#8FC4E0',
+    glow: '#F4A83D',
+    foliagePrimary: '#1D2E1A',
+    foliageSecondary: '#2E4429',
+    petalPrimary: '#E8811E',
+    petalSecondary: '#F4A83D',
+    petalTertiary: '#F5D9CF',
+    core: '#2B1B0E',
+    accent: '#F5D9CF',
+    stem: '#2B1B0E',
   },
   {
-    name: 'Lavender Field',
-    dominantHues: ['#b79fd1', '#9a86c2', '#d8c8e8', '#7d6fa3', '#e6dcf0'],
-    highlight: '#e8ddf5',
-    shadow: '#3f3660',
-    bloomTint: '#c9b6ea',
-    hazeTint: '#ded3ea',
+    name: 'Sunlit pastel',
+    background: '#F5ECE1',
+    backgroundSecondary: '#BFDCD2',
+    glow: '#FBF6EE',
+    foliagePrimary: '#BFDCD2',
+    foliageSecondary: '#9FC3B8',
+    petalPrimary: '#F3C23C',
+    petalSecondary: '#E8752B',
+    petalTertiary: '#D8503F',
+    core: '#E8752B',
+    accent: '#FBF6EE',
+    stem: '#C7896E',
   },
   {
-    name: 'Summer Sky',
-    dominantHues: ['#f4f1e3', '#dce8f0', '#f0dd7a', '#a9c9dd', '#eef4e0'],
-    highlight: '#fff8dc',
-    shadow: '#3d5a70',
-    bloomTint: '#e8f0c0',
-    hazeTint: '#d7e5ee',
-  },
-  {
-    name: 'Autumn Wildflowers',
-    dominantHues: ['#c9762f', '#a94430', '#d9a441', '#8a5a3c', '#c88a5a'],
-    highlight: '#e8a850',
-    shadow: '#4a2f22',
-    bloomTint: '#d9793a',
-    hazeTint: '#c9ab7e',
-  },
-  {
-    name: 'Mist',
-    dominantHues: ['#d8d8d4', '#c9d0cf', '#e0dcd8', '#b8c0c2', '#cfd6d2'],
-    highlight: '#eceae5',
-    shadow: '#5c6360',
-    bloomTint: '#e6e6e2',
-    hazeTint: '#dcdad4',
+    name: 'Twilight garden',
+    background: '#142819',
+    backgroundSecondary: '#1E3A22',
+    glow: '#D9B95C',
+    foliagePrimary: '#3C5A38',
+    foliageSecondary: '#274627',
+    petalPrimary: '#7C93D6',
+    petalSecondary: '#EAF0E8',
+    petalTertiary: '#D98A7A',
+    core: '#D9B95C',
+    accent: '#D98A7A',
+    stem: '#274627',
   },
 ]
 
@@ -101,13 +134,27 @@ export function findPaletteByName(name: string): ColorPalette | undefined {
   return PALETTES.find((p) => p.name === name)
 }
 
+const HUE_SHIFTED_FIELDS = [
+  'background',
+  'backgroundSecondary',
+  'glow',
+  'foliagePrimary',
+  'foliageSecondary',
+  'petalPrimary',
+  'petalSecondary',
+  'petalTertiary',
+  'core',
+  'accent',
+  'stem',
+] as const
+
 /**
  * Rotates every colour in a palette by the same hue amount and returns a
  * new palette — used by the Leva panel's Colour > Hue Shift control
  * (shared/GenerativeProvider.tsx) so a designer can nudge a whole render's
  * mood along the colour wheel without breaking the palette's internal
- * relationships (highlight/shadow/bloomTint/hazeTint all shift together,
- * same as dominantHues, so they stay as cohesive as the original).
+ * relationships (every role shifts together, so they stay as cohesive as
+ * the original).
  */
 export function shiftPaletteHue(palette: ColorPalette, degrees: number): ColorPalette {
   if (degrees === 0) return palette
@@ -120,12 +167,9 @@ export function shiftPaletteHue(palette: ColorPalette, degrees: number): ColorPa
     return `#${color.setHSL(h, hsl.s, hsl.l).getHexString()}`
   }
 
-  return {
-    ...palette,
-    dominantHues: palette.dominantHues.map(shiftHex),
-    highlight: shiftHex(palette.highlight),
-    shadow: shiftHex(palette.shadow),
-    bloomTint: shiftHex(palette.bloomTint),
-    hazeTint: shiftHex(palette.hazeTint),
+  const shifted = { ...palette }
+  for (const field of HUE_SHIFTED_FIELDS) {
+    shifted[field] = shiftHex(palette[field])
   }
+  return shifted
 }
