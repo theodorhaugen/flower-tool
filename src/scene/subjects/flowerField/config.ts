@@ -121,6 +121,39 @@ export const FLOWER_FIELD_CONFIG = {
     dropPetalCountRange: [1, 2] as const,
   },
 
+  /**
+   * Which *structure* a plant grows into, not just which petal shape it
+   * wears — varying archetype/colour alone still reads as one template
+   * ("a flower") recombined. These three read as genuinely different kinds
+   * of plants at a glance:
+   * - `bloom`: the classic single flower head — what every plant used to
+   *   be, a ring of petalCountRange petals around one center.
+   * - `umbel`: many tiny florets clustered into a dome atop the stem (like
+   *   yarrow or Queen Anne's lace) — no single "flower," a haze of small
+   *   ones.
+   * - `spike`: several small blooms stacked up the stem's own upper length
+   *   (like lupine or foxglove) instead of one head at the tip.
+   */
+  species: {
+    weights: { bloom: 0.55, umbel: 0.25, spike: 0.2 },
+    umbel: {
+      floretCountRange: [14, 26] as const,
+      /** Dome radius the florets scatter across, relative to the plant's own `flowerScale`. */
+      domeRadiusFactor: 0.34,
+      /** Each floret's own scale, relative to `flowerScale`. */
+      floretScaleFactor: 0.16,
+      floretPetalCountRange: [3, 5] as const,
+    },
+    spike: {
+      bloomCountRange: [4, 8] as const,
+      /** Each mini-bloom's own scale, relative to `flowerScale`. */
+      bloomScaleFactor: 0.42,
+      bloomPetalCountRange: [4, 6] as const,
+      /** Fraction of the stem's height (from its base) where mini-blooms start appearing — the lower stem stays bare. */
+      startHeightFraction: 0.5,
+    },
+  },
+
   // The field spans the meadow depth (see shared/frustum.ts) in front of the
   // camera. Sampled positions are clamped against `minCameraDistance` so
   // nothing ends up on top of the lens.

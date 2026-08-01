@@ -5,7 +5,6 @@ import { useGenerative } from '../shared/generativeContext'
 import { AtmosphericHaze } from './AtmosphericHaze'
 import { BilateralSoft } from './BilateralSoft'
 import { POST_PROCESSING_CONFIG } from './config'
-import { DustScratches } from './DustScratches'
 import { FilmGrain } from './FilmGrain'
 import { Halation } from './Halation'
 import { LensDistortion } from './LensDistortion'
@@ -71,10 +70,6 @@ import { PaletteGrade } from './PaletteGrade'
  * - LongExposureBlur: simulated handheld-long-exposure blur, blending in a
  *   decaying history of recent frames — driven by the scene's own existing
  *   camera drift, not a synthetic per-object velocity streak.
- * - DustScratches: a fixed (not per-frame) speckled-dust + scratch overlay —
- *   listed *after* LongExposureBlur deliberately, since real dust sits on
- *   the lens/print itself, not the scene, so it shouldn't smear along with
- *   the subject's own motion blur.
  * - FilmGrain: last, on top of the fully-formed image — the emulsion layer,
  *   not a digital overlay — see FilmGrainPass.ts for why it's a custom
  *   pass rather than the postprocessing package's `Noise` effect.
@@ -110,7 +105,6 @@ export function PostProcessing() {
       />
       <LensDistortion />
       <LongExposureBlur />
-      <DustScratches />
       <FilmGrain />
     </EffectComposer>
   )
