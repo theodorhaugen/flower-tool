@@ -1,4 +1,4 @@
-import { fbm2D } from './noise'
+import { fbm2D, ridgedFbm2D } from './noise'
 
 export interface TerrainShapeConfig {
   seed: number
@@ -21,7 +21,10 @@ export function sampleTerrainHeight(x: number, z: number, shape: TerrainShapeCon
   const { seed, baseY, noiseFrequency, amplitude, detailNoiseFrequency, detailAmplitude } = shape
 
   const broad = fbm2D(x * noiseFrequency, z * noiseFrequency, seed, { octaves: 4 })
-  const detail = fbm2D(x * detailNoiseFrequency, z * detailNoiseFrequency, seed + 900, { octaves: 2 })
+  // Ridged rather than plain fbm — creased micro-relief reads as actual
+  // ground texture (small ridges/hollows) instead of the same smooth
+  // undulation as the broad layer above, just at a higher frequency.
+  const detail = ridgedFbm2D(x * detailNoiseFrequency, z * detailNoiseFrequency, seed + 900, { octaves: 2 })
 
   return baseY + (broad - 0.5) * 2 * amplitude + (detail - 0.5) * 2 * detailAmplitude
 }

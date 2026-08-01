@@ -60,6 +60,23 @@ export const ENVIRONMENT_CONFIG = {
     xHalf: 28,
   },
 
+  /**
+   * Loose stone scattered along the worn path — a real dirt trail collects
+   * pebbles the surrounding grass doesn't, which colour/depression alone
+   * (groundColor.ts/buildTerrainGeometry.ts) can't produce. Fixed, mood-
+   * independent stone tones rather than palette-derived — real rock doesn't
+   * change colour with the light the way petals/haze do.
+   */
+  pebbles: {
+    count: 260,
+    variantCount: 4,
+    scaleRange: [0.045, 0.11] as const,
+    colors: ['#8a8378', '#6f6a5e', '#a39a86', '#7d7666'] as const,
+    zNear: 9,
+    zFar: -28,
+    xHalf: 29,
+  },
+
   /** Softer and slightly denser than before — overcast haze hanging in the air, not dust. */
   fog: {
     density: 0.021,

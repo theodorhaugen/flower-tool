@@ -90,11 +90,17 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   )
 
   // --- Camera: spatial framing + how much the shot moves, not the raw lens/rig numbers ---
+  // height/distance bounds are widened past the base pose's own ±3/±4 jitter
+  // to cover every shot preset's spread (shared/generative.ts's
+  // CAMERA_SHOT_PRESETS — the low worm's-eye/elevated/tight-crop presets all
+  // push position further than the classic macro shot alone did) — without
+  // this, Leva would silently clamp a non-classic preset's initial value
+  // right back into the old, narrower range.
   const [cameraControls] = useControls(
     'Camera',
     () => ({
-      height: { value: base.camera.position[1], min: CAMERA_CONFIG.position[1] - 3, max: CAMERA_CONFIG.position[1] + 3, label: 'Height' },
-      distance: { value: base.camera.position[2], min: CAMERA_CONFIG.position[2] - 4, max: CAMERA_CONFIG.position[2] + 4, label: 'Distance' },
+      height: { value: base.camera.position[1], min: CAMERA_CONFIG.position[1] - 7, max: CAMERA_CONFIG.position[1] + 8, label: 'Height' },
+      distance: { value: base.camera.position[2], min: CAMERA_CONFIG.position[2] - 5, max: CAMERA_CONFIG.position[2] + 4, label: 'Distance' },
       pan: { value: base.camera.target[0], min: CAMERA_CONFIG.target[0] - 5, max: CAMERA_CONFIG.target[0] + 5, label: 'Pan' },
       movement: { value: 1, min: 0, max: 2, label: 'Movement' },
     }),

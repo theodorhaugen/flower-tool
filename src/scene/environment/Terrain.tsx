@@ -15,7 +15,7 @@ export function Terrain() {
   const terrainShape = useTerrainShape(terrainShapeSeed)
 
   const geometry = useMemo(
-    () => buildTerrainGeometry(createGroundColorSampler(groundColors, meadowLayout, environmentSeed), terrainShape),
+    () => buildTerrainGeometry(createGroundColorSampler(groundColors, meadowLayout, environmentSeed), terrainShape, meadowLayout),
     [groundColors, meadowLayout, environmentSeed, terrainShape],
   )
   const material = useMemo(

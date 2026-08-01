@@ -25,9 +25,24 @@ export interface TaperedBladeParams {
   heightSegments?: number
   /** Scales the baked-in per-vertex jitter; 0 disables it for a perfectly clean taper. */
   jitterAmount?: number
-  /** Optional base-to-tip vertex-color gradient — omitted entirely (no `color` attribute) when not set. */
+  /** Optional base-to-tip vertex-color gradient, multiplied with the AO darkening below rather than replacing it. */
   colorGradient?: BladeColorGradient
+  /**
+   * How strongly the base (local y = 0 — the attachment/contact point: where
+   * a petal overlaps its neighbours, or a blade meets the soil) darkens
+   * towards occlusion, baked into vertex colour. 0 disables. This is what a
+   * real contact shadow would do at that junction — with no shadow mapping
+   * anywhere in this renderer (DoF hides shadow-map resolution issues, so
+   * it was never added), a baked approximation here is the cheapest way to
+   * stop every blade/petal reading as flatly, uniformly lit base-to-tip.
+   */
+  aoStrength?: number
+  /** How far up the blade (0..1 local y) the AO darkening fades back out to full brightness. */
+  aoFalloffHeight?: number
 }
+
+const DEFAULT_AO_STRENGTH = 0.3
+const DEFAULT_AO_FALLOFF_HEIGHT = 0.4
 
 /**
  * Deforms a plane grid into a tapered, cupped, twisted blade: narrow at the
@@ -68,22 +83,37 @@ export function createTaperedBladeGeometry(rng: Rng, params: TaperedBladeParams)
 
   geometry.computeVertexNormals()
 
-  if (colorGradient) {
-    const { innerColor, outerColor, jitter = 0 } = colorGradient
-    const colors = new Float32Array(position.count * 3)
-    const color = new THREE.Color()
+  // Always baked, even with no `colorGradient` (grass/stems/leaflets never
+  // set one) — those callers used to get a flat, uniformly-lit blade
+  // top-to-bottom with zero shading cue at all; multiplying in this AO term
+  // unconditionally is what actually gives them believable contact-shadow
+  // darkening at the base instead of only petals ever getting it.
+  const { aoStrength = DEFAULT_AO_STRENGTH, aoFalloffHeight = DEFAULT_AO_FALLOFF_HEIGHT } = params
+  const colors = new Float32Array(position.count * 3)
+  const color = new THREE.Color()
 
-    for (let i = 0; i < position.count; i++) {
-      const yLocal = position.getY(i) // recovers the same 0 (base)..1 (tip) value written above
+  for (let i = 0; i < position.count; i++) {
+    const yLocal = position.getY(i) // recovers the same 0 (base)..1 (tip) value written above
+
+    if (colorGradient) {
+      const { innerColor, outerColor, jitter = 0 } = colorGradient
       const t = Math.min(1, Math.max(0, yLocal + range(rng, -jitter, jitter)))
       color.copy(innerColor).lerp(outerColor, t)
-      colors[i * 3] = color.r
-      colors[i * 3 + 1] = color.g
-      colors[i * 3 + 2] = color.b
+    } else {
+      color.setRGB(1, 1, 1)
     }
 
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    const aoT = Math.min(1, yLocal / Math.max(aoFalloffHeight, 1e-4))
+    const aoSmooth = aoT * aoT * (3 - 2 * aoT)
+    const aoFactor = 1 - aoStrength * (1 - aoSmooth)
+    color.multiplyScalar(aoFactor)
+
+    colors[i * 3] = color.r
+    colors[i * 3 + 1] = color.g
+    colors[i * 3 + 2] = color.b
   }
+
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
 
   return geometry
 }

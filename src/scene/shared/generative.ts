@@ -42,6 +42,96 @@ export interface GenerativeCamera {
   target: readonly [number, number, number]
 }
 
+type OffsetRange = readonly [number, number]
+
+interface CameraShotPreset {
+  /** Selection weight, relative to the other presets — doesn't need to sum to 1. */
+  weight: number
+  positionOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
+  targetOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
+}
+
+/**
+ * Every seed used to vary within one continuous jitter band around a single
+ * base pose — every render was "the same macro shot from a slightly
+ * different tripod position," with no seed ever producing a genuinely
+ * different composition. These four discrete presets (picked per seed, then
+ * jittered *within* the picked preset the same way the old single band was)
+ * give real compositional variety instead: a classic dead-on macro, a low
+ * worm's-eye looking up into the blooms, an elevated near-top-down look, and
+ * a tighter single-subject crop. `classic` keeps most of the weight so the
+ * field still mostly reads as the deliberately-composed base shot — the
+ * others are a meaningful minority, not a coin flip.
+ */
+const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
+  {
+    // Classic macro — the original tuned base framing's own jitter band, unchanged.
+    weight: 0.55,
+    positionOffset: [
+      [-3, 3],
+      [-1.2, 1.2],
+      [-2, 2],
+    ],
+    targetOffset: [
+      [-3, 3],
+      [0, 0],
+      [-3, 3],
+    ],
+  },
+  {
+    // Low worm's-eye — camera drops near ground level and looks up into the field instead of steeply down.
+    weight: 0.15,
+    positionOffset: [
+      [-2, 2],
+      [-6, -4],
+      [-1, 1],
+    ],
+    targetOffset: [
+      [-2, 2],
+      [3, 5],
+      [-2, 2],
+    ],
+  },
+  {
+    // Elevated — camera rises well above the base height, steepening the look-down angle towards near-top-down.
+    weight: 0.15,
+    positionOffset: [
+      [-2, 2],
+      [4, 7],
+      [-1, 1],
+    ],
+    targetOffset: [
+      [-2, 2],
+      [-3, -1],
+      [-2, 2],
+    ],
+  },
+  {
+    // Tight single-subject crop — camera pulls in noticeably closer to the focal cluster.
+    weight: 0.15,
+    positionOffset: [
+      [-1.5, 1.5],
+      [-1, 1],
+      [-4, -2],
+    ],
+    targetOffset: [
+      [-1, 1],
+      [0, 0],
+      [-1, 1],
+    ],
+  },
+]
+
+function pickCameraShotPreset(rng: () => number): CameraShotPreset {
+  const totalWeight = CAMERA_SHOT_PRESETS.reduce((sum, preset) => sum + preset.weight, 0)
+  let roll = rng() * totalWeight
+  for (const preset of CAMERA_SHOT_PRESETS) {
+    roll -= preset.weight
+    if (roll <= 0) return preset
+  }
+  return CAMERA_SHOT_PRESETS[0] // unreachable — weights sum to totalWeight — but keeps TS happy
+}
+
 export interface GenerativeWind {
   /** World-unit bend magnitude at a blade's tip. */
   strength: number
@@ -131,20 +221,28 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   const rolledPalette = PALETTES[Math.floor(paletteRng() * PALETTES.length)]
   const palette = (forcePaletteName && findPaletteByName(forcePaletteName)) || rolledPalette
 
-  // Varies around CAMERA_CONFIG's carefully-composed base framing (45°
-  // macro angle, off-axis target) rather than anything unbounded — every
-  // seed should still look like a deliberate macro-photography shot, not a
-  // randomly-aimed camera.
+  // Picks one of a few discrete shot compositions (CAMERA_SHOT_PRESETS
+  // above), then jitters within it — every seed used to vary continuously
+  // around one single base pose, so every render was "the same shot from a
+  // slightly different spot." Still bounded around CAMERA_CONFIG's
+  // carefully-composed base framing rather than anything unbounded — every
+  // preset should still look like a deliberate macro-photography shot, not
+  // a randomly-aimed camera.
   const cameraRng = createRng(seed + SEED_OFFSETS.camera)
   const [baseX, baseY, baseZ] = CAMERA_CONFIG.position
   const [targetX, targetY, targetZ] = CAMERA_CONFIG.target
+  const shotPreset = pickCameraShotPreset(cameraRng)
   const camera: GenerativeCamera = {
     position: [
-      baseX + range(cameraRng, -3, 3),
-      baseY + range(cameraRng, -1.2, 1.2),
-      baseZ + range(cameraRng, -2, 2),
+      baseX + range(cameraRng, ...shotPreset.positionOffset[0]),
+      baseY + range(cameraRng, ...shotPreset.positionOffset[1]),
+      baseZ + range(cameraRng, ...shotPreset.positionOffset[2]),
     ],
-    target: [targetX + range(cameraRng, -3, 3), targetY, targetZ + range(cameraRng, -3, 3)],
+    target: [
+      targetX + range(cameraRng, ...shotPreset.targetOffset[0]),
+      targetY + range(cameraRng, ...shotPreset.targetOffset[1]),
+      targetZ + range(cameraRng, ...shotPreset.targetOffset[2]),
+    ],
   }
 
   // Both vary around CAMERA_CONFIG.dof/POST_PROCESSING_CONFIG.bloom's own

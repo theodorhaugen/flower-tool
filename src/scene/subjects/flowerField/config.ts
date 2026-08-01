@@ -45,6 +45,24 @@ export const FLOWER_FIELD_CONFIG = {
   maxFlowerTilt: 0.6,
 
   centerRadiusRange: [0.16, 0.26] as const,
+  centerVariantCount: 4,
+  /**
+   * Which center shapes (see geometryVariants.ts's `buildCenterGeometryVariants`
+   * — 0 domed, 1 granular/pollen, 2 spiky, 3 cupped/hollow) a given petal
+   * archetype prefers, so "species" means a consistent shape+center combo
+   * instead of two independently-random picks. Index matches
+   * `PETAL_ARCHETYPES` below.
+   */
+  archetypePreferredCenters: [
+    [0, 1],
+    [1, 3],
+    [2, 2],
+    [3, 0],
+    [1, 0],
+    [2, 3],
+  ] as const,
+  /** Odds a flower's center ignores its archetype's preference and picks fully at random — keeps the correlation from reading as a mechanical lookup table. */
+  centerPreferenceStrength: 0.7,
 
   /**
    * Soft base-to-tip vertex-color gradient baked into every petal — deeper/
@@ -80,6 +98,27 @@ export const FLOWER_FIELD_CONFIG = {
     jitterAmount: 0.3,
     /** Small random lean, same idea as generateGrass.ts's — a stem standing perfectly vertical reads as artificial. */
     maxLean: 0.18,
+    /** Odds a stem is a flopped-over outlier instead of the small-lean norm above — see generateFlowerField.ts. Real fields always have a few. */
+    flopProbability: 0.05,
+    /** How far a flopped stem leans, radians — well past `maxLean`, closer to horizontal. */
+    flopLeanRange: [0.7, 1.3] as const,
+  },
+
+  /**
+   * Rare per-flower "wrongness" — wilting, missing petals — so the field
+   * doesn't read as every instance being a small jitter around one perfect
+   * template. Real meadows are mostly uniform specifically because a few
+   * genuinely off blooms exist to contrast against; their total absence is
+   * itself a "generated" tell.
+   */
+  outliers: {
+    wiltProbability: 0.04,
+    wiltColor: '#6b5636',
+    /** How far a wilted flower's petals lerp towards `wiltColor`, [min, max) — never total, so it still reads as "this flower" gone brown, not a different object. */
+    wiltAmountRange: [0.45, 0.85] as const,
+    /** Odds a flower drops a petal (or two) from its usual count — asymmetric, missing-a-petal irregularity instead of always-even spacing. */
+    dropPetalProbability: 0.1,
+    dropPetalCountRange: [1, 2] as const,
   },
 
   // The field spans the meadow depth (see shared/frustum.ts) in front of the
@@ -128,7 +167,27 @@ export const FLOWER_FIELD_CONFIG = {
   maxSampleAttemptsPerFlower: 40,
 }
 
+/**
+ * Six distinct silhouettes, not two — with only "rounded" and "elongated"
+ * every flower in the field read as the same daisy template wearing
+ * different colours (see the art-direction review this responds to). Each
+ * of these pushes the tapered-blade params (petalGeometry.ts) somewhere
+ * the original two never went, so the field reads as several species
+ * instead of one shape recombined:
+ */
 export const PETAL_ARCHETYPES: readonly PetalArchetype[] = [
   { tipSharpness: 0.75, curl: 0.3, twist: 0.1, widthScale: 0.68 }, // rounded
   { tipSharpness: 1.15, curl: 0.45, twist: 0.22, widthScale: 0.5 }, // elongated
+  { tipSharpness: 2.4, curl: 0.15, twist: 0.05, widthScale: 0.3 }, // spiky aster — thin, sharp, barely curled
+  { tipSharpness: 0.9, curl: 0.8, twist: 0, widthScale: 0.88 }, // bell — wide, cupped hard forward
+  { tipSharpness: 0.5, curl: 0.6, twist: 0.15, widthScale: 1.15 }, // poppy — one or two huge rounded petals
+  { tipSharpness: 1.4, curl: 0.25, twist: 0.4, widthScale: 0.55 }, // ruffled — high twist reads as a crinkled edge
 ]
+
+/**
+ * Which archetype a poppy-accent-coloured flower (see palette.ts's
+ * `POPPY_ANCHOR`) is built from — a real poppy has a very specific
+ * few-huge-rounded-petals silhouette, not an arbitrary one, so the colour
+ * override and the shape it wears are no longer independent coin flips.
+ */
+export const POPPY_ARCHETYPE_INDEX = 4

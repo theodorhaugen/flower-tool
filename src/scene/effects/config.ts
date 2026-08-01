@@ -99,6 +99,19 @@ export const POST_PROCESSING_CONFIG = {
     vibrance: 0.4,
   },
 
+  /**
+   * Warm chromatic bleed around only the brightest highlights — see
+   * effects/HalationPass.ts. `threshold` matches `highlightBloom`'s above so
+   * this reads as that same bloom's own fringe rather than an independent
+   * glow; kept subtle (0.18) since this is a texture cue, not a second
+   * bloom pass.
+   */
+  halation: {
+    threshold: 0.82,
+    intensity: 0.18,
+    tint: [1, 0.45, 0.25] as const,
+  },
+
   /** Weaker in the middle, stronger towards the edges — how a real lens's fringing actually behaves, not a full-frame colour shift. */
   chromaticAberration: {
     offset: [0.0012, 0.0012] as const,

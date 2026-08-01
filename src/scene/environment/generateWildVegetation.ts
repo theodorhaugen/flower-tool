@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { jitterColor } from '../shared/colorJitter'
+import { sampleMeadowClusterField } from '../shared/meadowLayout'
 import type { MeadowLayoutConfig } from '../shared/meadowLayout'
 import { createRng, intRange, range } from '../shared/random'
 import { createTaperedBladeGeometry } from '../shared/taperedBlade'
@@ -7,10 +8,13 @@ import { sampleTerrainHeight } from '../shared/terrainHeight'
 import type { TerrainShapeConfig } from '../shared/terrainHeight'
 import { ENVIRONMENT_CONFIG } from './config'
 import type { GrassGroup } from './generateGrass'
-import { samplePathFactor } from './groundColor'
+import { samplePathDepression, samplePathFactor } from './groundColor'
 
 const UP = new THREE.Vector3(0, 1, 0)
 const VARIANT_COUNT = 4
+/** Odds a single leaflet reads as browning/dying rather than healthy green — a small outlier so the clumps aren't uniformly pristine. */
+const DAMAGE_PROBABILITY = 0.06
+const DAMAGE_COLOR = new THREE.Color('#7a5a34')
 
 /**
  * Small sparse weed/leaf clumps — a handful of tiny leaflets fanning out
@@ -53,7 +57,11 @@ export function generateWildVegetation(
     attempts++
     const cx = range(rng, -xHalf, xHalf)
     const cz = range(rng, zFar, zNear)
-    if (rng() > samplePathFactor(cx, cz, meadowLayout)) continue
+    // Same cluster-correlated acceptance as generateGrass.ts — weeds thin
+    // out in the same clearings the flowers do, not independently.
+    const clumpClusterFactor = sampleMeadowClusterField(cx, cz, meadowLayout)
+    const clumpAcceptance = samplePathFactor(cx, cz, meadowLayout) * (0.55 + 0.45 * clumpClusterFactor)
+    if (rng() > clumpAcceptance) continue
 
     const leafletCount = intRange(rng, leafletsPerClumpRange[0], leafletsPerClumpRange[1])
     const baseColor = new THREE.Color(colorPalette[Math.floor(rng() * colorPalette.length) % colorPalette.length])
@@ -63,7 +71,7 @@ export function generateWildVegetation(
       const radial = range(rng, 0, clumpRadius)
       const x = cx + Math.cos(angle) * radial
       const z = cz + Math.sin(angle) * radial
-      const y = sampleTerrainHeight(x, z, terrainShape)
+      const y = sampleTerrainHeight(x, z, terrainShape) - samplePathDepression(x, z, meadowLayout)
 
       const scale = range(rng, scaleRange[0], scaleRange[1])
       const outwardTilt = range(rng, 0.15, 0.55)
@@ -77,8 +85,9 @@ export function generateWildVegetation(
       matrix.scale(new THREE.Vector3(scale, scale, scale))
       matrix.setPosition(x, y, z)
 
+      const leafletColor = rng() < DAMAGE_PROBABILITY ? baseColor.clone().lerp(DAMAGE_COLOR, range(rng, 0.5, 0.9)) : baseColor
       const group = groups[Math.floor(rng() * groups.length) % groups.length]
-      group.instances.push({ matrix: matrix.clone(), color: jitterColor(rng, baseColor, 0.08) })
+      group.instances.push({ matrix: matrix.clone(), color: jitterColor(rng, leafletColor, 0.08) })
     }
 
     clumpsPlaced++

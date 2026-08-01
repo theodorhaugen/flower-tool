@@ -59,7 +59,14 @@ export function applyWindDisplacement(
         `
         {
           float windPhase = uWindTime * uWindSpeed - (transformed.x * uWindFrequency + transformed.z * uWindFrequency * 0.6);
-          float windSway = sin(windPhase) * uWindStrength * pow(clamp(position.y, 0.0, 1.0), 1.5);
+          // A second, faster, differently-directed wave mixed in at low
+          // weight — a single sine is one coherent wave sweeping the whole
+          // field in lockstep (the classic "game grass" tell); layering a
+          // decorrelated higher-frequency one breaks that unison into
+          // something closer to turbulence without needing a per-blade
+          // attribute.
+          float windPhase2 = uWindTime * uWindSpeed * 1.7 + 0.5 - (transformed.x * uWindFrequency * 3.3 - transformed.z * uWindFrequency * 2.1);
+          float windSway = (sin(windPhase) * 0.72 + sin(windPhase2) * 0.28) * uWindStrength * pow(clamp(position.y, 0.0, 1.0), 1.5);
           transformed.x += uWindDir.x * windSway;
           transformed.z += uWindDir.y * windSway;
         }

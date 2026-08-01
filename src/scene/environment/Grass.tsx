@@ -30,6 +30,11 @@ export function Grass() {
       color: new THREE.Color('#ffffff'),
       roughness: 0.85,
       side: THREE.DoubleSide,
+      // Reads the baked base-darkening AO every tapered-blade geometry now
+      // carries (shared/taperedBlade.ts) — without this the geometry's own
+      // colour attribute is simply ignored and every blade stays flatly lit
+      // top-to-bottom.
+      vertexColors: true,
     })
     applyWindDisplacement(mat, wind)
     return mat

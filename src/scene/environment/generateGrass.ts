@@ -1,12 +1,13 @@
 import * as THREE from 'three'
 import { jitterColor } from '../shared/colorJitter'
+import { sampleMeadowClusterField } from '../shared/meadowLayout'
 import type { MeadowLayoutConfig } from '../shared/meadowLayout'
 import { createRng, range } from '../shared/random'
 import { createTaperedBladeGeometry } from '../shared/taperedBlade'
 import { sampleTerrainHeight } from '../shared/terrainHeight'
 import type { TerrainShapeConfig } from '../shared/terrainHeight'
 import { ENVIRONMENT_CONFIG } from './config'
-import { samplePathFactor } from './groundColor'
+import { samplePathDepression, samplePathFactor } from './groundColor'
 
 export interface GrassGroup {
   geometry: THREE.BufferGeometry
@@ -71,9 +72,17 @@ export function generateGrass(
     const x = range(rng, -xHalf, xHalf)
     const z = range(rng, zFar, zNear)
 
-    if (rng() > samplePathFactor(x, z, meadowLayout)) continue // thinned on the path, otherwise kept
+    // Thinned on the path as before, but also leaning denser in the same
+    // clusters the flowers favour (sampleMeadowClusterField) instead of
+    // being uniformly random everywhere except the path — otherwise flower
+    // clusters and grass thickness never visually correlate, so the two
+    // don't read as one ecosystem. The 0.55 floor keeps clearings from
+    // going bald; this is "denser here", not "only here".
+    const clusterFactor = sampleMeadowClusterField(x, z, meadowLayout)
+    const acceptance = samplePathFactor(x, z, meadowLayout) * (0.55 + 0.45 * clusterFactor)
+    if (rng() > acceptance) continue
 
-    const y = sampleTerrainHeight(x, z, terrainShape)
+    const y = sampleTerrainHeight(x, z, terrainShape) - samplePathDepression(x, z, meadowLayout)
     const height = range(rng, heightRange[0], heightRange[1]) * heightMultiplier
     const spin = range(rng, 0, Math.PI * 2)
     const lean = range(rng, -0.22, 0.22)

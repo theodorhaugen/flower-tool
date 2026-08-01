@@ -8,8 +8,8 @@ import { useTerrainShape } from '../../shared/terrainShapeConfig'
 import { applyWindDisplacement, useWindAnimation } from '../../shared/windMaterial'
 import { FLOWER_FIELD_CONFIG } from './config'
 import { generateFlowerField } from './generateFlowerField'
-import { buildCenterGeometry, buildPetalGeometryVariants, buildStemGeometryVariants } from './geometryVariants'
-import { buildCenterMaterialProps, buildPetalMaterialVariants } from './materials'
+import { buildCenterGeometryVariants, buildPetalGeometryVariants, buildStemGeometryVariants } from './geometryVariants'
+import { buildCenterMaterialVariants, buildPetalMaterialVariants } from './materials'
 
 /** Stems are thin/stiff near the base, so they sway less than the taller, floppier grass around them. */
 const STEM_WIND_STRENGTH_MULTIPLIER = 0.5
@@ -49,17 +49,22 @@ export function FlowerField() {
   const terrainShape = useTerrainShape(terrainShapeSeed)
 
   const petalGeometries = useMemo(() => buildPetalGeometryVariants(flowerFieldSeed), [flowerFieldSeed])
-  const centerGeometry = useMemo(() => buildCenterGeometry(), [])
+  const centerGeometries = useMemo(() => buildCenterGeometryVariants(flowerFieldSeed), [flowerFieldSeed])
   const stemGeometries = useMemo(() => buildStemGeometryVariants(flowerFieldSeed), [flowerFieldSeed])
 
   const petalMaterials = useMemo(
     () => buildPetalMaterialVariants(flowerFieldSeed, palette),
     [flowerFieldSeed, palette],
   )
-  const centerMaterial = useMemo(
-    () => new THREE.MeshStandardMaterial(buildCenterMaterialProps(palette)),
-    [palette],
+  // Same geometries, a real-transmission material instead of the cheap
+  // sheen/clearcoat fake — only the small foreground band uses this (see
+  // generateFlowerField.ts's `foregroundPetalGroups`), since those are the
+  // few hero blooms sharp enough for real translucency to actually read.
+  const foregroundPetalMaterials = useMemo(
+    () => buildPetalMaterialVariants(flowerFieldSeed, palette, { transmission: true }),
+    [flowerFieldSeed, palette],
   )
+  const centerMaterials = useMemo(() => buildCenterMaterialVariants(palette), [palette])
   // Plain and green like Grass.tsx's material, deliberately not palette-tinted or
   // translucent like the petals — a stem is meant to disappear into the grass
   // around it, coloured per-instance from that same grassColorPalette below.
@@ -89,13 +94,14 @@ export function FlowerField() {
   useEffect(() => {
     return () => {
       petalGeometries.forEach((geometry) => geometry.dispose())
-      centerGeometry.dispose()
+      centerGeometries.forEach((geometry) => geometry.dispose())
       stemGeometries.forEach((geometry) => geometry.dispose())
       petalMaterials.forEach((material) => material.dispose())
-      centerMaterial.dispose()
+      foregroundPetalMaterials.forEach((material) => material.dispose())
+      centerMaterials.forEach((material) => material.dispose())
       stemMaterial.dispose()
     }
-  }, [petalGeometries, centerGeometry, stemGeometries, petalMaterials, centerMaterial, stemMaterial])
+  }, [petalGeometries, centerGeometries, stemGeometries, petalMaterials, foregroundPetalMaterials, centerMaterials, stemMaterial])
 
   return (
     <group>
@@ -110,7 +116,25 @@ export function FlowerField() {
           />
         )
       })}
-      <InstancedGroup geometry={centerGeometry} material={centerMaterial} instances={field.centers} />
+      {field.foregroundPetalGroups.map((group) => {
+        const geometryIndex = group.archetypeIndex * FLOWER_FIELD_CONFIG.variantsPerArchetype + group.variantIndex
+        return (
+          <InstancedGroup
+            key={`petal-fg-${geometryIndex}`}
+            geometry={petalGeometries[geometryIndex]}
+            material={foregroundPetalMaterials[geometryIndex]}
+            instances={group.instances}
+          />
+        )
+      })}
+      {field.centerGroups.map((group) => (
+        <InstancedGroup
+          key={`center-${group.variantIndex}`}
+          geometry={centerGeometries[group.variantIndex]}
+          material={centerMaterials[group.variantIndex]}
+          instances={group.instances}
+        />
+      ))}
       {field.stemGroups.map((group) => (
         <InstancedGroup
           key={`stem-${group.variantIndex}`}

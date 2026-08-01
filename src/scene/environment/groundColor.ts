@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { frustumWidthHalfAt } from '../shared/frustum'
 import { sampleMeadowClusterField, sampleMeadowPathFactor } from '../shared/meadowLayout'
 import type { MeadowLayoutConfig } from '../shared/meadowLayout'
-import { fbm2D } from '../shared/noise'
+import { fbm2D, worley2D } from '../shared/noise'
 import { ENVIRONMENT_CONFIG } from './config'
 
 function clamp01(value: number): number {
@@ -31,6 +31,21 @@ export function sampleGroundLushness(x: number, z: number, meadowLayout: MeadowL
 /** 1 in the open meadow, dipping low along the same worn paths the flowers avoid. */
 export function samplePathFactor(x: number, z: number, meadowLayout: MeadowLayoutConfig): number {
   return sampleMeadowPathFactor(x, z, frustumWidthHalfAt(z), meadowLayout)
+}
+
+/**
+ * A real worn trail is a compacted, slightly lower channel, not just a
+ * different colour painted over flat ground — without this the path was a
+ * pure colour/density decal with the terrain mesh underneath completely
+ * unaware it existed. Depth is feathered by the same `samplePathFactor` the
+ * colour/grass-thinning already use, so the dip's edge lines up with where
+ * the dirt colour and thinned grass actually are instead of introducing a
+ * second, independent boundary.
+ */
+const PATH_DEPRESSION_DEPTH = 0.16
+
+export function samplePathDepression(x: number, z: number, meadowLayout: MeadowLayoutConfig): number {
+  return (1 - samplePathFactor(x, z, meadowLayout)) * PATH_DEPRESSION_DEPTH
 }
 
 export interface GroundColors {
@@ -92,6 +107,16 @@ export function createGroundColorSampler(
     const patch = fbm2D(x * 0.045, z * 0.045, environmentSeed + 1500, { octaves: 2 })
     color.lerp(shadow, Math.max(0, 0.35 - patch) * 0.5)
     color.lerp(lush, Math.max(0, patch - 0.65) * 0.6)
+
+    // Worley/cellular rather than another fbm layer — every noise term
+    // above is the same smooth value-noise lattice just reseeded, which is
+    // exactly why the ground reads as one repeating "corduroy" undulation
+    // no matter how many of them get stacked. Cellular distance fields have
+    // actual hard edges between cells, giving dirt-clump/pebble-scale
+    // mottling a genuinely different character instead of one more soft
+    // blob at yet another frequency.
+    const clump = worley2D(x * 0.6, z * 0.6, environmentSeed + 2200)
+    color.lerp(dry, Math.max(0, 0.22 - clump) * 0.35)
 
     color.lerp(dry, 1 - path)
     return color

@@ -1,7 +1,9 @@
 import * as THREE from 'three'
+import type { MeadowLayoutConfig } from '../shared/meadowLayout'
 import { sampleTerrainHeight } from '../shared/terrainHeight'
 import type { TerrainShapeConfig } from '../shared/terrainHeight'
 import { ENVIRONMENT_CONFIG } from './config'
+import { samplePathDepression } from './groundColor'
 
 /**
  * A displaced, vertex-coloured ground grid built directly in world space
@@ -16,6 +18,7 @@ import { ENVIRONMENT_CONFIG } from './config'
 export function buildTerrainGeometry(
   sampleGroundColor: (x: number, z: number) => THREE.Color,
   terrainShape: TerrainShapeConfig,
+  meadowLayout: MeadowLayoutConfig,
 ): THREE.BufferGeometry {
   const { width, depth, widthSegments, depthSegments, centerX, centerZ } = ENVIRONMENT_CONFIG.terrain
   const cols = widthSegments + 1
@@ -29,7 +32,10 @@ export function buildTerrainGeometry(
     const worldZ = centerZ + (r / depthSegments - 0.5) * depth
     for (let c = 0; c < cols; c++) {
       const worldX = centerX + (c / widthSegments - 0.5) * width
-      const worldY = sampleTerrainHeight(worldX, worldZ, terrainShape)
+      // Dips along the same worn path the colour/grass-thinning already
+      // carve, so the trail reads as an actual compacted, lower channel
+      // instead of a colour decal painted over otherwise-flat ground.
+      const worldY = sampleTerrainHeight(worldX, worldZ, terrainShape) - samplePathDepression(worldX, worldZ, meadowLayout)
       const color = sampleGroundColor(worldX, worldZ)
 
       positions[i * 3] = worldX

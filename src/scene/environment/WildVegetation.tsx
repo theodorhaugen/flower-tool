@@ -26,6 +26,9 @@ export function WildVegetation() {
       color: new THREE.Color('#ffffff'),
       roughness: 0.85,
       side: THREE.DoubleSide,
+      // Reads the baked base-darkening AO every tapered-blade geometry now
+      // carries (shared/taperedBlade.ts).
+      vertexColors: true,
     })
     applyWindDisplacement(mat, wind, WIND_STRENGTH_MULTIPLIER)
     return mat

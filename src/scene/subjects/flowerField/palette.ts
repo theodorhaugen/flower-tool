@@ -74,20 +74,37 @@ function centerAnchors(palette: ColorPalette): HslColor[] {
 }
 
 /**
- * `poppyAccentProbability` comes from the active render's generative state
- * (Leva's Flowers > Poppy Accent, see shared/GenerativeProvider.tsx) —
- * defaults to 0.15 (roughly 1 in 7 flowers), "often" without taking over
- * the field or drowning out the active palette's own dominantHues.
+ * Rolled once per flower and shared between colour *and* archetype choice
+ * (generateFlowerField.ts picks `POPPY_ARCHETYPE_INDEX` when this is true) —
+ * a real poppy's colour and its few-huge-rounded-petals shape aren't
+ * independent, so the two rolls can't be either. `poppyAccentProbability`
+ * comes from the active render's generative state (Leva's Flowers > Poppy
+ * Accent, see shared/GenerativeProvider.tsx) — defaults to 0.15 (roughly 1
+ * in 7 flowers), "often" without taking over the field or drowning out the
+ * active palette's own dominantHues.
  */
-export function samplePetalBaseColor(rng: Rng, palette: ColorPalette, poppyAccentProbability: number): THREE.Color {
-  if (rng() < poppyAccentProbability) {
-    return sampleFromPalette(rng, [POPPY_ANCHOR], { h: 0.015, s: 0.1, l: 0.08 })
-  }
+export function rollIsPoppy(rng: Rng, poppyAccentProbability: number): boolean {
+  return rng() < poppyAccentProbability
+}
+
+export function samplePoppyColor(rng: Rng): THREE.Color {
+  return sampleFromPalette(rng, [POPPY_ANCHOR], { h: 0.015, s: 0.1, l: 0.08 })
+}
+
+export function samplePetalBaseColor(rng: Rng, palette: ColorPalette): THREE.Color {
   return sampleFromPalette(rng, petalAnchors(palette), { h: 0.02, s: 0.08, l: 0.06 })
 }
 
+/**
+ * Wider jitter than every other per-instance colour sample in the project
+ * (contrast `jitterColor`'s ±0.05-0.1 elsewhere) — deliberately so: with a
+ * single shared material's `emissiveIntensity` fixed, this lightness spread
+ * is what actually lets some centers cross the highlight-bloom pass's
+ * threshold while others don't, instead of every flower's center blooming
+ * into an identical glowing dot regardless of colour.
+ */
 export function sampleCenterColor(rng: Rng, palette: ColorPalette): THREE.Color {
-  return sampleFromPalette(rng, centerAnchors(palette), { h: 0.02, s: 0.1, l: 0.08 })
+  return sampleFromPalette(rng, centerAnchors(palette), { h: 0.03, s: 0.16, l: 0.18 })
 }
 
 export { jitterColor }

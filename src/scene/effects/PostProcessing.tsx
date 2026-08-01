@@ -5,7 +5,9 @@ import { useGenerative } from '../shared/generativeContext'
 import { AtmosphericHaze } from './AtmosphericHaze'
 import { BilateralSoft } from './BilateralSoft'
 import { POST_PROCESSING_CONFIG } from './config'
+import { DustScratches } from './DustScratches'
 import { FilmGrain } from './FilmGrain'
+import { Halation } from './Halation'
 import { LensDistortion } from './LensDistortion'
 import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
 import { LongExposureBlur } from './LongExposureBlur'
@@ -35,6 +37,12 @@ import { PaletteGrade } from './PaletteGrade'
  *   look on its own without also flattening the whole frame into haze.
  *   Both blooms are listed early so depth of field (next) blurs their glow
  *   into soft bokeh discs rather than leaving them crisp on top of the blur.
+ * - Halation: a warm-tinted bleed around only the brightest highlights,
+ *   gated by the same threshold as the highlight bloom above — light
+ *   scattering back through a real emulsion's red-sensitive layer skews
+ *   warm, which a colour-neutral bloom on its own can't produce. Listed
+ *   right after both blooms for the same reason they're grouped together —
+ *   depth of field (next) softens this bleed into the highlight's bokeh too.
  * - LensOpticsDepthOfField: the dominant characteristic — a thin,
  *   physically-derived focus slice, everything else melting into bokeh.
  * - AtmosphericHaze: low-frequency haze + volumetric scatter, both gated
@@ -63,6 +71,10 @@ import { PaletteGrade } from './PaletteGrade'
  * - LongExposureBlur: simulated handheld-long-exposure blur, blending in a
  *   decaying history of recent frames — driven by the scene's own existing
  *   camera drift, not a synthetic per-object velocity streak.
+ * - DustScratches: a fixed (not per-frame) speckled-dust + scratch overlay —
+ *   listed *after* LongExposureBlur deliberately, since real dust sits on
+ *   the lens/print itself, not the scene, so it shouldn't smear along with
+ *   the subject's own motion blur.
  * - FilmGrain: last, on top of the fully-formed image — the emulsion layer,
  *   not a digital overlay — see FilmGrainPass.ts for why it's a custom
  *   pass rather than the postprocessing package's `Noise` effect.
@@ -86,6 +98,7 @@ export function PostProcessing() {
         luminanceSmoothing={highlightBloom.luminanceSmoothing}
         mipmapBlur
       />
+      <Halation />
       <LensOpticsDepthOfField />
       <AtmosphericHaze />
       <BilateralSoft />
@@ -97,6 +110,7 @@ export function PostProcessing() {
       />
       <LensDistortion />
       <LongExposureBlur />
+      <DustScratches />
       <FilmGrain />
     </EffectComposer>
   )

@@ -47,7 +47,15 @@ interface PetalArchetypeMaterialBase {
   sheen: number
 }
 
-/** Non-colour tuning per archetype — emissive/sheen *colour* is derived from the palette below instead, so it stays cohesive with whichever family of dominantHues is active. */
+/**
+ * Non-colour tuning per archetype — emissive/sheen *colour* is derived from
+ * the palette below instead, so it stays cohesive with whichever family of
+ * dominantHues is active. One entry per PETAL_ARCHETYPES entry (config.ts) —
+ * rounded/elongated/spiky/bell/poppy/ruffled, in that order. The spread here
+ * (glossier+brighter bell and poppy, matte+duller spiky aster) is itself
+ * part of making the six archetypes read as different species rather than
+ * the same material wearing six shapes.
+ */
 const PETAL_ARCHETYPE_MATERIAL_BASE: readonly PetalArchetypeMaterialBase[] = [
   {
     roughness: 0.55,
@@ -64,6 +72,35 @@ const PETAL_ARCHETYPE_MATERIAL_BASE: readonly PetalArchetypeMaterialBase[] = [
     emissiveIntensity: 0.13,
     sheen: 0.35,
   },
+  {
+    // Spiky aster — thin, matte, barely translucent; a sharp petal doesn't
+    // hold enough tissue depth to glow the way a broad one does.
+    roughness: 0.72,
+    opacity: 0.7,
+    emissiveIntensity: 0.09,
+    sheen: 0.5,
+  },
+  {
+    // Bell — the widest, most cupped petal, catches the most light.
+    roughness: 0.45,
+    opacity: 0.82,
+    emissiveIntensity: 0.2,
+    sheen: 0.45,
+  },
+  {
+    // Poppy — a real poppy petal is famously silky/glossy with strong
+    // backlit glow.
+    roughness: 0.4,
+    opacity: 0.85,
+    emissiveIntensity: 0.22,
+    sheen: 0.55,
+  },
+  {
+    roughness: 0.6,
+    opacity: 0.75,
+    emissiveIntensity: 0.15,
+    sheen: 0.38,
+  },
 ]
 
 /**
@@ -71,27 +108,23 @@ const PETAL_ARCHETYPE_MATERIAL_BASE: readonly PetalArchetypeMaterialBase[] = [
  * as light passing through tissue rather than a second layer of pigment,
  * but tinted by the palette's `highlight` (the colour of light itself)
  * rather than a fixed pink/lavender, so translucency reads as this
- * render's light instead of always the same two hues regardless of
- * palette. The two archetypes lean towards different dominant hues so
- * they still read as two distinct "families" of petal, not one uniform
- * glow.
+ * render's light instead of always the same hues regardless of palette.
+ * Cycles through `dominantHues` (up to 5 per palette) by archetype index —
+ * with 6 archetypes and up to 5 hues, at most two archetypes ever share a
+ * glow tint, so each still reads as its own "family" rather than one
+ * uniform glow across every shape.
  */
-function archetypeGlowColors(palette: ColorPalette): { emissive: THREE.Color; sheenColor: THREE.Color }[] {
+function archetypeGlowColors(palette: ColorPalette, archetypeCount: number): { emissive: THREE.Color; sheenColor: THREE.Color }[] {
   const highlight = new THREE.Color(palette.highlight)
   const white = new THREE.Color('#ffffff')
-  const hueA = new THREE.Color(palette.dominantHues[0])
-  const hueB = new THREE.Color(palette.dominantHues[1] ?? palette.dominantHues[0])
 
-  return [
-    {
-      emissive: highlight.clone().lerp(hueA, 0.35).lerp(white, 0.55),
-      sheenColor: highlight.clone().lerp(hueA, 0.2).lerp(white, 0.75),
-    },
-    {
-      emissive: highlight.clone().lerp(hueB, 0.35).lerp(white, 0.55),
-      sheenColor: highlight.clone().lerp(hueB, 0.2).lerp(white, 0.75),
-    },
-  ]
+  return Array.from({ length: archetypeCount }, (_, i) => {
+    const hue = new THREE.Color(palette.dominantHues[i % palette.dominantHues.length])
+    return {
+      emissive: highlight.clone().lerp(hue, 0.35).lerp(white, 0.55),
+      sheenColor: highlight.clone().lerp(hue, 0.2).lerp(white, 0.75),
+    }
+  })
 }
 
 /**
@@ -99,11 +132,20 @@ function archetypeGlowColors(palette: ColorPalette): { emissive: THREE.Color; sh
  * archetype, so roughness varies subtly group to group instead of being
  * identical across thousands of petals sharing an archetype — real petals
  * aren't uniformly glossy. Index/order matches `buildPetalGeometryVariants`.
+ *
+ * `transmission` swaps the cheap sheen/clearcoat translucency fake for real
+ * physical transmission — only worth the extra cost for the small foreground
+ * band (see FlowerField.tsx), where the hero blooms are sharp enough for the
+ * difference to actually show; everywhere else DoF already hides it.
  */
-export function buildPetalMaterialVariants(seed: number, palette: ColorPalette): THREE.MeshPhysicalMaterial[] {
+export function buildPetalMaterialVariants(
+  seed: number,
+  palette: ColorPalette,
+  { transmission = false }: { transmission?: boolean } = {},
+): THREE.MeshPhysicalMaterial[] {
   const rng = createRng(seed + 5000)
   const materials: THREE.MeshPhysicalMaterial[] = []
-  const glowColors = archetypeGlowColors(palette)
+  const glowColors = archetypeGlowColors(palette, PETAL_ARCHETYPE_MATERIAL_BASE.length)
 
   PETAL_ARCHETYPE_MATERIAL_BASE.forEach((base, archetypeIndex) => {
     for (let v = 0; v < FLOWER_FIELD_CONFIG.variantsPerArchetype; v++) {
@@ -122,6 +164,12 @@ export function buildPetalMaterialVariants(seed: number, palette: ColorPalette):
           emissiveIntensity: base.emissiveIntensity,
           sheenColor: glowColors[archetypeIndex].sheenColor,
           sheen: base.sheen,
+          // Real transmission needs `transparent`/`opacity` out of the way —
+          // thickness lets light travelling through actually pick up the
+          // material's own colour instead of just refracting it clear.
+          ...(transmission
+            ? { transmission: 0.55, thickness: 0.4, opacity: 1, transparent: false, ior: 1.3 }
+            : {}),
         }),
       )
     }
@@ -141,5 +189,37 @@ export function buildCenterMaterialProps(palette: ColorPalette): THREE.MeshStand
     metalness: 0.05,
     emissive: pollenAmber.clone().lerp(highlight, 0.4),
     emissiveIntensity: 0.12,
+    vertexColors: true,
   }
+}
+
+interface CenterVariantMaterialBase {
+  roughness: number
+  metalness: number
+  /** Multiplies buildCenterMaterialProps' base emissiveIntensity — breaks the "every center blooms identically" uniformity the highlight-bloom pass otherwise produces on a single shared material. */
+  emissiveIntensityScale: number
+}
+
+/** One entry per buildCenterGeometryVariants shape — domed/granular/spiky/cupped. */
+const CENTER_VARIANT_MATERIAL_BASE: readonly CenterVariantMaterialBase[] = [
+  { roughness: 0.6, metalness: 0.05, emissiveIntensityScale: 1 },
+  { roughness: 0.8, metalness: 0.02, emissiveIntensityScale: 1.4 },
+  { roughness: 0.5, metalness: 0.1, emissiveIntensityScale: 0.85 },
+  { roughness: 0.88, metalness: 0, emissiveIntensityScale: 0.55 },
+]
+
+/** One material per center geometry variant — mirrors buildPetalMaterialVariants' reasoning, applied to the center cluster instead of the petals. */
+export function buildCenterMaterialVariants(palette: ColorPalette): THREE.MeshStandardMaterial[] {
+  const base = buildCenterMaterialProps(palette)
+  const baseEmissiveIntensity = base.emissiveIntensity ?? 0.12
+
+  return CENTER_VARIANT_MATERIAL_BASE.map(
+    (variant) =>
+      new THREE.MeshStandardMaterial({
+        ...base,
+        roughness: variant.roughness,
+        metalness: variant.metalness,
+        emissiveIntensity: baseEmissiveIntensity * variant.emissiveIntensityScale,
+      }),
+  )
 }

@@ -30,11 +30,17 @@ const FRAGMENT_SHADER = `
   void main() {
     vec4 texel = texture2D(tDiffuse, vUv);
 
+    // A coarse, fixed (not time-varying) low-frequency wobble on the cell
+    // size itself — real emulsion grain clumps unevenly across a frame, it
+    // isn't one uniform cell size wall to wall the way a flat noise texture
+    // reads.
+    float sizeWobble = 0.7 + hash13(vec3(floor(vUv * 5.0), 11.0)) * 0.6;
+
     // Quantising UV into cells of grainSize screen pixels before hashing is
     // what gives grain an actual visible size instead of reading as 1px
     // sensor noise — real emulsion grain clumps into a few pixels at
     // typical viewing resolutions, it isn't single-pixel-fine.
-    vec2 cell = floor(vUv * resolution / max(grainSize, 0.5));
+    vec2 cell = floor(vUv * resolution / max(grainSize * sizeWobble, 0.5));
     float n = hash13(vec3(cell, time)) * 2.0 - 1.0;
 
     // Premultiplied by the pixel's own colour, so grain density fades with

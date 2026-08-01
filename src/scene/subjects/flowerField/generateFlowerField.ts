@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { samplePathDepression } from '../../environment/groundColor'
 import { CAMERA_Z, frustumWidthHalfAt } from '../../shared/frustum'
 import { sampleMeadowDensity } from '../../shared/meadowLayout'
 import type { MeadowLayoutConfig } from '../../shared/meadowLayout'
@@ -6,10 +7,10 @@ import type { ColorPalette } from '../../shared/palette'
 import { createRng, gaussianish, intRange, range } from '../../shared/random'
 import { sampleTerrainHeight } from '../../shared/terrainHeight'
 import type { TerrainShapeConfig } from '../../shared/terrainHeight'
-import { FLOWER_FIELD_CONFIG, PETAL_ARCHETYPES } from './config'
+import { FLOWER_FIELD_CONFIG, PETAL_ARCHETYPES, POPPY_ARCHETYPE_INDEX } from './config'
 import type { DepthBand } from './config'
-import { jitterColor, sampleCenterColor, samplePetalBaseColor } from './palette'
-import type { FlowerFieldData, InstanceDatum, PetalVariantGroup, StemVariantGroup } from './types'
+import { jitterColor, rollIsPoppy, sampleCenterColor, samplePetalBaseColor, samplePoppyColor } from './palette'
+import type { CenterVariantGroup, FlowerFieldData, PetalVariantGroup, StemVariantGroup } from './types'
 
 // Flowers default to facing the camera (the field is composed for a
 // horizontally-aimed lens, not a top-down view) — tilt/spin are applied
@@ -108,17 +109,35 @@ export function generateFlowerField(
     petalDroopJitter,
     maxFlowerTilt,
     centerRadiusRange,
+    centerVariantCount,
+    archetypePreferredCenters,
+    centerPreferenceStrength,
     stem: stemConfig,
+    outliers,
   } = FLOWER_FIELD_CONFIG
   const flowerCount = Math.round(baseFlowerCount * densityMultiplier)
+  const wiltColor = new THREE.Color(outliers.wiltColor)
 
-  const petalGroups: PetalVariantGroup[] = []
-  for (let archetypeIndex = 0; archetypeIndex < PETAL_ARCHETYPES.length; archetypeIndex++) {
-    for (let variantIndex = 0; variantIndex < variantsPerArchetype; variantIndex++) {
-      petalGroups.push({ archetypeIndex, variantIndex, instances: [] })
+  const makePetalGroups = (): PetalVariantGroup[] => {
+    const groups: PetalVariantGroup[] = []
+    for (let archetypeIndex = 0; archetypeIndex < PETAL_ARCHETYPES.length; archetypeIndex++) {
+      for (let variantIndex = 0; variantIndex < variantsPerArchetype; variantIndex++) {
+        groups.push({ archetypeIndex, variantIndex, instances: [] })
+      }
     }
+    return groups
   }
-  const centers: InstanceDatum[] = []
+  // Split by depth band, not just variant — foreground gets its own set so
+  // FlowerField.tsx can back it with a real-transmission material (see
+  // materials.ts) without paying that cost for the thousands of mid/
+  // background petals DoF already blurs past the point it would show.
+  const petalGroups = makePetalGroups()
+  const foregroundPetalGroups = makePetalGroups()
+
+  const centerGroups: CenterVariantGroup[] = []
+  for (let variantIndex = 0; variantIndex < centerVariantCount; variantIndex++) {
+    centerGroups.push({ variantIndex, instances: [] })
+  }
   const stemGroups: StemVariantGroup[] = []
   for (let variantIndex = 0; variantIndex < stemConfig.variantCount; variantIndex++) {
     stemGroups.push({ variantIndex, instances: [] })
@@ -131,23 +150,29 @@ export function generateFlowerField(
   const bandCounts = allocateBandCounts(depthBands, flowerCount)
   depthBands.forEach((band, bandIndex) => {
     const bandCount = bandCounts[bandIndex]
+    const isForeground = band.name === 'foreground'
 
     for (let i = 0; i < bandCount; i++) {
       const flowerPosition = sampleBandPosition(rng, band, meadowLayout)
 
       const flowerScale = range(rng, band.scaleRange[0], band.scaleRange[1]) * scaleMultiplier
       const stemHeight = flowerScale * range(rng, band.stemHeightFactorRange[0], band.stemHeightFactorRange[1])
-      const groundY = sampleTerrainHeight(flowerPosition.x, flowerPosition.z, terrainShape)
+      const groundY = sampleTerrainHeight(flowerPosition.x, flowerPosition.z, terrainShape) - samplePathDepression(flowerPosition.x, flowerPosition.z, meadowLayout)
       flowerPosition.y = groundY + stemHeight
 
       // Same small-random-lean idea as generateGrass.ts's blades — a stem
       // standing perfectly vertical reads as artificial. Spins around
       // world-up first so the lean direction is uniformly distributed, not
-      // just tilting in the same plane repeatedly.
+      // just tilting in the same plane repeatedly. A rare few flop right
+      // over instead of just leaning — real stems do, from wind/weight/rot,
+      // and a field where *nothing* ever does reads as every instance being
+      // a small bounded jitter around one template.
+      const isFlopped = rng() < stemConfig.flopProbability
+      const leanAmount = isFlopped ? range(rng, stemConfig.flopLeanRange[0], stemConfig.flopLeanRange[1]) : range(rng, 0, stemConfig.maxLean)
       const stemLeanAxisAngle = range(rng, 0, Math.PI * 2)
       const stemLeanAxis = new THREE.Vector3(Math.cos(stemLeanAxisAngle + Math.PI / 2), 0, Math.sin(stemLeanAxisAngle + Math.PI / 2))
       const stemQuat = new THREE.Quaternion().setFromAxisAngle(UP, stemLeanAxisAngle)
-      stemQuat.multiply(new THREE.Quaternion().setFromAxisAngle(stemLeanAxis, range(rng, 0, stemConfig.maxLean)))
+      stemQuat.multiply(new THREE.Quaternion().setFromAxisAngle(stemLeanAxis, leanAmount))
 
       stemMatrix.makeRotationFromQuaternion(stemQuat)
       stemMatrix.scale(new THREE.Vector3(flowerScale, stemHeight, flowerScale))
@@ -157,10 +182,23 @@ export function generateFlowerField(
       const stemVariantIndex = intRange(rng, 0, stemConfig.variantCount - 1)
       stemGroups[stemVariantIndex].instances.push({ matrix: stemMatrix.clone(), color: jitterColor(rng, stemBaseColor, 0.08) })
 
-      const petalCount = intRange(rng, band.petalCountRange[0], band.petalCountRange[1])
+      // Colour and archetype are rolled together, not independently — a
+      // poppy-accent flower gets the poppy *shape* too (see config.ts's
+      // POPPY_ARCHETYPE_INDEX), and every other flower picks freely across
+      // all six archetypes instead of the old rounded/elongated coin flip.
+      const isPoppy = rollIsPoppy(rng, poppyAccentProbability)
+      const baseColor = isPoppy ? samplePoppyColor(rng) : samplePetalBaseColor(rng, palette)
+      const archetypeIndex = isPoppy ? POPPY_ARCHETYPE_INDEX : intRange(rng, 0, PETAL_ARCHETYPES.length - 1)
+
+      const isWilted = rng() < outliers.wiltProbability
+      const wiltAmount = isWilted ? range(rng, outliers.wiltAmountRange[0], outliers.wiltAmountRange[1]) : 0
+      const petalBaseColor = isWilted ? baseColor.clone().lerp(wiltColor, wiltAmount) : baseColor
+
+      let petalCount = intRange(rng, band.petalCountRange[0], band.petalCountRange[1])
+      if (rng() < outliers.dropPetalProbability) {
+        petalCount = Math.max(3, petalCount - intRange(rng, outliers.dropPetalCountRange[0], outliers.dropPetalCountRange[1]))
+      }
       const cupAngle = range(rng, cupAngleRange[0], cupAngleRange[1])
-      const baseColor = samplePetalBaseColor(rng, palette, poppyAccentProbability)
-      const archetypeIndex = rng() < 0.5 ? 0 : 1
 
       // A small cone around FACE_AXIS, not a full random tumble — most
       // flowers stay roughly lens-facing, matching how a real macro shot
@@ -170,6 +208,8 @@ export function generateFlowerField(
       const tiltQuat = new THREE.Quaternion().setFromAxisAngle(tiltAxis, range(rng, 0, maxFlowerTilt))
       const spinQuat = new THREE.Quaternion().setFromAxisAngle(FACE_AXIS, range(rng, 0, Math.PI * 2))
       const flowerQuat = spinQuat.multiply(tiltQuat)
+
+      const activePetalGroups = isForeground ? foregroundPetalGroups : petalGroups
 
       for (let p = 0; p < petalCount; p++) {
         const angleBase = (p / petalCount) * Math.PI * 2
@@ -199,8 +239,8 @@ export function generateFlowerField(
         petalMatrix.setPosition(petalPosition)
 
         const variantIndex = intRange(rng, 0, variantsPerArchetype - 1)
-        const group = petalGroups[archetypeIndex * variantsPerArchetype + variantIndex]
-        group.instances.push({ matrix: petalMatrix.clone(), color: jitterColor(rng, baseColor, 0.05) })
+        const group = activePetalGroups[archetypeIndex * variantsPerArchetype + variantIndex]
+        group.instances.push({ matrix: petalMatrix.clone(), color: jitterColor(rng, petalBaseColor, 0.05) })
       }
 
       const worldFace = FACE_AXIS.clone().applyQuaternion(flowerQuat)
@@ -214,9 +254,19 @@ export function generateFlowerField(
       centerMatrix.scale(new THREE.Vector3(centerRadius, centerRadius, centerRadius))
       centerMatrix.setPosition(centerPosition)
 
-      centers.push({ matrix: centerMatrix.clone(), color: sampleCenterColor(rng, palette) })
+      // Correlated with the petal archetype (config.ts's
+      // archetypePreferredCenters), not an independent roll — this is what
+      // makes a "species" a consistent shape+center combo instead of two
+      // unrelated random picks that happen to sit next to each other.
+      const preferredCenters = archetypePreferredCenters[archetypeIndex]
+      const centerVariantIndex =
+        rng() < centerPreferenceStrength
+          ? preferredCenters[intRange(rng, 0, preferredCenters.length - 1)]
+          : intRange(rng, 0, centerVariantCount - 1)
+
+      centerGroups[centerVariantIndex].instances.push({ matrix: centerMatrix.clone(), color: sampleCenterColor(rng, palette) })
     }
   })
 
-  return { petalGroups, centers, stemGroups }
+  return { petalGroups, foregroundPetalGroups, centerGroups, stemGroups }
 }
