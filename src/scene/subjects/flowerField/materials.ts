@@ -109,10 +109,12 @@ const PETAL_ARCHETYPE_MATERIAL_BASE: readonly PetalArchetypeMaterialBase[] = [
  * but tinted by the palette's `glow` (the colour of light itself) rather
  * than a fixed pink/lavender, so translucency reads as this render's light
  * instead of always the same hues regardless of palette. Cycles through
- * `petalPrimary`/`petalSecondary`/`petalTertiary` by archetype index —
- * with 6 archetypes and 3 hues, every other archetype shares a glow tint,
- * so each still reads as its own "family" rather than one uniform glow
- * across every shape.
+ * `petalPrimary`/`petalSecondary`/`petalTertiary` by archetype index — with
+ * 6 archetypes and 3 hues, archetypes 3 places apart (0&3, 1&4, 2&5) share
+ * an identical glow tint, so only 3 of the 6 shapes are distinguishable by
+ * glow alone; the archetypes' own distinct base geometry/roughness/sheen
+ * tuning (`PETAL_ARCHETYPE_MATERIAL_BASE` above) is what keeps every one
+ * of the 6 still reading as its own "species".
  */
 function archetypeGlowColors(palette: ColorPalette, archetypeCount: number): { emissive: THREE.Color; sheenColor: THREE.Color }[] {
   const glow = new THREE.Color(palette.glow)

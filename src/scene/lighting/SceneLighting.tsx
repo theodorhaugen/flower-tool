@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { useGenerative } from '../shared/generativeContext'
+import { foliageShadowTint } from '../shared/palette'
 
 function mix(a: string, b: string, t: number): string {
   return `#${new THREE.Color(a).lerp(new THREE.Color(b), THREE.MathUtils.clamp(t, 0, 1)).getHexString()}`
@@ -26,9 +27,10 @@ function mix(a: string, b: string, t: number): string {
  * needs to add a mild punch on top of a genuinely wide-range input.
  *
  * Colours are tinted by the active render's palette — `glow` (the colour of
- * light itself) warms the sky/key light, `foliagePrimary` (the meadow's own
- * greenery, standing in for ground-bounce) cools the ground-bounce/fill
- * light — mixed with fixed neutral anchors rather than used at full
+ * light itself) warms the sky/key light, a lightness-capped `foliagePrimary`
+ * (see shared/palette.ts's `foliageShadowTint` — the meadow's own greenery,
+ * standing in for ground-bounce) cools the ground-bounce/fill light — mixed
+ * with fixed neutral anchors rather than used at full
  * strength, so lighting stays plausible (sunlight is still close to white)
  * while still reading as the same mood as the flowers/environment it's
  * lighting. Ambient stays uncoloured on purpose: it lights everything
@@ -43,15 +45,19 @@ function mix(a: string, b: string, t: number): string {
 export function SceneLighting() {
   const { palette, lightingOvercast, lightingWarmth, lightingShadowDepth } = useGenerative()
 
-  const colors = useMemo(
-    () => ({
+  const colors = useMemo(() => {
+    // Lightness-capped, not the raw palette value — see
+    // shared/palette.ts's foliageShadowTint docstring: a palette whose
+    // `foliagePrimary` runs light (Sunlit pastel's mint) would otherwise
+    // tint the "shadow" side of the lighting *brighter*, not darker.
+    const shadowTint = foliageShadowTint(palette)
+    return {
       sky: mix('#eef1ec', palette.glow, 0.45 * lightingWarmth),
-      ground: mix('#8a8060', palette.foliagePrimary, 0.45 * lightingWarmth),
+      ground: mix('#8a8060', shadowTint, 0.45 * lightingWarmth),
       key: mix('#fff4de', palette.glow, 0.6 * lightingWarmth),
-      fill: mix('#dbe4e6', palette.foliagePrimary, 0.5 * lightingWarmth),
-    }),
-    [palette, lightingWarmth],
-  )
+      fill: mix('#dbe4e6', shadowTint, 0.5 * lightingWarmth),
+    }
+  }, [palette, lightingWarmth])
 
   return (
     <>

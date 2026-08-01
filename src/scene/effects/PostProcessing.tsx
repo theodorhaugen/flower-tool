@@ -18,11 +18,11 @@ import { PaletteGrade } from './PaletteGrade'
  * real strip of film would do, kept subtle enough to be felt rather than
  * noticed on its own:
  *
- * - PaletteGrade: exposure/contrast/vibrance plus a two-point colour grade
- *   towards the active palette's `highlight`/`shadow` and a bloom-tint
- *   pre-bias — listed *first* so Bloom's own glow (next) samples the
- *   already-graded/tinted image and inherits `bloomTint` rather than being
- *   recoloured after the fact.
+ * - PaletteGrade: exposure/brightness/contrast/highlights/shadows/vibrance
+ *   plus a two-point colour grade towards the active palette's `glow`/
+ *   `foliagePrimary` and a bloom-tint pre-bias — listed *first* so Bloom's
+ *   own glow (next) samples the already-graded/tinted image and inherits
+ *   `glow` rather than being recoloured after the fact.
  * - Bloom (soft): a low-threshold, wide bloom reading as ambient glow off
  *   pale/diffusely-lit surfaces — atmosphere, not a highlight blowing out.
  *   `intensity` comes from the active render's generative state (a jitter

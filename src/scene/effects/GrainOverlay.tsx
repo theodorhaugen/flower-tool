@@ -22,6 +22,14 @@ import { TextureGrainPass } from './TextureGrainPass'
  * values other than 1 (Leva's Grain Size slider) to sample past the
  * plate's own edges without clamping into a smeared border; harmless at
  * the default scale, which never leaves the plate's own 0-1 UV range.
+ *
+ * Mipmapping is disabled — the plate (3160x3950) is minified relative to
+ * the actual render resolution, and three.js's default trilinear mipmap
+ * filtering averages exactly the fine per-pixel structure this plate
+ * exists to provide, smoothing real grain into a faint, soft haze instead.
+ * A plain bilinear sample at full resolution aliases slightly at that
+ * minification instead of blurring — for noise-like content that reads as
+ * sharper, more authentic grain, not a defect.
  */
 export function GrainOverlay() {
   const { opacity, size, highlightFalloffStart, highlightFalloffEnd } = POST_PROCESSING_CONFIG.grain
@@ -31,6 +39,8 @@ export function GrainOverlay() {
   useEffect(() => {
     grainTexture.wrapS = THREE.RepeatWrapping
     grainTexture.wrapT = THREE.RepeatWrapping
+    grainTexture.generateMipmaps = false
+    grainTexture.minFilter = THREE.LinearFilter
     grainTexture.needsUpdate = true
   }, [grainTexture])
 

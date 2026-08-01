@@ -129,8 +129,12 @@ function yawAt(virtualTime: number, movementMultiplier: number, directionAngle: 
   return clampedRotationAmplitude(movementMultiplier) * Math.cos(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY)
 }
 
+// Same phase as yawAt (see CameraSweep.tsx's docstring on rotateX/Y for why
+// pitch no longer carries its own +0.6 offset) — both this estimate and the
+// real sweep need to trace the same straight line for the streak to match
+// what the camera is actually doing.
 function pitchAt(virtualTime: number, movementMultiplier: number, directionAngle: number): number {
-  return clampedRotationAmplitude(movementMultiplier) * Math.sin(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY + 0.6)
+  return clampedRotationAmplitude(movementMultiplier) * Math.sin(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY)
 }
 
 /**

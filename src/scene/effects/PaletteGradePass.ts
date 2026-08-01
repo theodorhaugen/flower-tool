@@ -57,19 +57,23 @@ const FRAGMENT_SHADER = `
     // This pass runs *before* Bloom/ToneMapping (see PostProcessing.tsx),
     // so colour here is still unbounded pre-tonemap HDR — a typical frame's
     // raw luminance mostly sits well under 0.5, with only a small minority
-    // of genuinely blown-out pixels running past 1. Splitting straight
-    // against that raw value the way a display-referred 0-1 image would
-    // barely engages the highlight mask on an ordinary scene (there just
-    // aren't many pixels above 0.5 yet). Compressing through lum/(lum+1)
-    // first — the same simple Reinhard-style curve a basic tonemap uses —
-    // maps that unbounded range into a 0-1-ish *perceptual* scale before the
-    // split, so both masks actually see a real spread of this render's
-    // pixels regardless of how bright its particular HDR intermediate
-    // values happen to run.
-    float preGradeLuminance = relLuminance(color);
+    // of genuinely blown-out pixels running past 1. Compressing through
+    // lum/(lum+1) — the same simple Reinhard-style curve a basic tonemap
+    // uses — first bounds that unbounded range into 0-1 so the split below
+    // has a fixed, finite scale to work against regardless of how bright
+    // this render's HDR intermediate values happen to run. The split
+    // points themselves are placed against *that compressed scale*, not
+    // the naive midpoint (0.5) a display-referred image would use: 0.5
+    // compressed corresponds to a raw luminance of 1.0 — already past
+    // where most pixels in this pipeline ever reach — so a highlight mask
+    // split there barely engages, while a shadow mask split there
+    // reaches deep into ordinary midtones. 0.25/0.6 below correspond to
+    // raw luminance ≈0.33/≈1.5, which actually brackets where this
+    // pipeline's real shadow/highlight pixels sit.
+    float preGradeLuminance = max(relLuminance(color), 0.0);
     float perceptualLuminance = preGradeLuminance / (preGradeLuminance + 1.0);
-    float shadowMask = 1.0 - smoothstep(0.0, 0.5, perceptualLuminance);
-    float highlightMask = smoothstep(0.5, 1.0, perceptualLuminance);
+    float shadowMask = 1.0 - smoothstep(0.0, 0.25, perceptualLuminance);
+    float highlightMask = smoothstep(0.33, 0.6, perceptualLuminance);
     color += shadowsAdjust * shadowMask;
     color += highlightsAdjust * highlightMask;
 
@@ -82,12 +86,23 @@ const FRAGMENT_SHADER = `
     // (muddy midtones, the exact thing making the render feel flat) and
     // backs off automatically on pixels that are already vivid, so it
     // can't push already-saturated petal colour into garish clipping.
+    //
+    // currentSaturation is normalised (HSV-style, divided by maxChannel)
+    // rather than a bare max-min channel spread — this is still unbounded
+    // pre-tonemap HDR colour, so a raw channel spread can run well past 1.0
+    // on a bright saturated pixel (easily reachable with Exposure/Contrast
+    // pushed up), which would drive vibranceAmount negative and the
+    // mix factor below 0 — mixing *past* grey rather than towards it,
+    // i.e. inverting the pixel's hue instead of desaturating it. Normalising
+    // keeps currentSaturation in 0-1 regardless of how bright the pixel
+    // is, and the final clamp is a second backstop against the same
+    // overshoot.
     float maxChannel = max(color.r, max(color.g, color.b));
     float minChannel = min(color.r, min(color.g, color.b));
-    float currentSaturation = maxChannel - minChannel;
+    float currentSaturation = clamp((maxChannel - minChannel) / max(maxChannel, 1e-4), 0.0, 1.0);
     vec3 gray = vec3(relLuminance(color));
     float vibranceAmount = vibrance * (1.0 - currentSaturation);
-    color = mix(gray, color, 1.0 + vibranceAmount);
+    color = max(mix(gray, color, 1.0 + vibranceAmount), 0.0);
 
     float luminance = relLuminance(color);
 
@@ -166,7 +181,8 @@ export interface PaletteGradeOptions {
  * simple two-point colour grade (lift shadows / tint highlights towards the
  * active palette's `foliagePrimary`/`glow`) and a bloom-tint pre-bias,
  * placed *before* Bloom in the pipeline (see PostProcessing.tsx) so Bloom's
- * own glow inherits `bloomTint` rather than being tinted after the fact. A
+ * own glow inherits `bloomTintColor` (the active palette's `glow`, passed
+ * in by PaletteGrade.tsx) rather than being tinted after the fact. A
  * `Pass`, not an `Effect` — postprocessing's `Effect` model can merge
  * non-convolution effects into one shared shader, which would risk Bloom's
  * own internal blur sampling a buffer from *before* this grade runs; a

@@ -54,10 +54,10 @@ export const CAMERA_CONFIG = {
   },
 
   /**
-   * The wide, fast sweep that drives the strong, directional intentional-
+   * The wide, slow sweep that drives the strong, directional intentional-
    * camera-movement (ICM) blur look (LongExposureBlurPass, see
-   * effects/config.ts) — much bigger and faster than `drift` above, which
-   * stays a separate, barely-there tremor layered on top for texture.
+   * effects/config.ts) — much bigger than `drift` above, which stays a
+   * separate, barely-there tremor layered on top for texture.
    *
    * A sine wave is locally near-linear around its zero-crossings, which is
    * what turns into a clean directional streak once blended, rather than a
@@ -89,14 +89,16 @@ export const CAMERA_CONFIG = {
     /**
      * Hard ceiling on the *actual* swept amplitude, in degrees, after
      * `motionBlurStrength` (Leva's Camera > Blur Length — the single dial
-     * on the sweep now, see CameraSweep.tsx) has been applied. Verified
-     * directly: past roughly this point (44° was tested and failed) the
-     * camera swings far enough off the actual scene during the accumulation
-     * window that the blended result loses all structure — flat noise, not
-     * a strong streak. Blur Length's own slider range already stays under
-     * this on its own, but this is still the actual backstop regardless of
-     * exactly where that range ends up tuned to.
+     * on the sweep now, see CameraSweep.tsx) has been applied. Tightened
+     * from an earlier 36° — relative to this camera's 22° FOV, 36° let the
+     * accumulation window swing the camera roughly 1.6x the frame's own
+     * width, leaving too little overlap between accumulated frames even
+     * with the capture-phase pitch bug (see CameraSweep.tsx's docstring)
+     * fixed. 30° still comfortably covers the seed-derived range
+     * (`motionBlurStrength` maxes at 1.7 × 20° = 34° raw, so this clamp
+     * engages for most strong-blur seeds, not just Leva's own top end) while
+     * keeping the swept excursion closer to one FOV's width.
      */
-    maxRotationAmplitudeDeg: 36,
+    maxRotationAmplitudeDeg: 30,
   },
 }

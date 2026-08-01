@@ -55,7 +55,7 @@ function wrapSeed(seed: number): number {
  * `usePalette()` (generativeContext.ts), unchanged — this is the one place
  * that merges "what the seed picked" with "what the panel overrode".
  *
- * Also readable from `?seed=12345` (and `?palette=Golden%20Hour` to
+ * Also readable from `?seed=12345` (and `?palette=Golden%20hour%20meadow` to
  * additionally pin just the palette) URL query params, which seed the
  * Scene fold's initial value — a zero-friction way to reproduce or pin a
  * specific render without the panel. The chosen seed is logged to the

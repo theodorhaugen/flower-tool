@@ -95,8 +95,8 @@ export const ENVIRONMENT_CONFIG = {
    * skies are famously flat (cloud cover scatters everything into a near-
    * uniform white-gray), so there's little vertical gradient to speak of,
    * unlike a clear-sky sunset gradient. horizonColor matches the fog colour
-   * (both derive from the palette's hazeTint) so the terrain's far edge
-   * blends into it seamlessly.
+   * (both derive from the palette's backgroundSecondary) so the terrain's
+   * far edge blends into it seamlessly.
    */
   horizon: {
     radius: 130,

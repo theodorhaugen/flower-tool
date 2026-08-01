@@ -78,8 +78,8 @@ export const POST_PROCESSING_CONFIG = {
 
   /**
    * Structural tuning for PaletteGradePass — colours themselves come from
-   * the active palette's `highlight`/`shadow`/`bloomTint` (see
-   * PostProcessing.tsx), this is just how strongly each is felt. Kept
+   * the active palette's `glow`/`foliagePrimary` (see PostProcessing.tsx),
+   * this is just how strongly each is felt. Kept
    * gentle for the two-point grade (0.12 each) and vibrance (0.4) — colour/
    * saturation tuning is deliberately out of scope of the contrast/
    * dynamic-range pass this was last adjusted for (see SceneLighting.tsx's
@@ -96,7 +96,7 @@ export const POST_PROCESSING_CONFIG = {
     shadowStrength: 0.12,
     bloomBiasStrength: 0.35,
     bloomBiasThreshold: 0.55,
-    /** Kept at 1 (unchanged) — SceneLighting.tsx's key/fill ratio is the actual exposure fix; this stays here only so the shader/uniform exists for future tuning. */
+    /** Base multiplier Leva's Colour > Exposure slider multiplies on top of (see PaletteGrade.tsx) — kept at 1 so the slider itself reads as an absolute stop value rather than needing a mental offset. */
     exposure: 1,
     /** A mild punch on top of the now wider-dynamic-range lighting input, not the whole contrast mechanism — see SceneLighting.tsx. */
     contrast: 1.18,
@@ -136,7 +136,7 @@ export const POST_PROCESSING_CONFIG = {
 
   /**
    * Film grain — see effects/TextureGrainPass.ts. A real photographed grain
-   * plate (effects/textures/grain.jpg) laid over the frame with a standard
+   * plate (effects/textures/grain.webp) laid over the frame with a standard
    * Overlay blend, rather than procedurally generated. `highlightFalloff*`
    * fades the grain out through the highlights (real emulsion density
    * thins out there too) so it mostly reads in the shadows/midtones,
@@ -147,8 +147,8 @@ export const POST_PROCESSING_CONFIG = {
    * `grainScale` option runs the opposite direction internally (it's a UV
    * multiplier — *smaller* samples a smaller crop of the plate, magnified,
    * which is what actually makes the grain look bigger on screen) — see
-   * GrainOverlay.tsx, which inverts it (`1 / size`) so this config value and
-   * Leva's "Grain Size" slider don't have to.
+   * GrainOverlay.tsx, which inverts it (`1 / (size * grainSize)`) so this
+   * config value and Leva's "Grain Size" slider don't have to.
    */
   grain: {
     opacity: 0.8,
@@ -168,6 +168,7 @@ export const POST_PROCESSING_CONFIG = {
    * reading as motion and starts reading as a soft double-exposure ghost.
    */
   motionBlur: {
-    halfLifeSeconds: 0.9,
+    /** Nudged down from 0.9 — camera/config.ts's `sweep` docstring wants this well under `periodSeconds / 2` (1.2s) so the accumulation doesn't reach back into the swing's reversed half; 0.9 (75% of that) cut it closer than intended. */
+    halfLifeSeconds: 0.7,
   },
 }

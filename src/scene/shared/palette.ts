@@ -27,9 +27,9 @@ import * as THREE from 'three'
  *   bloom (see lighting/SceneLighting.tsx, subjects/flowerField/materials.ts,
  *   effects/PaletteGradePass.ts).
  * - `foliagePrimary`/`foliageSecondary`: the meadow's own greenery — grass,
- *   wild vegetation, and (mixed with `glow`'s opposite, doing double duty as
- *   "the colour of shadow") ground-bounce/fill-light tint (see
- *   environment/paletteColors.ts, lighting/SceneLighting.tsx).
+ *   wild vegetation, and (lightness-capped via `foliageShadowTint` below,
+ *   doing double duty as "the colour of shadow") ground-bounce/fill-light
+ *   tint (see environment/paletteColors.ts, lighting/SceneLighting.tsx).
  * - `petalPrimary`/`petalSecondary`/`petalTertiary`: the flower "family"
  *   this render draws from — petal colours are sampled from these three
  *   anchors (see subjects/flowerField/palette.ts).
@@ -67,7 +67,7 @@ export const PALETTES: readonly ColorPalette[] = [
     petalPrimary: '#6B7FB0',
     petalSecondary: '#8C9BC4',
     petalTertiary: '#F08A1E',
-    core: '#F5C93A',
+    core: '#E8B62E',
     accent: '#FBEFA0',
     stem: '#1E2E22',
   },
@@ -81,7 +81,7 @@ export const PALETTES: readonly ColorPalette[] = [
     petalPrimary: '#F4CBD6',
     petalSecondary: '#E88CA3',
     petalTertiary: '#D45C7C',
-    core: '#E8A85C',
+    core: '#DC9450',
     accent: '#F9E3B5',
     stem: '#2B2015',
   },
@@ -97,7 +97,7 @@ export const PALETTES: readonly ColorPalette[] = [
     petalTertiary: '#F5D9CF',
     core: '#2B1B0E',
     accent: '#F5D9CF',
-    stem: '#2B1B0E',
+    stem: '#231508',
   },
   {
     name: 'Sunlit pastel',
@@ -109,7 +109,7 @@ export const PALETTES: readonly ColorPalette[] = [
     petalPrimary: '#F3C23C',
     petalSecondary: '#E8752B',
     petalTertiary: '#D8503F',
-    core: '#E8752B',
+    core: '#DC6B22',
     accent: '#FBF6EE',
     stem: '#C7896E',
   },
@@ -123,9 +123,9 @@ export const PALETTES: readonly ColorPalette[] = [
     petalPrimary: '#7C93D6',
     petalSecondary: '#EAF0E8',
     petalTertiary: '#D98A7A',
-    core: '#D9B95C',
+    core: '#CDAE50',
     accent: '#D98A7A',
-    stem: '#274627',
+    stem: '#1F3A20',
   },
 ]
 
@@ -172,4 +172,31 @@ export function shiftPaletteHue(palette: ColorPalette, degrees: number): ColorPa
     shifted[field] = shiftHex(palette[field])
   }
   return shifted
+}
+
+/** Lightness ceiling for `foliageShadowTint` below — see that function's docstring. */
+const MAX_SHADOW_TINT_LIGHTNESS = 0.32
+
+/**
+ * `foliagePrimary`, darkened if needed so it's guaranteed usable as a
+ * shading/shadow tint regardless of how light the active palette's own
+ * `foliagePrimary` happens to be. Every palette's `foliagePrimary` is meant
+ * to double as "the colour of shadow" (see the class docstring above), which
+ * assumes it's dark — true for most of the registry, but `Sunlit pastel`'s
+ * is a deliberately light mint (`#BFDCD2`, matching its "soft dreamy
+ * bokeh" mood as a foliage/background tone). Using that raw value anywhere
+ * shading is computed from it would invert the effect it's meant to
+ * produce — e.g. environment/paletteColors.ts's shaded ground reading
+ * *lighter* than lit ground, or PaletteGradePass's shadow lift actually
+ * lifting true black towards a pale colour instead of darkening it. This
+ * caps lightness the same way flowerField/palette.ts's `MAX_PETAL_LIGHTNESS`
+ * caps petal anchors — the palette's raw hex is still what everything else
+ * (grass/vegetation tinting, where lightness doesn't matter) reads.
+ */
+export function foliageShadowTint(palette: ColorPalette): string {
+  const color = new THREE.Color(palette.foliagePrimary)
+  const hsl = { h: 0, s: 0, l: 0 }
+  color.getHSL(hsl)
+  if (hsl.l <= MAX_SHADOW_TINT_LIGHTNESS) return palette.foliagePrimary
+  return `#${color.setHSL(hsl.h, hsl.s, MAX_SHADOW_TINT_LIGHTNESS).getHexString()}`
 }

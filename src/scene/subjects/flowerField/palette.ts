@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { jitterColor } from '../../shared/colorJitter'
 import type { ColorPalette } from '../../shared/palette'
+import { foliageShadowTint } from '../../shared/palette'
 import type { Rng } from '../../shared/random'
 import { range } from '../../shared/random'
 
@@ -58,17 +59,18 @@ function petalAnchors(palette: ColorPalette): HslColor[] {
  * Flower centres are rooted in the palette's own `core` anchor, warmed
  * towards `glow` (the palette's "colour of light" — already warm on Golden
  * hour meadow/Emerald dahlia, paler on Sunlit pastel) and deepened towards
- * `foliagePrimary` for some shadow depth, instead of one flat tone.
+ * a lightness-capped `foliagePrimary` (see shared/palette.ts's
+ * `foliageShadowTint`) for some shadow depth, instead of one flat tone.
  */
 function centerAnchors(palette: ColorPalette): HslColor[] {
   const core = new THREE.Color(palette.core)
   const towardsGlow = new THREE.Color(palette.glow)
-  const towardsFoliage = new THREE.Color(palette.foliagePrimary)
+  const towardsShadow = new THREE.Color(foliageShadowTint(palette))
 
   return [
     toHsl(`#${core.clone().lerp(new THREE.Color('#ffffff'), 0.1).getHexString()}`),
     toHsl(`#${core.clone().lerp(towardsGlow, 0.3).getHexString()}`),
-    toHsl(`#${core.clone().lerp(towardsFoliage, 0.2).getHexString()}`),
+    toHsl(`#${core.clone().lerp(towardsShadow, 0.2).getHexString()}`),
   ]
 }
 

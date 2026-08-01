@@ -58,9 +58,21 @@ export function CameraSweep() {
     const yawWeight = Math.cos(motionBlurDirectionAngle)
     const pitchWeight = Math.sin(motionBlurDirectionAngle)
 
-    // Per-axis phase offsets keep the sweep from looking like a perfectly
-    // mechanical single-axis metronome.
-    camera.rotateX(Math.sin(phase + 0.6) * rotationAmplitude * pitchWeight)
+    // Pitch and yaw share the exact same phase (both scaled by sin(phase),
+    // just weighted by cos/sin of the direction angle) so the sweep traces
+    // a straight line through the origin along `motionBlurDirectionAngle`
+    // rather than an ellipse — and, just as importantly, so *both* axes
+    // are exactly zero whenever `phase` is a multiple of 2π, which is
+    // precisely when SettleDriver.tsx freezes and captures (one full
+    // `periodSeconds` of virtual time). A previous version offset pitch by
+    // a fixed +0.6 rad "to avoid looking mechanical" — but that meant the
+    // *captured* frame carried a real pitch tilt (up to sin(0.6) ≈ 57% of
+    // full amplitude) whenever a seed's direction had any vertical
+    // component, pitching the composed subject out of frame entirely on a
+    // meaningful fraction of seeds. Roll (below) keeps its own offset since
+    // a few degrees of roll at capture is a harmless wobble, not a framing
+    // break.
+    camera.rotateX(Math.sin(phase) * rotationAmplitude * pitchWeight)
     camera.rotateY(Math.sin(phase) * rotationAmplitude * yawWeight)
     camera.rotateZ(Math.sin(phase + 1.3) * rotationAmplitude * ROLL_WEIGHT)
   })

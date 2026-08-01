@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useGenerative, usePalette } from '../shared/generativeContext'
+import { foliageShadowTint } from '../shared/palette'
 import { POST_PROCESSING_CONFIG } from './config'
 import { PaletteGradePass } from './PaletteGradePass'
 
@@ -23,7 +24,9 @@ export function PaletteGrade() {
     () =>
       new PaletteGradePass({
         highlightColor: palette.glow,
-        shadowColor: palette.foliagePrimary,
+        // Lightness-capped, not the raw palette value — see
+        // shared/palette.ts's foliageShadowTint docstring.
+        shadowColor: foliageShadowTint(palette),
         bloomTintColor: palette.glow,
         highlightStrength,
         shadowStrength,
