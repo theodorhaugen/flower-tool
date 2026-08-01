@@ -1,5 +1,6 @@
 import { Pass } from 'postprocessing'
 import * as THREE from 'three'
+import { dynamicRangeMeter } from './dynamicRangeMeter'
 
 const VERTEX_SHADER = `
   varying vec2 vUv;
@@ -19,6 +20,8 @@ const FRAGMENT_SHADER = `
   uniform float bloomBiasStrength;
   uniform float bloomBiasThreshold;
   uniform float exposure;
+  uniform float blackPoint;
+  uniform float whitePoint;
   uniform float contrast;
   uniform float vibrance;
   uniform float vignette;
@@ -38,6 +41,15 @@ const FRAGMENT_SHADER = `
     // input — this is the actual fix for the "washed, low-contrast, muted"
     // look: not more colour tinting, but real tonal separation first.
     color *= exposure;
+
+    // Auto-levels: stretches the frame towards a real black point and
+    // white point instead of leaving whatever this seed/palette/lighting
+    // combination happened to land on — see DynamicRangeMeterPass.ts/
+    // dynamicRangeMeter.ts for where blackPoint/whitePoint actually come
+    // from (measured off the *previous* frame's real output). Deliberately
+    // unclamped, same as the contrast pivot right below — Bloom (later in
+    // the pipeline) still needs to see genuine >1 HDR highlights here.
+    color = (color - blackPoint) / max(whitePoint - blackPoint, 0.05);
 
     // Contrast: a simple pivot around mid-grey. Cheap and matches how a
     // print/film contrast grade reads — it isn't trying to be a filmic
@@ -113,9 +125,12 @@ export interface PaletteGradeOptions {
 }
 
 /**
- * A simple two-point colour grade (lift shadows / tint highlights towards
- * the active palette's `foliagePrimary`/`glow`) plus a bloom-tint pre-bias,
- * placed *before* Bloom in the pipeline (see PostProcessing.tsx) so
+ * An auto-levels stretch (`blackPoint`/`whitePoint`, fed by
+ * DynamicRangeMeterPass.ts/dynamicRangeMeter.ts rather than a constructor
+ * option — see those files) plus a simple two-point colour grade (lift
+ * shadows / tint highlights towards the active palette's
+ * `foliagePrimary`/`glow`) plus a bloom-tint pre-bias, placed *before*
+ * Bloom in the pipeline (see PostProcessing.tsx) so
  * Bloom's own glow inherits `bloomTint` rather than being tinted after the
  * fact. A `Pass`, not an `Effect` — postprocessing's `Effect` model can
  * merge non-convolution effects into one shared shader, which would risk
@@ -152,6 +167,8 @@ export class PaletteGradePass extends Pass {
         bloomBiasStrength: { value: bloomBiasStrength },
         bloomBiasThreshold: { value: bloomBiasThreshold },
         exposure: { value: exposure },
+        blackPoint: { value: dynamicRangeMeter.blackPoint },
+        whitePoint: { value: dynamicRangeMeter.whitePoint },
         contrast: { value: contrast },
         vibrance: { value: vibrance },
         vignette: { value: vignette },
@@ -172,6 +189,11 @@ export class PaletteGradePass extends Pass {
   ): void {
     if (!inputBuffer) return
     this.material.uniforms.tDiffuse.value = inputBuffer.texture
+    // Read live each frame, same pattern LongExposureBlurPass.ts uses for
+    // virtualClock.time — DynamicRangeMeterPass.ts (last in the pipeline)
+    // is the writer, this is the reader, and neither goes through React.
+    this.material.uniforms.blackPoint.value = dynamicRangeMeter.blackPoint
+    this.material.uniforms.whitePoint.value = dynamicRangeMeter.whitePoint
     renderer.setRenderTarget(this.renderToScreen ? null : outputBuffer)
     renderer.render(this.scene, this.camera)
   }
