@@ -6,12 +6,16 @@ import { PaletteGradePass } from './PaletteGradePass'
 /**
  * R3F wrapper — constructs PaletteGradePass from the active palette
  * (colours), effects/config.ts's `paletteGrade` block (base tuning), and
- * the generative state's `contrastAmount`/`vibranceAmount` (Leva's Colour >
- * Contrast/Vibrance, 1 = as tuned), same pattern as LongExposureBlur.tsx.
+ * the generative state's manual tone controls (Leva's Colour fold —
+ * Exposure/Brightness/Highlights/Shadows/Contrast/Vibrance, 1/0 = as
+ * tuned), same pattern as LongExposureBlur.tsx. Exposure/Contrast/Vibrance
+ * multiply a config base; Brightness/Highlights/Shadows have no base to
+ * multiply (their neutral value is 0, and multiplying anything by 0 is
+ * still 0) so their Leva value is passed straight through instead.
  */
 export function PaletteGrade() {
   const palette = usePalette()
-  const { contrastAmount, vibranceAmount } = useGenerative()
+  const { exposureAmount, brightnessAmount, highlightsAmount, shadowsAmount, contrastAmount, vibranceAmount } = useGenerative()
   const { highlightStrength, shadowStrength, bloomBiasStrength, bloomBiasThreshold, exposure, contrast, vibrance, vignette } =
     POST_PROCESSING_CONFIG.paletteGrade
 
@@ -25,7 +29,10 @@ export function PaletteGrade() {
         shadowStrength,
         bloomBiasStrength,
         bloomBiasThreshold,
-        exposure,
+        exposure: exposure * exposureAmount,
+        brightness: brightnessAmount,
+        highlightsAdjust: highlightsAmount,
+        shadowsAdjust: shadowsAmount,
         contrast: contrast * contrastAmount,
         vibrance: vibrance * vibranceAmount,
         vignette,
@@ -37,6 +44,10 @@ export function PaletteGrade() {
       bloomBiasStrength,
       bloomBiasThreshold,
       exposure,
+      exposureAmount,
+      brightnessAmount,
+      highlightsAmount,
+      shadowsAmount,
       contrast,
       contrastAmount,
       vibrance,

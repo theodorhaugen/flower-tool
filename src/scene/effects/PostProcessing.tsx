@@ -5,7 +5,6 @@ import { useGenerative } from '../shared/generativeContext'
 import { AtmosphericHaze } from './AtmosphericHaze'
 import { BilateralSoft } from './BilateralSoft'
 import { POST_PROCESSING_CONFIG } from './config'
-import { DynamicRangeMeter } from './DynamicRangeMeter'
 import { GrainOverlay } from './GrainOverlay'
 import { Halation } from './Halation'
 import { LensDistortion } from './LensDistortion'
@@ -71,17 +70,10 @@ import { PaletteGrade } from './PaletteGrade'
  * - LongExposureBlur: simulated handheld-long-exposure blur, blending in a
  *   decaying history of recent frames — driven by the scene's own existing
  *   camera drift, not a synthetic per-object velocity streak.
- * - GrainOverlay: a real photographed grain plate laid over the frame with
- *   a standard Overlay blend and a highlight falloff (dense in
- *   shadows/midtones, thinning through the highlights, like actual film) —
- *   see TextureGrainPass.ts.
- * - DynamicRangeMeter: last of all — a passthrough that measures this
- *   frame's actual luminance spread and feeds a corrective black/white
- *   point back to PaletteGrade (first in the pipeline) for the *next*
- *   frame, so a render's tonal range always stretches back towards real
- *   shadows/highlights regardless of how flat or blown-out this particular
- *   seed/palette/lighting combination would otherwise land — see
- *   DynamicRangeMeterPass.ts/dynamicRangeMeter.ts.
+ * - GrainOverlay: last, on top of the fully-formed image — a real
+ *   photographed grain plate laid over the frame with a standard Overlay
+ *   blend and a highlight falloff (dense in shadows/midtones, thinning
+ *   through the highlights, like actual film) — see TextureGrainPass.ts.
  */
 export function PostProcessing() {
   const { bloom, highlightBloom, chromaticAberration } = POST_PROCESSING_CONFIG
@@ -115,7 +107,6 @@ export function PostProcessing() {
       <LensDistortion />
       <LongExposureBlur />
       <GrainOverlay />
-      <DynamicRangeMeter />
     </EffectComposer>
   )
 }

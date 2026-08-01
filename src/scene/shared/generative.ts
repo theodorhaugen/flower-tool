@@ -226,6 +226,14 @@ export interface GenerativeState {
   fStop: number
   /** Lens fold "Highlight Bloom" — intensity of the second, high-threshold bloom pass (PostProcessing.tsx). Direct value, not a multiplier, same as bloomIntensity. */
   highlightBloomIntensity: number
+  /** Colour fold "Exposure" — scales PaletteGradePass's linear (camera-stop-like) exposure multiplier. 1 = as tuned. */
+  exposureAmount: number
+  /** Colour fold "Brightness" — PaletteGradePass's flat additive brightness offset. Direct value, not a multiplier (its neutral value is 0). 0 = unchanged. */
+  brightnessAmount: number
+  /** Colour fold "Highlights" — PaletteGradePass's additive lift/pull on just the bright end of the tonal range. Direct value, not a multiplier. 0 = unchanged. */
+  highlightsAmount: number
+  /** Colour fold "Shadows" — PaletteGradePass's additive lift/pull on just the dark end of the tonal range. Direct value, not a multiplier. 0 = unchanged. */
+  shadowsAmount: number
   /** Colour fold "Contrast" — scales PaletteGradePass's contrast pivot. 1 = as tuned. */
   contrastAmount: number
   /** Colour fold "Vibrance" — scales PaletteGradePass's vibrance boost. 1 = as tuned. */
@@ -366,6 +374,10 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     maxBlur: CAMERA_CONFIG.dof.maxBlur,
     fStop: CAMERA_CONFIG.dof.fStop,
     highlightBloomIntensity: POST_PROCESSING_CONFIG.highlightBloom.intensity,
+    exposureAmount: 1,
+    brightnessAmount: 0,
+    highlightsAmount: 0,
+    shadowsAmount: 0,
     contrastAmount: 1,
     vibranceAmount: 1,
     grainAmount: 1,

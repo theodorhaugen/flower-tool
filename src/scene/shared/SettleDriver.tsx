@@ -1,7 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { CAMERA_CONFIG } from '../camera/config'
-import { dynamicRangeMeter } from '../effects/dynamicRangeMeter'
 import { beginCapture, finishCapture } from './captureStore'
 import { useGenerative } from './generativeContext'
 import { settleRequests, virtualClock } from './virtualClock'
@@ -84,12 +83,6 @@ const SETTLE_VIRTUAL_SECONDS = CAMERA_CONFIG.sweep.periodSeconds
  *   Leva's Scene > Reroll Still button jumps to a *randomised* start time
  *   instead of 0, landing on a different — but, once picked, equally
  *   reproducible — moment in the same seed's sweep/drift/wind.
- *
- * Both also reset dynamicRangeMeter.ts's blackPoint/whitePoint back to
- * neutral (0, 1) alongside virtualClock.time — that auto-levels state
- * converges over the course of a burst (see DynamicRangeMeterPass.ts), and
- * leaving it at whatever the *previous* render happened to converge to
- * would break the same reproducibility guarantee above.
  */
 export function SettleDriver() {
   const invalidate = useThree((s) => s.invalidate)
@@ -105,8 +98,6 @@ export function SettleDriver() {
 
   useEffect(() => {
     virtualClock.time = 0
-    dynamicRangeMeter.blackPoint = 0
-    dynamicRangeMeter.whitePoint = 1
     remainingRef.current = SETTLE_VIRTUAL_SECONDS
     captureNextRef.current = false
     beginCapture()
@@ -126,8 +117,6 @@ export function SettleDriver() {
     if (settleRequests.pendingReroll) {
       settleRequests.pendingReroll = false
       virtualClock.time = Math.random() * 1000
-      dynamicRangeMeter.blackPoint = 0
-      dynamicRangeMeter.whitePoint = 1
       remainingRef.current = SETTLE_VIRTUAL_SECONDS
       captureNextRef.current = false
       beginCapture()

@@ -146,13 +146,17 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     [seed],
   )
 
-  // --- Colour: which palette, hue shift, plus tonal punch/vibrancy — not the raw shader strengths ---
+  // --- Colour: which palette, hue shift, plus manual tone-editing controls — not the raw shader strengths ---
   const [colourControls] = useControls(
     'Colour',
     () => ({
       palette: { value: base.palette.name, options: PALETTE_NAMES, label: 'Palette' },
       hueShift: { value: 0, min: -180, max: 180, label: 'Hue Shift' },
+      exposure: { value: 1, min: 0.3, max: 2.5, label: 'Exposure' },
+      brightness: { value: 0, min: -0.4, max: 0.4, label: 'Brightness' },
       contrast: { value: 1, min: 0.5, max: 1.8, label: 'Contrast' },
+      highlights: { value: 0, min: -0.4, max: 0.4, label: 'Highlights' },
+      shadows: { value: 0, min: -0.4, max: 0.4, label: 'Shadows' },
       vibrance: { value: 1, min: 0, max: 2.5, label: 'Vibrance' },
     }),
     [seed],
@@ -232,6 +236,10 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       flowerScale: flowerControls.scale,
       poppyAccentProbability: flowerControls.poppyAccent,
       hueShiftDeg: colourControls.hueShift,
+      exposureAmount: colourControls.exposure,
+      brightnessAmount: colourControls.brightness,
+      highlightsAmount: colourControls.highlights,
+      shadowsAmount: colourControls.shadows,
       contrastAmount: colourControls.contrast,
       vibranceAmount: colourControls.vibrance,
       hazeAmount: atmosphereControls.haze,
