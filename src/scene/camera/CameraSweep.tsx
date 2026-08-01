@@ -5,6 +5,7 @@ import { virtualClock } from '../shared/virtualClock'
 import { CAMERA_CONFIG } from './config'
 
 const BASE_ROTATION_AMPLITUDE = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg)
+const MAX_ROTATION_AMPLITUDE = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.maxRotationAmplitudeDeg)
 const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
 const ROLL_WEIGHT = CAMERA_CONFIG.sweep.rollWeight
 
@@ -43,7 +44,12 @@ export function CameraSweep() {
 
   useFrame(() => {
     const phase = virtualClock.time * ANGULAR_FREQUENCY
-    const rotationAmplitude = BASE_ROTATION_AMPLITUDE * cameraMovementMultiplier * motionBlurStrength
+    // Movement (Leva) and motionBlurStrength (seed default, also
+    // Leva-overridable — see GenerativeProvider.tsx's "Blur Strength")
+    // multiply together, so this clamp is the actual backstop against
+    // sweeping far enough off-scene to lose all structure — see
+    // camera/config.ts's `maxRotationAmplitudeDeg` docstring.
+    const rotationAmplitude = Math.min(BASE_ROTATION_AMPLITUDE * cameraMovementMultiplier * motionBlurStrength, MAX_ROTATION_AMPLITUDE)
     const yawWeight = Math.cos(motionBlurDirectionAngle)
     const pitchWeight = Math.sin(motionBlurDirectionAngle)
 

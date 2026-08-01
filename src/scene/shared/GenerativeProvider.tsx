@@ -1,6 +1,7 @@
 import { button, useControls } from 'leva'
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useRef } from 'react'
+import * as THREE from 'three'
 import { CAMERA_CONFIG } from '../camera/config'
 import { deriveGenerativeState, randomSeed, SEED_MAX } from './generative'
 import type { GenerativeState } from './generative'
@@ -103,6 +104,16 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       distance: { value: base.camera.position[2], min: CAMERA_CONFIG.position[2] - 5, max: CAMERA_CONFIG.position[2] + 4, label: 'Distance' },
       pan: { value: base.camera.target[0], min: CAMERA_CONFIG.target[0] - 5, max: CAMERA_CONFIG.target[0] + 5, label: 'Pan' },
       movement: { value: 1, min: 0, max: 2, label: 'Movement' },
+      // Direct values (like `focusDistance`/`maxBlur` in the Lens fold
+      // below), not multipliers on top of the seed's own pick — dragging
+      // this slider replaces which "how blurred" this render is, the same
+      // way dragging Focus Distance replaces where it's focused. Both are
+      // still clamped against `movement` together at the physical-sweep
+      // level (camera/config.ts's `maxRotationAmplitudeDeg`) so no
+      // combination of the two dials can swing the camera far enough
+      // off-scene to lose all structure — see CameraSweep.tsx.
+      blurStrength: { value: base.motionBlurStrength, min: 0.15, max: 1.9, label: 'Blur Strength' },
+      blurDirection: { value: THREE.MathUtils.radToDeg(base.motionBlurDirectionAngle), min: 0, max: 360, label: 'Blur Direction' },
     }),
     [seed],
   )
@@ -207,6 +218,8 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       highlightBloomIntensity: lensControls.highlightBloom,
       wind: { ...base.wind, strength: atmosphereControls.windStrength },
       cameraMovementMultiplier: cameraControls.movement,
+      motionBlurStrength: cameraControls.blurStrength,
+      motionBlurDirectionAngle: THREE.MathUtils.degToRad(cameraControls.blurDirection),
       lightingOvercast: lightingControls.overcast,
       lightingWarmth: lightingControls.warmth,
       lightingShadowDepth: lightingControls.shadowDepth,

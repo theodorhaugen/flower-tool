@@ -91,6 +91,11 @@ const DEFAULT_HALF_LIFE_SECONDS = 0.12
 // since that angle is no longer fixed to "always yaw" — see
 // camera/config.ts's `sweep` docstring.
 const BASE_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg)
+// Same backstop CameraSweep.tsx clamps its actual sweep to — see
+// camera/config.ts's `maxRotationAmplitudeDeg` docstring for why. Keeping
+// this estimate un-clamped while the real sweep is clamped would desync
+// the two right at the extreme end, so it's applied here too.
+const MAX_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.maxRotationAmplitudeDeg)
 const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
 const VERTICAL_FOV_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.fov)
 /**
@@ -116,12 +121,16 @@ const STREAK_STRENGTH = 0.22
 /** Caps the within-frame streak to a sane fraction of the screen — a guard against a single unusually large virtual-time step (e.g. a slow real frame) producing an absurdly long smear rather than a subtle one. Raised alongside `STREAK_STRENGTH` so the cap isn't clipping the strengthened streak back down to the old, barely-visible length. */
 const MAX_STREAK_UV = 0.045
 
+function clampedRotationAmplitude(movementMultiplier: number): number {
+  return Math.min(BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier, MAX_ROTATION_AMPLITUDE_RAD)
+}
+
 function yawAt(virtualTime: number, movementMultiplier: number, directionAngle: number): number {
-  return BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier * Math.cos(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY)
+  return clampedRotationAmplitude(movementMultiplier) * Math.cos(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY)
 }
 
 function pitchAt(virtualTime: number, movementMultiplier: number, directionAngle: number): number {
-  return BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier * Math.sin(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY + 0.6)
+  return clampedRotationAmplitude(movementMultiplier) * Math.sin(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY + 0.6)
 }
 
 /**
