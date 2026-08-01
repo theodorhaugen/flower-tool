@@ -79,31 +79,30 @@ export const POST_PROCESSING_CONFIG = {
   /**
    * Structural tuning for PaletteGradePass — colours themselves come from
    * the active palette's `highlight`/`shadow`/`bloomTint` (see
-   * PostProcessing.tsx), this is just how strongly each is felt.
-   * `bloomBiasThreshold` should sit close to `bloom.luminanceThreshold`
-   * above — the point is to catch the same pixels Bloom is about to bloom.
-   *
-   * Contrast/vibrance/highlightStrength/vignette were all raised together
-   * against real analogue macro/ICM reference photography — that
-   * reference consistently reads punchier and moodier than a flat "muted"
-   * grade: deep, near-crushed shadows sitting right next to saturated,
-   * often-blown highlights, not an evenly-lit midtone wash. The two-point
-   * grade strengths stay asymmetric (highlights felt more than shadows)
-   * because the references' mood comes far more from warm, glowing
-   * highlight colour than from shadow tinting.
+   * PostProcessing.tsx), this is just how strongly each is felt. Kept
+   * gentle for the two-point grade (0.12 each) and vibrance (0.4) — colour/
+   * saturation tuning is deliberately out of scope of the contrast/
+   * dynamic-range pass this was last adjusted for (see SceneLighting.tsx's
+   * docstring for where that actually happened instead: real per-pixel
+   * shadow depth is a *lighting* problem, not something a post-process
+   * contrast pivot can manufacture out of a flatly-lit input). Only
+   * `contrast` and `vignette` reflect that pass — both are pure luminance
+   * operations with no colour/hue component. `bloomBiasThreshold` should
+   * sit close to `bloom.luminanceThreshold` above — the point is to catch
+   * the same pixels Bloom is about to bloom.
    */
   paletteGrade: {
-    highlightStrength: 0.2,
-    shadowStrength: 0.14,
+    highlightStrength: 0.12,
+    shadowStrength: 0.12,
     bloomBiasStrength: 0.35,
     bloomBiasThreshold: 0.55,
-    /** Kept at 1 (unchanged) — SceneLighting.tsx's stronger key light is the actual exposure fix; this stays here only so the shader/uniform exists for future tuning. */
+    /** Kept at 1 (unchanged) — SceneLighting.tsx's key/fill ratio is the actual exposure fix; this stays here only so the shader/uniform exists for future tuning. */
     exposure: 1,
-    /** A real punch-up, not a filter-strength swing — see PaletteGradePass.ts's shader comment for why contrast/vibrance run *before* the two-point grade below. */
-    contrast: 1.34,
-    /** Strongest on already-muddy/desaturated pixels, tapers off on already-vivid ones — see the shader for the exact falloff. */
-    vibrance: 0.65,
-    /** Soft corner falloff — see PaletteGradePass.ts's shader comment for why this is multiplicative distance-based darkening, not the harder-edged `Vignette` effect this project deliberately dropped earlier. */
+    /** A mild punch on top of the now wider-dynamic-range lighting input, not the whole contrast mechanism — see SceneLighting.tsx. */
+    contrast: 1.18,
+    /** Strongest on already-muddy/desaturated pixels, tapers off on already-vivid ones — see the shader for the exact falloff. Colour/saturation tuning, deliberately left at its original value — see class docstring. */
+    vibrance: 0.4,
+    /** Soft corner falloff — see PaletteGradePass.ts's shader comment for why this is multiplicative distance-based darkening, not the harder-edged `Vignette` effect this project deliberately dropped earlier. A luminance-only lens/lighting characteristic, not a colour choice. */
     vignette: 0.22,
   },
 

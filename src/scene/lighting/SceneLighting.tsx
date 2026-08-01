@@ -7,14 +7,23 @@ function mix(a: string, b: string, t: number): string {
 }
 
 /**
- * Broken-sun lighting: a real directional key light now does most of the
- * work — sized and angled to carve visible light/shadow across a petal's
- * folds the way direct sun does (see the poppy/wildflower reference photos
- * this was tuned against) — with the sky dome/ambient kept only as a fill
- * so shadows stay soft-edged rather than pitch-black, not as the dominant
- * source it was before. That swap (key light up, ambient/hemisphere down)
- * is what turns flat "everything lit evenly" overcast into the contrast and
- * tonal separation those references have.
+ * Broken-sun lighting: without any shadow mapping in this renderer (see
+ * PostProcessing.tsx/Environment.tsx — there are none), the *only* way a
+ * surface can read as "in shadow" is its own diffuse N·L falloff — facing
+ * away from the key light. That only produces real per-pixel dynamic range
+ * if the non-directional floor (hemisphere + ambient, which light every
+ * surface regardless of orientation) sits well *below* the key light's
+ * peak. It previously didn't: hemisphere(1.7) + ambient(0.55) = 2.25
+ * exceeded the key light's 1.85, so a petal facing dead away from the sun
+ * still read almost as bright as one facing it — flat exposure, no matter
+ * how the post-process contrast pivot (see effects/config.ts's
+ * `paletteGrade`) was tuned, because that pivot can only stretch dynamic
+ * range that already exists in the lit input, not manufacture shadow depth
+ * a flat lighting ratio never produced. Rebalanced so the floor (0.8 + 0.15
+ * = 0.95) sits well under the key (2.6) and the fill (0.35) barely lifts
+ * the shadow side — this is the actual "exposure" fix the reference photos'
+ * deep-shadow/bright-highlight character calls for; the grade pass now only
+ * needs to add a mild punch on top of a genuinely wide-range input.
  *
  * Colours are tinted by the active render's palette — `highlight` warms the
  * sky/key light, `shadow` cools the ground-bounce/fill light — mixed with
@@ -44,10 +53,10 @@ export function SceneLighting() {
 
   return (
     <>
-      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={1.7 * lightingOvercast} />
-      <ambientLight intensity={0.55 * lightingOvercast} />
-      <directionalLight position={[4, 6, 3]} intensity={1.85 * lightingShadowDepth} color={colors.key} />
-      <directionalLight position={[-3, 3, -4]} intensity={0.6 * lightingShadowDepth} color={colors.fill} />
+      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={0.8 * lightingOvercast} />
+      <ambientLight intensity={0.15 * lightingOvercast} />
+      <directionalLight position={[4, 6, 3]} intensity={2.6 * lightingShadowDepth} color={colors.key} />
+      <directionalLight position={[-3, 3, -4]} intensity={0.35 * lightingShadowDepth} color={colors.fill} />
     </>
   )
 }
