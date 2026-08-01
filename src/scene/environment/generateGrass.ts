@@ -58,6 +58,15 @@ export function generateGrass(
       // config.ts's widthScale) that much per-vertex jitter reads as a
       // choppy, faceted edge rather than a clean taper.
       jitterAmount: 0.4,
+      // Stronger/taller than the shared default (0.3/0.4) — every blade's
+      // base otherwise met the terrain at exactly the same brightness the
+      // rest of the blade has, which is what made a dense stand of grass
+      // read as separate cutouts stood up on the ground rather than
+      // something actually rooted in it. A deeper, taller contact-shadow
+      // gradient is the cheap stand-in for the real thatch/self-shadowing a
+      // dense grass base would have.
+      aoStrength: 0.5,
+      aoFalloffHeight: 0.55,
     }),
     instances: [],
   }))
@@ -82,7 +91,14 @@ export function generateGrass(
     const acceptance = samplePathFactor(x, z, meadowLayout) * (0.55 + 0.45 * clusterFactor)
     if (rng() > acceptance) continue
 
-    const y = sampleTerrainHeight(x, z, terrainShape) - samplePathDepression(x, z, meadowLayout)
+    // Every blade's base used to sit at exactly the sampled terrain height —
+    // a perfectly flat, uniform contact line that (combined with the AO
+    // gradient being the only base-darkening cue) still read as blades
+    // stood up *on* the ground rather than growing *out of* it. Sinking
+    // each base a little into the terrain, by a different random amount,
+    // breaks that razor-edge seam into something closer to how real grass
+    // roots disappear into uneven thatch.
+    const y = sampleTerrainHeight(x, z, terrainShape) - samplePathDepression(x, z, meadowLayout) - range(rng, 0, 0.05)
     const height = range(rng, heightRange[0], heightRange[1]) * heightMultiplier
     const spin = range(rng, 0, Math.PI * 2)
     const lean = range(rng, -0.22, 0.22)

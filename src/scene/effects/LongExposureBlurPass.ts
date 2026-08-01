@@ -100,10 +100,18 @@ const VERTICAL_FOV_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.fov)
  * the *gap* a thin blade would otherwise fall entirely into between
  * discrete accumulated frames, not to re-derive the whole exposure from
  * scratch, so it's dialled back well under 1.
+ *
+ * Raised from 0.08 — at that strength the within-frame streak was smaller
+ * than a grass blade's own width most frames, so it closed the gap between
+ * accumulated samples (no more *aliasing*) without actually leaving a
+ * visible trail behind each blade — grass still read crisp/static while
+ * bloom highlights streaked. This is still well under the "full physically
+ * correct" smear the comment above warns against, just enough that thin
+ * geometry visibly drags rather than merely avoiding a comb artifact.
  */
-const STREAK_STRENGTH = 0.08
-/** Caps the within-frame streak to a sane fraction of the screen — a guard against a single unusually large virtual-time step (e.g. a slow real frame) producing an absurdly long smear rather than a subtle one. */
-const MAX_STREAK_UV = 0.02
+const STREAK_STRENGTH = 0.22
+/** Caps the within-frame streak to a sane fraction of the screen — a guard against a single unusually large virtual-time step (e.g. a slow real frame) producing an absurdly long smear rather than a subtle one. Raised alongside `STREAK_STRENGTH` so the cap isn't clipping the strengthened streak back down to the old, barely-visible length. */
+const MAX_STREAK_UV = 0.045
 
 function yawAt(virtualTime: number, movementMultiplier: number): number {
   return YAW_AMPLITUDE_RAD * movementMultiplier * Math.sin(virtualTime * ANGULAR_FREQUENCY)

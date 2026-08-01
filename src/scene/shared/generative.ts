@@ -49,6 +49,13 @@ interface CameraShotPreset {
   weight: number
   positionOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
   targetOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
+  /**
+   * World-unit focus distance this preset's composition actually puts its
+   * dominant, near flower content at — see the block below `pickCameraShotPreset`
+   * for why this can't just be derived from the jittered camera/target
+   * instead.
+   */
+  focusDistance: number
 }
 
 /**
@@ -77,6 +84,7 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [0, 0],
       [-3, 3],
     ],
+    focusDistance: 15,
   },
   {
     // Low worm's-eye — camera drops near ground level and looks up into the field instead of steeply down.
@@ -91,6 +99,7 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [3, 5],
       [-2, 2],
     ],
+    focusDistance: 11,
   },
   {
     // Elevated — camera rises well above the base height, steepening the look-down angle towards near-top-down.
@@ -105,6 +114,7 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [-3, -1],
       [-2, 2],
     ],
+    focusDistance: 14,
   },
   {
     // Tight single-subject crop — camera pulls in noticeably closer to the focal cluster.
@@ -119,6 +129,7 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [0, 0],
       [-1, 1],
     ],
+    focusDistance: 10,
   },
 ]
 
@@ -245,12 +256,30 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     ],
   }
 
-  // Both vary around CAMERA_CONFIG.dof/POST_PROCESSING_CONFIG.bloom's own
-  // tuned base value, same reasoning as the camera position above — a
-  // deliberately-tuned centre with generative spread around it, not an
-  // arbitrary absolute range.
+  // Focus distance used to depend on the actual camera→target distance
+  // (either a fixed constant, or later a per-seed geometric calc) — both
+  // approaches assumed "however far the *camera* rolled from the *target*"
+  // tracks "how far away the *flowers* actually are", which turns out false:
+  // the flower field's own positions don't move with the camera's small
+  // jitter, but a straight-line camera→target distance is directly and
+  // fully sensitive to that jitter, so the two drift apart the more the
+  // roll happens to push camera/target further from each other. Verified
+  // directly (a Leva focus-distance sweep against a render that read as
+  // fully out of focus at every naive-distance estimate — see git history
+  // for the debugging session): the seeds that came out sharp all happened
+  // to roll a *short* camera→target distance (14.5-16.6), every seed that
+  // rolled *further* (17.3+) came out blurred edge-to-edge, even though
+  // both groups are the same `classic` shot preset — the composition's
+  // actual dominant, near flower content sits at a fairly consistent real
+  // distance regardless of that jitter. Each preset above now carries its
+  // own tuned `focusDistance` for exactly that reason — it describes where
+  // *that composition* actually puts its subject, the same way its
+  // position/targetOffset describe the vantage point, rather than being
+  // rederived from whatever the jitter happens to roll. Small jitter on top
+  // still varies which part of the near cluster (front bloom vs. one just
+  // behind it) reads sharpest, without risking overshooting past it.
   const focusRng = createRng(seed + SEED_OFFSETS.focus)
-  const focusDistance = CAMERA_CONFIG.dof.focusDistance + range(focusRng, -5, 6)
+  const focusDistance = shotPreset.focusDistance + range(focusRng, -1.5, 1.5)
 
   const bloomRng = createRng(seed + SEED_OFFSETS.bloom)
   const bloomIntensity = POST_PROCESSING_CONFIG.bloom.intensity + range(bloomRng, -0.13, 0.15)

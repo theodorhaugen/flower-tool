@@ -43,7 +43,15 @@ export const ENVIRONMENT_CONFIG = {
      * stopped blurring that texture into mush.
      */
     widthScale: 0.12,
-    heightRange: [0.35, 0.8] as const,
+    /**
+     * Trimmed down from [0.35, 0.8] — that reached tall enough to regularly
+     * exceed the flower field's own stem heights (subjects/flowerField/
+     * config.ts's `stemHeightFactorRange`), so grass routinely grew in
+     * front of the very bloom it was meant to sit beneath. Shortened here
+     * *and* those stem ranges raised together — meeting only halfway would
+     * still leave a lot of overlap.
+     */
+    heightRange: [0.25, 0.55] as const,
     /** Grass only where blades would actually resolve before blur takes over — near/mid ground only. */
     zNear: 9,
     zFar: -30,

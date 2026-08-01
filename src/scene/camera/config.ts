@@ -30,14 +30,6 @@ export const CAMERA_CONFIG = {
    */
   dof: {
     /**
-     * Focus distance, world units from the camera — roughly where the
-     * target/foreground blooms sit. This is the *base* value; the active
-     * render's generative seed varies around it (see shared/generative.ts,
-     * consumed by LensOpticsDepthOfField.tsx) so different seeds pull
-     * focus to a different depth in the field.
-     */
-    focusDistance: 17,
-    /**
      * The lens formula needs a real physical scale (it works in meters/mm),
      * but our world units are otherwise arbitrary. 1 world unit ≈ this many
      * meters — chosen so flowers/petals (roughly 0.3-2 world units across)

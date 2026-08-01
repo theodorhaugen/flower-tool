@@ -15,8 +15,28 @@ import { Uniform } from 'three'
  * calls `linearToRelativeLuminance`, a helper three.js used to expose as a
  * global shader chunk function in older versions but has since removed,
  * so it fails to compile against the three.js version this project uses.
- * The fix is a one-line standard-luminance inline; everything else
- * (the lens equation, the ring/sample bokeh-disc sampling) is unchanged.
+ * The fix is a one-line standard-luminance inline; the lens equation and
+ * ring/sample bokeh-disc sampling are otherwise unchanged from the
+ * original.
+ *
+ * One thing *was* changed from the original, in `mainImage` below: the
+ * per-pixel depth it reads used to go through `viewZToOrthographicDepth`,
+ * which normalizes it into a [0,1] fraction of the camera's near/far clip
+ * range — then the next line multiplied that fraction by 1000 as if it
+ * were real-world metres. It never was: `focus` (the JS side, see
+ * LensOpticsDepthOfField.tsx) is a genuine metres value via
+ * `metersPerWorldUnit`, and this per-pixel depth was on an entirely
+ * different, near/far-dependent scale — so every comparison this shader
+ * makes between "this pixel's depth" and "the focus distance" was
+ * comparing two numbers with no real relationship to each other. It could
+ * only ever look sharp where those two unrelated scales happened to
+ * coincide by chance, never reliably at the actual configured focus
+ * distance (confirmed directly: pointing a real raycast at the exact
+ * on-screen focus target and feeding *that* real, verified-correct world
+ * distance into `focus` still produced a fully out-of-focus render). Fixed
+ * by keeping the already-linear `viewZ` (real world units) and scaling it
+ * through the same `metersPerWorldUnit` uniform `focus` itself uses,
+ * instead of ever normalizing it against near/far at all.
  *
  * Original shader: Martins Upitis,
  * http://blenderartists.org/forum/showthread.php?237488
@@ -30,6 +50,7 @@ uniform float luminanceThreshold;
 uniform float luminanceGain;
 uniform float bias;
 uniform float fringe;
+uniform float metersPerWorldUnit;
 
 float lensRelativeLuminance(vec3 color) {
   return dot(color, vec3(0.2126729, 0.7151522, 0.0721750));
@@ -59,17 +80,30 @@ float gather(const in float i, const in float j, const in float ringSamples, con
 void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
   #ifdef PERSPECTIVE_CAMERA
     float viewZ = perspectiveDepthToViewZ(depth, cameraNear, cameraFar);
-    float linearDepth = viewZToOrthographicDepth(viewZ, cameraNear, cameraFar);
   #else
-    float linearDepth = depth;
+    float viewZ = -depth;
   #endif
+
+  // viewZ above is already a genuine world-space distance (negative,
+  // camera-space) — converting it through viewZToOrthographicDepth used
+  // to normalize it into a [0,1] fraction of the near/far clip range
+  // instead, which the line below then multiplied by 1000 as if it were
+  // metres: a completely different, near/far-dependent scale than focus
+  // actually uses (which goes through metersPerWorldUnit from real world
+  // units). The two sides of every comparison below were never
+  // commensurate — this pass could only ever look sharp where those two
+  // unrelated scales happened to coincide by chance, not at the actual
+  // focus distance. Using -viewZ (real world units) with the same
+  // metersPerWorldUnit conversion focus already went through is what
+  // actually makes "sharp at the real focus distance" true.
+  float linearDepthWorldUnits = -viewZ;
 
   // Thin-lens equation: converts a world-space depth into the conjugate
   // image-plane distance for a lens of this focal length. Applied both to
   // the pixel's own depth and to the focus distance, then compared.
   const float CIRCLE_OF_CONFUSION = 0.03; // mm — standard 35mm acceptable-sharpness criterion
   float focalPlaneMM = focus * 1000.0;
-  float depthMM = linearDepth * 1000.0;
+  float depthMM = linearDepthWorldUnits * metersPerWorldUnit * 1000.0;
   float focalPlane = (depthMM * focalLength) / (depthMM - focalLength);
   float farDoF = (focalPlaneMM * focalLength) / (focalPlaneMM - focalLength);
   float nearDoF = (focalPlaneMM - focalLength) / (focalPlaneMM * fStop * CIRCLE_OF_CONFUSION);
@@ -112,6 +146,8 @@ export interface LensOpticsDepthOfFieldOptions {
   /** Ring count for the bokeh-disc sampling pattern — more rings/samples look smoother but cost more. */
   rings?: number
   samples?: number
+  /** Real-world metres one world unit represents — must match whatever `focus` was itself computed with (see camera/config.ts's `dof.metersPerWorldUnit`), so the per-pixel depth this shader samples from the depth buffer lands on the same real-world scale `focus` does. */
+  metersPerWorldUnit?: number
 }
 
 export class LensOpticsDepthOfFieldEffect extends Effect {
@@ -123,6 +159,7 @@ export class LensOpticsDepthOfFieldEffect extends Effect {
     maxBlur = 1,
     rings = 3,
     samples = 2,
+    metersPerWorldUnit = 1,
   }: LensOpticsDepthOfFieldOptions = {}) {
     super('LensOpticsDepthOfFieldEffect', FRAGMENT_SHADER, {
       blendFunction,
@@ -132,6 +169,7 @@ export class LensOpticsDepthOfFieldEffect extends Effect {
         ['focalLength', new Uniform(focalLength)],
         ['fStop', new Uniform(fStop)],
         ['maxBlur', new Uniform(maxBlur)],
+        ['metersPerWorldUnit', new Uniform(metersPerWorldUnit)],
         // Chromatic fringing / highlight-boost knobs the original shader
         // exposes but this project doesn't need to tune — fixed, sane
         // defaults rather than dead configuration surface.

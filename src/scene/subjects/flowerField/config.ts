@@ -165,6 +165,15 @@ export const FLOWER_FIELD_CONFIG = {
    * macro shot relies on, and exactly what the depth-of-field pass keys off
    * of. Every band plants flowers on the shared terrain height (see
    * generateFlowerField.ts) rather than at an independent random altitude.
+   *
+   * `stemHeightFactorRange`'s lower bounds were raised (was 0.5/0.4/0.3) —
+   * grass grows 0.35-0.8 world units tall (see environment/config.ts), and
+   * a stem shorter than that (which the old ranges' low end regularly
+   * produced, especially combined with a small `scaleRange` roll) means the
+   * bloom sits *below* the surrounding grass tops, not above it, so grass
+   * legitimately — not as a depth-sort bug — grows in front of the flower
+   * it should be framing. Raised enough that most blooms now clear typical
+   * grass height instead of most sitting below it.
    */
   depthBands: [
     {
@@ -174,7 +183,7 @@ export const FLOWER_FIELD_CONFIG = {
       densityMultiplier: 0.22,
       scaleRange: [0.55, 1.05] as const,
       petalCountRange: [6, 13] as const,
-      stemHeightFactorRange: [0.5, 1.0] as const,
+      stemHeightFactorRange: [0.85, 1.35] as const,
     },
     {
       name: 'midground',
@@ -183,7 +192,7 @@ export const FLOWER_FIELD_CONFIG = {
       densityMultiplier: 1,
       scaleRange: [0.3, 0.75] as const,
       petalCountRange: [5, 12] as const,
-      stemHeightFactorRange: [0.4, 0.9] as const,
+      stemHeightFactorRange: [0.75, 1.25] as const,
     },
     {
       name: 'background',
@@ -192,7 +201,7 @@ export const FLOWER_FIELD_CONFIG = {
       densityMultiplier: 1.5,
       scaleRange: [0.12, 0.35] as const,
       petalCountRange: [4, 8] as const,
-      stemHeightFactorRange: [0.3, 0.7] as const,
+      stemHeightFactorRange: [0.5, 0.9] as const,
     },
   ] satisfies readonly DepthBand[],
 
