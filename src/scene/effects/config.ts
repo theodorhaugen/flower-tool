@@ -79,24 +79,32 @@ export const POST_PROCESSING_CONFIG = {
   /**
    * Structural tuning for PaletteGradePass — colours themselves come from
    * the active palette's `highlight`/`shadow`/`bloomTint` (see
-   * PostProcessing.tsx), this is just how strongly each is felt. Kept
-   * gentle for the two-point grade (0.12 each) so it reads as mood, not a
-   * colour-filter override; the bloom bias is stronger (0.35) since that's
-   * the whole mechanism behind `bloomTint` actually colouring the glow.
+   * PostProcessing.tsx), this is just how strongly each is felt.
    * `bloomBiasThreshold` should sit close to `bloom.luminanceThreshold`
    * above — the point is to catch the same pixels Bloom is about to bloom.
+   *
+   * Contrast/vibrance/highlightStrength/vignette were all raised together
+   * against real analogue macro/ICM reference photography — that
+   * reference consistently reads punchier and moodier than a flat "muted"
+   * grade: deep, near-crushed shadows sitting right next to saturated,
+   * often-blown highlights, not an evenly-lit midtone wash. The two-point
+   * grade strengths stay asymmetric (highlights felt more than shadows)
+   * because the references' mood comes far more from warm, glowing
+   * highlight colour than from shadow tinting.
    */
   paletteGrade: {
-    highlightStrength: 0.12,
-    shadowStrength: 0.12,
+    highlightStrength: 0.2,
+    shadowStrength: 0.14,
     bloomBiasStrength: 0.35,
     bloomBiasThreshold: 0.55,
     /** Kept at 1 (unchanged) — SceneLighting.tsx's stronger key light is the actual exposure fix; this stays here only so the shader/uniform exists for future tuning. */
     exposure: 1,
-    /** A mild punch-up, not a filter-strength swing — see PaletteGradePass.ts's shader comment for why contrast/vibrance run *before* the two-point grade below. */
-    contrast: 1.12,
+    /** A real punch-up, not a filter-strength swing — see PaletteGradePass.ts's shader comment for why contrast/vibrance run *before* the two-point grade below. */
+    contrast: 1.34,
     /** Strongest on already-muddy/desaturated pixels, tapers off on already-vivid ones — see the shader for the exact falloff. */
-    vibrance: 0.4,
+    vibrance: 0.65,
+    /** Soft corner falloff — see PaletteGradePass.ts's shader comment for why this is multiplicative distance-based darkening, not the harder-edged `Vignette` effect this project deliberately dropped earlier. */
+    vignette: 0.22,
   },
 
   /**

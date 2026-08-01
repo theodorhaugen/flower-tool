@@ -21,6 +21,7 @@ const FRAGMENT_SHADER = `
   uniform float exposure;
   uniform float contrast;
   uniform float vibrance;
+  uniform float vignette;
   varying vec2 vUv;
 
   float relLuminance(vec3 color) {
@@ -72,6 +73,19 @@ const FRAGMENT_SHADER = `
     float bloomWeight = smoothstep(bloomBiasThreshold, 1.0, luminance) * bloomBiasStrength;
     color = mix(color, bloomTintColor, bloomWeight);
 
+    // Lens light falloff: a soft multiplicative darkening towards the
+    // frame's corners, distance-based rather than a hard circular mask —
+    // real macro lenses (especially wide-open, which is the whole point of
+    // this tool's shallow DoF) show natural corner falloff, and reference
+    // photography consistently reads darker at the edges than a flat,
+    // uniformly-lit frame. Deliberately multiplicative (dims, doesn't tint
+    // towards black-as-a-colour) and gated by a wide smoothstep so it never
+    // reads as a hard-edged filter ring.
+    vec2 centered = (vUv - 0.5) * vec2(1.15, 1.0);
+    float cornerDistance = length(centered);
+    float falloff = smoothstep(0.25, 0.9, cornerDistance) * vignette;
+    color *= 1.0 - falloff;
+
     gl_FragColor = vec4(color, texel.a);
   }
 `
@@ -94,6 +108,8 @@ export interface PaletteGradeOptions {
   contrast?: number
   /** Saturation boost, strongest on already-desaturated (muddy) pixels. 0 = unchanged. */
   vibrance?: number
+  /** Soft multiplicative corner darkening, 0-1ish — natural lens light falloff, not a hard filter ring. 0 disables. */
+  vignette?: number
 }
 
 /**
@@ -121,6 +137,7 @@ export class PaletteGradePass extends Pass {
     exposure = 1,
     contrast = 1,
     vibrance = 0,
+    vignette = 0,
   }: PaletteGradeOptions = {}) {
     super('PaletteGradePass')
 
@@ -137,6 +154,7 @@ export class PaletteGradePass extends Pass {
         exposure: { value: exposure },
         contrast: { value: contrast },
         vibrance: { value: vibrance },
+        vignette: { value: vignette },
       },
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,

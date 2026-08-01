@@ -12,7 +12,7 @@ import { PaletteGradePass } from './PaletteGradePass'
 export function PaletteGrade() {
   const palette = usePalette()
   const { contrastAmount, vibranceAmount } = useGenerative()
-  const { highlightStrength, shadowStrength, bloomBiasStrength, bloomBiasThreshold, exposure, contrast, vibrance } =
+  const { highlightStrength, shadowStrength, bloomBiasStrength, bloomBiasThreshold, exposure, contrast, vibrance, vignette } =
     POST_PROCESSING_CONFIG.paletteGrade
 
   const pass = useMemo(
@@ -28,6 +28,7 @@ export function PaletteGrade() {
         exposure,
         contrast: contrast * contrastAmount,
         vibrance: vibrance * vibranceAmount,
+        vignette,
       }),
     [
       palette,
@@ -40,6 +41,7 @@ export function PaletteGrade() {
       contrastAmount,
       vibrance,
       vibranceAmount,
+      vignette,
     ],
   )
 
