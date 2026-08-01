@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useGenerative } from '../shared/generativeContext'
 import { POST_PROCESSING_CONFIG } from './config'
-import grainTextureUrl from './textures/grain.jpg'
+import grainTextureUrl from './textures/grain.webp'
 import { TextureGrainPass } from './TextureGrainPass'
 
 /**
