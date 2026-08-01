@@ -5,7 +5,7 @@ import { useGenerative } from '../shared/generativeContext'
 import { AtmosphericHaze } from './AtmosphericHaze'
 import { BilateralSoft } from './BilateralSoft'
 import { POST_PROCESSING_CONFIG } from './config'
-import { FilmGrain } from './FilmGrain'
+import { GrainOverlay } from './GrainOverlay'
 import { Halation } from './Halation'
 import { LensDistortion } from './LensDistortion'
 import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
@@ -70,9 +70,10 @@ import { PaletteGrade } from './PaletteGrade'
  * - LongExposureBlur: simulated handheld-long-exposure blur, blending in a
  *   decaying history of recent frames — driven by the scene's own existing
  *   camera drift, not a synthetic per-object velocity streak.
- * - FilmGrain: last, on top of the fully-formed image — the emulsion layer,
- *   not a digital overlay — see FilmGrainPass.ts for why it's a custom
- *   pass rather than the postprocessing package's `Noise` effect.
+ * - GrainOverlay: last, on top of the fully-formed image — a real
+ *   photographed grain plate laid over the frame with a standard Overlay
+ *   blend and a highlight falloff (dense in shadows/midtones, thinning
+ *   through the highlights, like actual film) — see TextureGrainPass.ts.
  */
 export function PostProcessing() {
   const { bloom, highlightBloom, chromaticAberration } = POST_PROCESSING_CONFIG
@@ -105,7 +106,7 @@ export function PostProcessing() {
       />
       <LensDistortion />
       <LongExposureBlur />
-      <FilmGrain />
+      <GrainOverlay />
     </EffectComposer>
   )
 }

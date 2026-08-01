@@ -135,19 +135,26 @@ export const POST_PROCESSING_CONFIG = {
   },
 
   /**
-   * Film grain — see effects/FilmGrainPass.ts. Premultiplied (scaled by the
-   * underlying pixel colour) so it fades in shadows/deep colour the way
-   * real emulsion density fades, not a uniform digital-noise overlay.
-   * `size` is the grain cell width in screen pixels — real 35mm grain isn't
-   * 1px, it's a handful of pixels wide at typical viewing resolutions, so a
-   * flat 1px noise texture (the previous implementation) read as sensor
-   * noise rather than film. Both are Leva's Film fold ("Grain
-   * Amount"/"Grain Size", see shared/generative.ts) multipliers of these
-   * base values — 1 = as tuned here.
+   * Film grain — see effects/TextureGrainPass.ts. A real photographed grain
+   * plate (effects/textures/grain.jpg) laid over the frame with a standard
+   * Overlay blend, rather than procedurally generated. `highlightFalloff*`
+   * fades the grain out through the highlights (real emulsion density
+   * thins out there too) so it mostly reads in the shadows/midtones,
+   * exactly like actual film. Both `opacity` and `size` are Leva's Film
+   * fold ("Grain Amount"/"Grain Size", see shared/generative.ts) multiplier
+   * bases — 1 = as tuned here. `size` reads the intuitive way (bigger
+   * number, bigger-looking grain) even though TextureGrainPass's own
+   * `grainScale` option runs the opposite direction internally (it's a UV
+   * multiplier — *smaller* samples a smaller crop of the plate, magnified,
+   * which is what actually makes the grain look bigger on screen) — see
+   * GrainOverlay.tsx, which inverts it (`1 / size`) so this config value and
+   * Leva's "Grain Size" slider don't have to.
    */
   grain: {
-    opacity: 0.16,
-    size: 1.6,
+    opacity: 0.8,
+    size: 1,
+    highlightFalloffStart: 0.55,
+    highlightFalloffEnd: 0.95,
   },
 
   /**

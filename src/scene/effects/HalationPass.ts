@@ -67,7 +67,7 @@ export interface HalationPassOptions {
  * specifically warm/red rather than a colour-neutral glow the way Bloom's
  * own soft/highlight passes (PostProcessing.tsx) already are. A plain
  * `Pass` (not `Effect`) purely so it can carry its own `texelSize` uniform
- * the same way FilmGrainPass/HalationPass's siblings do.
+ * the same way TextureGrainPass/HalationPass's siblings do.
  */
 export class HalationPass extends Pass {
   private readonly material: THREE.ShaderMaterial

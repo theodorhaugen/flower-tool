@@ -22,7 +22,7 @@ const SETTLE_VIRTUAL_SECONDS = CAMERA_CONFIG.sweep.periodSeconds
  * captures the result — this is the piece that turns "camera sweeps and
  * grass sways forever" into "generates one reproducible still per
  * seed/parameter-set," by feeding CameraFraming/HandheldDrift/
- * CameraSweep/wind/AtmosphericHaze/FilmGrain/LongExposureBlurPass a
+ * CameraSweep/wind/AtmosphericHaze/LongExposureBlurPass a
  * controlled timeline instead of a live one. Those components don't know
  * or care that the clock they're reading is virtual — the whole point of
  * routing everything through one shared clock is that freezing it

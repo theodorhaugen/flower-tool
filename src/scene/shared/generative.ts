@@ -230,9 +230,9 @@ export interface GenerativeState {
   contrastAmount: number
   /** Colour fold "Vibrance" — scales PaletteGradePass's vibrance boost. 1 = as tuned. */
   vibranceAmount: number
-  /** Film fold "Grain Amount" — scales FilmGrainPass's opacity. 1 = as tuned. */
+  /** Film fold "Grain Amount" — scales TextureGrainPass's Overlay-blend opacity. 1 = as tuned. */
   grainAmount: number
-  /** Film fold "Grain Size" — scales FilmGrainPass's grain cell size. 1 = as tuned. */
+  /** Film fold "Grain Size" — scales how much of the grain plate GrainOverlay.tsx samples (see its docstring — inverted from TextureGrainPass's own `grainScale` so bigger reads as bigger grain). 1 = as tuned. */
   grainSize: number
   /** Grass fold "Density" — multiplies ENVIRONMENT_CONFIG.grass.count. 1 = as tuned. */
   grassDensity: number

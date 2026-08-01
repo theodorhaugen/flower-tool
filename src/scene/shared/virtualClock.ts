@@ -1,6 +1,6 @@
 /**
  * A "virtual" elapsed-time clock, separate from real wall-clock time —
- * CameraSweep/HandheldDrift/wind/AtmosphericHaze/FilmGrain all read this
+ * CameraSweep/HandheldDrift/wind/AtmosphericHaze all read this
  * instead of `clock.elapsedTime` so the whole "this is one photograph"
  * illusion holds together: SettleDriver.tsx advances it through a fixed
  * sequence during a short settle burst (building up LongExposureBlurPass's

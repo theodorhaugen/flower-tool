@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { POST_PROCESSING_CONFIG } from './config'
 import { HalationPass } from './HalationPass'
 
-/** R3F wrapper for HalationPass — same `primitive`-as-`Pass` pattern as LongExposureBlur.tsx/FilmGrain.tsx. */
+/** R3F wrapper for HalationPass — same `primitive`-as-`Pass` pattern as LongExposureBlur.tsx/GrainOverlay.tsx. */
 export function Halation() {
   const { threshold, intensity, tint } = POST_PROCESSING_CONFIG.halation
 
