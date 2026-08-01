@@ -64,14 +64,27 @@ export const CAMERA_CONFIG = {
    * fuzzy back-and-forth smear — but only if the blur's `halfLifeSeconds`
    * (effects/config.ts) stays well *under* `periodSeconds / 2` (the time
    * one directional half-swing takes); otherwise the blend starts pulling
-   * in the reversed half of the swing and cancels the streak out. Almost
-   * pure yaw (`axisWeights[1]`) for a mostly-horizontal streak — panning is
-   * what a handheld ICM shot actually does. See CameraSweep.tsx.
+   * in the reversed half of the swing and cancels the streak out.
+   *
+   * `rotationAmplitudeDeg` is the *base* sweep size — the active render's
+   * generative seed scales it by `motionBlurStrength` (shared/generative.ts,
+   * a wide per-seed range) so some renders barely pan at all (soft blur that
+   * still reads the flower shapes underneath it, rather than erasing them
+   * into a fully abstract streak — real ICM/soft-focus macro photography
+   * covers both looks, not just one) while others sweep hard into a
+   * strongly directional streak. Which *direction* that pan
+   * goes — horizontal, vertical, or anywhere between — is likewise no
+   * longer fixed: it's `motionBlurDirectionAngle`, also seed-derived. Roll
+   * stays fixed and small (`rollWeight`) regardless — it's a subtle texture
+   * wobble, not the sweep's main direction. See CameraSweep.tsx and
+   * effects/LongExposureBlurPass.ts, which both read the same per-seed
+   * strength/direction so the pass's own within-frame streak estimate never
+   * drifts out of sync with what the camera is actually doing.
    */
   sweep: {
     rotationAmplitudeDeg: 20,
     periodSeconds: 2.4,
-    /** [pitch, yaw, roll] — relative weights, not absolute degrees. */
-    axisWeights: [0.1, 1, 0.05] as const,
+    /** Subtle roll wobble, relative to `rotationAmplitudeDeg` — kept small and fixed regardless of `motionBlurStrength`/`motionBlurDirectionAngle`. */
+    rollWeight: 0.05,
   },
 }

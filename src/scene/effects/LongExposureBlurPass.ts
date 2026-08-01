@@ -23,8 +23,8 @@ const BLEND_FRAGMENT_SHADER = `
   uniform sampler2D tOld;
   uniform sampler2D tNew;
   uniform float decay;
-  // Screen-space UV displacement the camera's yaw swept *during this one
-  // rendered frame* (see LongExposureBlurPass.render()'s docstring) — pre-
+  // Screen-space UV displacement the camera's sweep covered *during this
+  // one rendered frame* (see LongExposureBlurPass.render()'s docstring) — pre-
   // streaking tNew along it before the temporal blend is what keeps thin,
   // high-frequency geometry (grass blades) from diluting into an invisible
   // wash: a bare temporal accumulation only ever sees each frame's blade at
@@ -74,20 +74,23 @@ export interface LongExposureBlurPassOptions {
    * many real frames a given virtual-time step happened to take.
    */
   halfLifeSeconds?: number
-  /** Camera fold "Movement" (see shared/generative.ts) — same multiplier CameraSweep.tsx scales its yaw sweep by, so this pass's own yaw-delta estimate (used for the within-frame streak, see `render()`) tracks whatever the sweep is actually doing. 1 = as tuned. */
+  /** Camera fold "Movement" (see shared/generative.ts) multiplied together with the per-seed `motionBlurStrength` — the same combined value CameraSweep.tsx scales its sweep amplitude by, so this pass's own yaw/pitch-delta estimate (used for the within-frame streak, see `render()`) tracks whatever the sweep is actually doing. 1 = as tuned. */
   movementMultiplier?: number
+  /** Per-seed `motionBlurDirectionAngle` (see shared/generative.ts) — same angle CameraSweep.tsx blends its yaw/pitch weights by, so this pass estimates a streak in the same direction the camera is actually sweeping instead of always assuming a horizontal pan. Radians, 0 = pure yaw. */
+  directionAngle?: number
 }
 
 const DEFAULT_HALF_LIFE_SECONDS = 0.12
 
 // Mirrors CameraSweep.tsx's own constants — that component is the dominant
 // source of the sweep this pass is estimating, so the estimate has to use
-// the exact same amplitude/frequency/axis-weight it does, not an independent
-// guess. Only yaw is modelled (axisWeights' pitch/roll are 5-10x smaller and
-// this is just an estimate for streak *direction/length*, not an exact
-// reprojection), matching the sweep's own "almost pure yaw" design.
-const YAW_AMPLITUDE_RAD =
-  THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg) * CAMERA_CONFIG.sweep.axisWeights[1]
+// the exact same amplitude/frequency it does, not an independent guess.
+// Roll isn't modelled (fixed and small — a texture wobble, not the sweep's
+// main direction) but yaw *and* pitch both are now, weighted by
+// `directionAngle` the same way CameraSweep.tsx weights its own rotateX/Y,
+// since that angle is no longer fixed to "always yaw" — see
+// camera/config.ts's `sweep` docstring.
+const BASE_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg)
 const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
 const VERTICAL_FOV_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.fov)
 /**
@@ -113,8 +116,12 @@ const STREAK_STRENGTH = 0.22
 /** Caps the within-frame streak to a sane fraction of the screen — a guard against a single unusually large virtual-time step (e.g. a slow real frame) producing an absurdly long smear rather than a subtle one. Raised alongside `STREAK_STRENGTH` so the cap isn't clipping the strengthened streak back down to the old, barely-visible length. */
 const MAX_STREAK_UV = 0.045
 
-function yawAt(virtualTime: number, movementMultiplier: number): number {
-  return YAW_AMPLITUDE_RAD * movementMultiplier * Math.sin(virtualTime * ANGULAR_FREQUENCY)
+function yawAt(virtualTime: number, movementMultiplier: number, directionAngle: number): number {
+  return BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier * Math.cos(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY)
+}
+
+function pitchAt(virtualTime: number, movementMultiplier: number, directionAngle: number): number {
+  return BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier * Math.sin(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY + 0.6)
 }
 
 /**
@@ -167,15 +174,21 @@ export class LongExposureBlurPass extends Pass {
   private readonly copyMaterial: THREE.ShaderMaterial
   private halfLifeSeconds: number
   private readonly movementMultiplier: number
+  private readonly directionAngle: number
   private lastVirtualTime = 0
-  /** Tracked from `setSize()` purely to convert the yaw estimate below into a UV displacement — see `render()`. */
+  /** Tracked from `setSize()` purely to convert the yaw/pitch estimate below into a UV displacement — see `render()`. */
   private aspect = 1
 
-  constructor({ halfLifeSeconds = DEFAULT_HALF_LIFE_SECONDS, movementMultiplier = 1 }: LongExposureBlurPassOptions = {}) {
+  constructor({
+    halfLifeSeconds = DEFAULT_HALF_LIFE_SECONDS,
+    movementMultiplier = 1,
+    directionAngle = 0,
+  }: LongExposureBlurPassOptions = {}) {
     super('LongExposureBlurPass')
 
     this.halfLifeSeconds = halfLifeSeconds
     this.movementMultiplier = movementMultiplier
+    this.directionAngle = directionAngle
 
     const targetOptions = { type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false }
     this.accumulated = new THREE.WebGLRenderTarget(1, 1, targetOptions)
@@ -236,32 +249,36 @@ export class LongExposureBlurPass extends Pass {
     // settle's leftover history instead of blending into it (see the class
     // docstring). elapsed > 0 is the normal mid-burst case. Same guard for
     // the within-frame streak below: `previousVirtualTime` is meaningless
-    // across that discontinuous jump, so there's no valid yaw delta to
+    // across that discontinuous jump, so there's no valid yaw/pitch delta to
     // estimate — leave the incoming frame unstreaked rather than smearing
     // it across a jump that was never actually swept through.
     const decay = elapsed > 0 ? THREE.MathUtils.clamp(Math.pow(0.5, elapsed / this.halfLifeSeconds), 0, 1) : 0
 
-    // Estimates how far the camera's own sweep panned *during this one
-    // rendered frame* (not the whole burst) and converts that yaw delta into
-    // a screen-space UV distance, so the blend shader can pre-streak the
-    // incoming frame along it before folding it into the accumulated
-    // history — see BLEND_FRAGMENT_SHADER's docstring for why that's what
-    // keeps thin geometry from diluting into invisibility under the
-    // temporal accumulation below. A small-angle tan()-based mapping from
-    // yaw radians to UV fraction of the horizontal FOV; clamped since a
+    // Estimates how far the camera's own sweep panned/tilted *during this
+    // one rendered frame* (not the whole burst) and converts that yaw/pitch
+    // delta into a screen-space UV distance, so the blend shader can
+    // pre-streak the incoming frame along it before folding it into the
+    // accumulated history — see BLEND_FRAGMENT_SHADER's docstring for why
+    // that's what keeps thin geometry from diluting into invisibility under
+    // the temporal accumulation below. A small-angle tan()-based mapping
+    // from radians to UV fraction of the relevant FOV axis; clamped since a
     // single unusually large virtual-time step (a slow real frame) shouldn't
     // produce a runaway streak.
     let blurStepU = 0
+    let blurStepV = 0
     if (elapsed > 0) {
-      const deltaYaw = yawAt(virtualClock.time, this.movementMultiplier) - yawAt(previousVirtualTime, this.movementMultiplier)
+      const deltaYaw = yawAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - yawAt(previousVirtualTime, this.movementMultiplier, this.directionAngle)
+      const deltaPitch =
+        pitchAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - pitchAt(previousVirtualTime, this.movementMultiplier, this.directionAngle)
       const horizontalFovRad = 2 * Math.atan(Math.tan(VERTICAL_FOV_RAD / 2) * this.aspect)
       blurStepU = THREE.MathUtils.clamp((deltaYaw * STREAK_STRENGTH) / horizontalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
+      blurStepV = THREE.MathUtils.clamp((deltaPitch * STREAK_STRENGTH) / VERTICAL_FOV_RAD, -MAX_STREAK_UV, MAX_STREAK_UV)
     }
 
     this.blendMaterial.uniforms.decay.value = decay
     this.blendMaterial.uniforms.tOld.value = this.accumulated.texture
     this.blendMaterial.uniforms.tNew.value = inputBuffer.texture
-    this.blendMaterial.uniforms.blurStep.value.set(blurStepU, 0)
+    this.blendMaterial.uniforms.blurStep.value.set(blurStepU, blurStepV)
     this.fullscreenMaterial = this.blendMaterial
     renderer.setRenderTarget(this.composited)
     renderer.render(this.scene, this.camera)

@@ -35,6 +35,7 @@ const SEED_OFFSETS = {
   focus: 600_000,
   bloom: 700_000,
   wind: 800_000,
+  motionBlur: 900_000,
 } as const
 
 export interface GenerativeCamera {
@@ -169,6 +170,29 @@ export interface GenerativeState {
   focusDistance: number
   bloomIntensity: number
   wind: GenerativeWind
+  /**
+   * How hard this render's camera sweep swings, relative to
+   * `CAMERA_CONFIG.sweep.rotationAmplitudeDeg` — a wide per-seed range so
+   * some renders barely pan (soft blur that still reads the flower shapes
+   * underneath) and others sweep hard into a fully abstracted directional
+   * streak, matching the spread real ICM reference photography shows
+   * (some frames keep a recognizable bloom, others are pure motion
+   * texture). Multiplies together with `cameraMovementMultiplier` (the
+   * Leva "Movement" override) in CameraSweep.tsx/LongExposureBlurPass.ts
+   * rather than replacing it — one is "how strong is this shot" (per-seed
+   * variety), the other is "scale whatever that is" (a manual dial).
+   */
+  motionBlurStrength: number
+  /**
+   * Which way the sweep — and thus the motion-blur streak — points, radians.
+   * 0 is a pure horizontal pan (yaw only, the original fixed behaviour);
+   * other angles blend in vertical (pitch) sweep so streak direction varies
+   * render to render instead of every seed panning the same way. See
+   * CameraSweep.tsx/LongExposureBlurPass.ts, both of which read this so the
+   * blur pass's own within-frame streak estimate never drifts out of sync
+   * with the direction the camera is actually sweeping.
+   */
+  motionBlurDirectionAngle: number
 
   // --- Creative-control defaults (see class docstring) ---
   /** Camera fold "Movement" — scales HandheldDrift + CameraSweep amplitude together. 1 = as tuned. */
@@ -292,6 +316,25 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     frequency: range(windRng, 0.08, 0.25),
   }
 
+  // Wide on purpose — 0.2 barely sweeps at all (the residual blur comes
+  // almost entirely from HandheldDrift's tiny tremor and wind sway, soft
+  // enough to still read the underlying flower shapes) while 1.7 sweeps
+  // meaningfully wider than the original fixed amplitude ever did (a
+  // strongly directional, shape-erasing streak). Capped well under the
+  // naive "as wide as it can go" ceiling: `rotationAmplitudeDeg`(20°) * 1.7
+  // ≈ 34°, against a 22° vertical FOV — verified directly that going much
+  // past this (an earlier version allowed up to 2.2, i.e. 44° peak swing)
+  // let the camera swing far enough off the actual scene, for enough of the
+  // accumulation window landing on empty sky/haze, that the blended result
+  // lost *all* structure — flat noise, not a strong streak, a genuinely
+  // different (broken) failure mode from what a wide sweep is supposed to
+  // produce. Direction is a full circle, not just a left-right pan — see
+  // CAMERA_CONFIG.sweep's docstring for why that used to always be
+  // almost-pure yaw.
+  const motionBlurRng = createRng(seed + SEED_OFFSETS.motionBlur)
+  const motionBlurStrength = range(motionBlurRng, 0.2, 1.7)
+  const motionBlurDirectionAngle = range(motionBlurRng, 0, Math.PI * 2)
+
   return {
     seed,
     palette,
@@ -303,6 +346,8 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     focusDistance,
     bloomIntensity,
     wind,
+    motionBlurStrength,
+    motionBlurDirectionAngle,
 
     cameraMovementMultiplier: 1,
     lightingOvercast: 1,
