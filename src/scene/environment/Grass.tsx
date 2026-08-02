@@ -9,9 +9,9 @@ import { generateGrass } from './generateGrass'
 import { useEnvironmentPaletteColors } from './paletteColors'
 
 /**
- * Grass-only self-lit floor: adds a fraction of each blade's own vertex
- * colour directly into the shaded output, on top of whatever the scene's
- * directional lighting actually contributed.
+ * Grass-only minimum-brightness clamp: guarantees each blade's final shaded
+ * colour never drops below a fraction of its own vertex colour, regardless
+ * of how little actual light (direct + AO-darkened) it received.
  *
  * SceneLighting.tsx deliberately keeps the non-directional floor
  * (hemisphere+ambient) well below the key light's peak — that ratio is what
@@ -26,20 +26,37 @@ import { useEnvironmentPaletteColors } from './paletteColors'
  * directly: rendered grass came out 2-4x darker than the ground it grows
  * out of across every palette, and adjusting base colour/AO strength barely
  * moved that number — confirming the gap is mostly a lighting-angle effect,
- * not a colour one. Patching the shader to add a self-lit contribution
- * tied to the blade's *own* colour (so AO/tip-vs-base shading is still
- * visible, just less totally erased by grazing-angle lighting) is the
- * targeted fix that doesn't touch anything else's exposure.
+ * not a colour one.
+ *
+ * A hard `max()` clamp rather than an additive floor (an earlier version of
+ * this function added a fraction of vColor on top instead) — additive
+ * still scales down proportionally with however dark the lit result
+ * already was, so it doesn't guarantee an actual floor; `max()` does,
+ * literally: the blade can never render darker than `vColor * minBrightness`
+ * no matter what AO/shading/normal-orientation would otherwise produce.
+ *
+ * This still can't make grass *immune* to Leva's Colour > Exposure slider —
+ * that multiplies the whole finished frame in a later, separate
+ * post-processing pass (PaletteGradePass.ts), after this material's own
+ * shading has already run, so it scales this floor down along with
+ * everything else. What it *does* fix is grass going invisible at ordinary
+ * lighting/viewing angles at the default exposure — the floor just needs to
+ * be pushed hard enough that a much more extreme exposure reduction is
+ * needed before grass crosses into "indistinguishable from black" than
+ * before.
  */
-function applyVertexColorLightFloor(material: THREE.MeshStandardMaterial, floorAmount: number): void {
+function applyVertexColorBrightnessFloor(material: THREE.MeshStandardMaterial, minBrightness: number): void {
   const previousOnBeforeCompile = material.onBeforeCompile
   material.onBeforeCompile = (shader, renderer) => {
     previousOnBeforeCompile.call(material, shader, renderer)
-    shader.uniforms.uLightFloor = { value: floorAmount }
+    shader.uniforms.uMinBrightness = { value: minBrightness }
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nuniform float uLightFloor;`)
-      .replace('#include <opaque_fragment>', `outgoingLight += vColor.rgb * uLightFloor;\n#include <opaque_fragment>`)
-    material.userData.lightFloorShader = shader
+      .replace('#include <common>', `#include <common>\nuniform float uMinBrightness;`)
+      .replace(
+        '#include <opaque_fragment>',
+        `outgoingLight = max(outgoingLight, vColor.rgb * uMinBrightness);\n#include <opaque_fragment>`,
+      )
+    material.userData.brightnessFloorShader = shader
   }
   material.needsUpdate = true
 }
@@ -73,7 +90,7 @@ export function Grass() {
       vertexColors: true,
     })
     applyWindDisplacement(mat, wind)
-    applyVertexColorLightFloor(mat, 0.7)
+    applyVertexColorBrightnessFloor(mat, 0.55)
     return mat
   }, [wind])
 
