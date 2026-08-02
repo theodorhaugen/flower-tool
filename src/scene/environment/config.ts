@@ -41,8 +41,23 @@ export const ENVIRONMENT_CONFIG = {
      * 1-segment-wide taper (see generateGrass.ts) read as chunky, faceted
      * polygons once the brighter/higher-contrast post pass (PostProcessing.tsx)
      * stopped blurring that texture into mush.
+     *
+     * Raised slightly, 0.12 → 0.18 — LongExposureBlurPass.ts blends each
+     * frame's colour into a decaying history *at the same screen pixel*,
+     * with no reprojection for the camera's own motion; large smooth shapes
+     * (petals, bokeh) survive that fine since neighbouring pixels are
+     * similar colours, but a grass blade this thin moves off a given pixel
+     * within a frame or two, so that pixel's history just reverts towards
+     * "background" instead of accumulating a visible streak — blades read
+     * as either untouched-crisp or washed to near-invisible depending on
+     * how much the camera happened to move, never a real motion blur in
+     * between. A proper fix needs actual motion-vector reprojection in
+     * that pass; this is the cheap mitigation instead — a wider blade gives
+     * the blend more pixel coverage to work with, so it survives rather
+     * than vanishing, without reaching back towards the leaf-like chunkiness
+     * 0.4 caused. Still meaningfully thinner than that rejected value.
      */
-    widthScale: 0.12,
+    widthScale: 0.18,
     /**
      * Trimmed down from [0.35, 0.8] — that reached tall enough to regularly
      * exceed the flower field's own stem heights (subjects/flowerField/
