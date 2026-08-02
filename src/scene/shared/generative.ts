@@ -2,7 +2,7 @@ import { CAMERA_CONFIG } from '../camera/config'
 import { POST_PROCESSING_CONFIG } from '../effects/config'
 import type { ColorPalette } from './palette'
 import { findPaletteByName, PALETTES } from './palette'
-import { createRng, range } from './random'
+import { createRng, gaussianish, range } from './random'
 
 /**
  * Everything in this scene — flower placement/species/colour, the meadow's
@@ -36,6 +36,9 @@ const SEED_OFFSETS = {
   bloom: 700_000,
   wind: 800_000,
   motionBlur: 900_000,
+  drama: 1_000_000,
+  haze: 1_100_000,
+  grain: 1_200_000,
 } as const
 
 export interface GenerativeCamera {
@@ -171,19 +174,35 @@ export interface GenerativeState {
   bloomIntensity: number
   wind: GenerativeWind
   /**
+   * A per-seed "intensity" scalar, 0 (calm) to 1 (dramatic) — see
+   * `deriveGenerativeState`'s docstring on `drama` for what it couples
+   * together. Not itself Leva-exposed: a manual master dial on top of the
+   * Blur Length/Haze/Grain Amount sliders it already feeds would recreate
+   * the exact "two dials for one effect" problem `motionBlurStrength`'s
+   * own docstring describes fixing. Informational only — logged alongside
+   * the seed on reseed (GenerativeProvider.tsx) so a render's overall mood
+   * is visible without reverse-engineering it from the individual sliders.
+   */
+  drama: number
+  /**
    * How hard this render's camera sweep swings, relative to
-   * `CAMERA_CONFIG.sweep.rotationAmplitudeDeg` — a wide per-seed range so
-   * some renders barely pan (soft blur that still reads the flower shapes
-   * underneath) and others sweep hard into a fully abstracted directional
-   * streak, matching the spread real ICM reference photography shows
-   * (some frames keep a recognizable bloom, others are pure motion
-   * texture). This is the *only* dial on the sweep's strength — Leva's
-   * Camera > Blur Length control (GenerativeProvider.tsx) sets this value
-   * directly, the same way Lens > Focus Distance sets `focusDistance`.
-   * There used to also be a separate "Movement" multiplier stacked on top,
-   * but two dials for one effect just meant fine-tuning both together to
-   * avoid over/under-shooting — `cameraMovementMultiplier` below is now a
-   * fixed baseline instead, not Leva-exposed for this.
+   * `CAMERA_CONFIG.sweep.rotationAmplitudeDeg`. Its *centre* now comes from
+   * `drama` (0.2 at drama=0, 1.7 at drama=1), with a smaller independent
+   * jitter on top for texture — previously this rolled entirely
+   * independently, which meant a seed could just as easily land on "heavy
+   * blur, no haze, no grain" as any coherent combination; coupling the
+   * centre is what makes a render's overall intensity read as one mood
+   * instead of several unrelated dice rolls (see `deriveGenerativeState`).
+   * The full range still spans from barely panning (soft blur that still
+   * reads the flower shapes underneath) to a fully abstracted directional
+   * streak, matching the spread real ICM reference photography shows.
+   * This is the *only* dial on the sweep's strength — Leva's Camera > Blur
+   * Length control (GenerativeProvider.tsx) sets this value directly, the
+   * same way Lens > Focus Distance sets `focusDistance`. There used to
+   * also be a separate "Movement" multiplier stacked on top, but two dials
+   * for one effect just meant fine-tuning both together to avoid over/
+   * under-shooting — `cameraMovementMultiplier` below is now a fixed
+   * baseline instead, not Leva-exposed for this.
    */
   motionBlurStrength: number
   /**
@@ -193,7 +212,9 @@ export interface GenerativeState {
    * render to render instead of every seed panning the same way. See
    * CameraSweep.tsx/LongExposureBlurPass.ts, both of which read this so the
    * blur pass's own within-frame streak estimate never drifts out of sync
-   * with the direction the camera is actually sweeping.
+   * with the direction the camera is actually sweeping. Deliberately does
+   * *not* read `drama` — intensity and direction are different kinds of
+   * variety, and a dramatic render shouldn't also always sweep the same way.
    */
   motionBlurDirectionAngle: number
 
@@ -214,7 +235,13 @@ export interface GenerativeState {
   poppyAccentProbability: number
   /** Colour fold "Hue Shift" — degrees every palette colour is rotated by before use. 0 = as picked. */
   hueShiftDeg: number
-  /** Atmosphere fold "Haze" — scales AtmosphericHazeEffect's haze + volumetric strength together. 1 = as tuned. */
+  /**
+   * Atmosphere fold "Haze" — scales AtmosphericHazeEffect's haze +
+   * volumetric strength together. Seed-derived (see
+   * `deriveGenerativeState`'s `drama` docstring) rather than a flat 1 —
+   * the Leva slider's own displayed value starts wherever the seed put it,
+   * the same pattern Camera > Blur Length uses for `motionBlurStrength`.
+   */
   hazeAmount: number
   /** Atmosphere fold "Softness" — scales BilateralSoftEffect's blur radius. 1 = as tuned. */
   softness: number
@@ -238,9 +265,13 @@ export interface GenerativeState {
   contrastAmount: number
   /** Colour fold "Vibrance" — scales PaletteGradePass's vibrance boost. 1 = as tuned. */
   vibranceAmount: number
-  /** Film fold "Grain Amount" — scales TextureGrainPass's Overlay-blend opacity. 1 = as tuned. */
+  /**
+   * Film fold "Grain Amount" — scales TextureGrainPass's Overlay-blend
+   * opacity. Seed-derived (see `deriveGenerativeState`'s `drama`
+   * docstring) rather than a flat 1 — same pattern as `hazeAmount`.
+   */
   grainAmount: number
-  /** Film fold "Grain Size" — scales how much of the grain plate GrainOverlay.tsx samples (see its docstring — inverted from TextureGrainPass's own `grainScale` so bigger reads as bigger grain). 1 = as tuned. */
+  /** Film fold "Grain Size" — scales how much of the grain plate GrainOverlay.tsx samples (see its docstring — inverted from TextureGrainPass's own `grainScale` so bigger reads as bigger grain). 1 = as tuned, and deliberately left independent of `drama` — grain *coarseness* is a stylistic choice, not an intensity axis. */
   grainSize: number
   /** Grass fold "Density" — multiplies ENVIRONMENT_CONFIG.grass.count. 1 = as tuned. */
   grassDensity: number
@@ -327,6 +358,21 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     frequency: range(windRng, 0.08, 0.25),
   }
 
+  // A shared per-seed "intensity" scalar, 0 (calm) to 1 (dramatic) —
+  // motionBlurStrength/hazeAmount/grainAmount below all derive their
+  // *centre* from this same value, each still with its own independent
+  // jitter layered on top for texture. Without this, those three axes
+  // rolled fully independently: a seed could just as easily land on
+  // "heavy blur, no haze, no grain" as "no blur, thick haze, heavy grain"
+  // — both individually fine, but reading as an inconsistent "look
+  // language" render to render, since nothing tied them to one coherent
+  // mood. gaussianish (not a flat 0-1 roll) also means most seeds land
+  // somewhere moderate, with the fully-calm/fully-dramatic extremes
+  // genuinely rarer — the same shape a real mixed batch of photographs
+  // would have, rather than a uniform spread across "flat" to "chaotic."
+  const dramaRng = createRng(seed + SEED_OFFSETS.drama)
+  const drama = (gaussianish(dramaRng) + 1) / 2
+
   // Wide on purpose — 0.2 barely sweeps at all (the residual blur comes
   // almost entirely from HandheldDrift's tiny tremor and wind sway, soft
   // enough to still read the underlying flower shapes) while 1.7 sweeps
@@ -341,10 +387,31 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // different (broken) failure mode from what a wide sweep is supposed to
   // produce. Direction is a full circle, not just a left-right pan — see
   // CAMERA_CONFIG.sweep's docstring for why that used to always be
-  // almost-pure yaw.
+  // almost-pure yaw. The centre of the range now comes from `drama`
+  // (see above) rather than rolling independently across the whole 0.2-1.7
+  // span; the ±0.15 jitter on top keeps two similarly-dramatic seeds from
+  // landing on the exact same strength.
   const motionBlurRng = createRng(seed + SEED_OFFSETS.motionBlur)
-  const motionBlurStrength = range(motionBlurRng, 0.2, 1.7)
+  const motionBlurCenter = 0.2 + (1.7 - 0.2) * drama
+  const motionBlurStrength = Math.min(1.7, Math.max(0.2, motionBlurCenter + range(motionBlurRng, -0.15, 0.15)))
   const motionBlurDirectionAngle = range(motionBlurRng, 0, Math.PI * 2)
+
+  // Atmospheric haze and film grain — previously flat creative-control
+  // defaults (always 1 until a designer touched the Leva panel), now
+  // seed-derived from the same `drama` scalar as motionBlurStrength above,
+  // for the same reason: a dramatic, heavily-swept render reads as more
+  // coherent when the air around it is a little thicker and the grain a
+  // little heavier too, instead of those staying flatly neutral regardless
+  // of how hard the camera swept. Leva's Atmosphere > Haze / Film > Grain
+  // Amount sliders still seed their displayed value from this (see
+  // GenerativeProvider.tsx) and can override it same as always.
+  const hazeRng = createRng(seed + SEED_OFFSETS.haze)
+  const hazeCenter = 0.7 + (1.4 - 0.7) * drama
+  const hazeAmount = Math.min(1.55, Math.max(0.55, hazeCenter + range(hazeRng, -0.1, 0.1)))
+
+  const grainRng = createRng(seed + SEED_OFFSETS.grain)
+  const grainCenter = 0.7 + (1.3 - 0.7) * drama
+  const grainAmount = Math.min(1.45, Math.max(0.55, grainCenter + range(grainRng, -0.08, 0.08)))
 
   return {
     seed,
@@ -357,6 +424,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     focusDistance,
     bloomIntensity,
     wind,
+    drama,
     motionBlurStrength,
     motionBlurDirectionAngle,
 
@@ -368,7 +436,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     flowerScale: 1,
     poppyAccentProbability: 0.15,
     hueShiftDeg: 0,
-    hazeAmount: 1,
+    hazeAmount,
     softness: 1,
     fogDensityMultiplier: 1,
     maxBlur: CAMERA_CONFIG.dof.maxBlur,
@@ -380,7 +448,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     shadowsAmount: 0,
     contrastAmount: 1,
     vibranceAmount: 1,
-    grainAmount: 1,
+    grainAmount,
     grainSize: 1,
     grassDensity: 1,
     grassHeight: 1,

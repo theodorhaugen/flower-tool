@@ -162,11 +162,11 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     [seed],
   )
 
-  // --- Atmosphere: haze/softness/fog/wind "amount" — not each effect's internal shader knobs ---
+  // --- Atmosphere: haze/softness/fog/wind "amount" — not each effect's internal shader knobs. Haze's own initial value is seed-derived (base.hazeAmount, see shared/generative.ts's `drama`), same pattern as Camera > Blur Length. ---
   const [atmosphereControls] = useControls(
     'Atmosphere',
     () => ({
-      haze: { value: 1, min: 0, max: 2.5, label: 'Haze' },
+      haze: { value: base.hazeAmount, min: 0, max: 2.5, label: 'Haze' },
       softness: { value: 1, min: 0, max: 2.5, label: 'Softness' },
       fog: { value: 1, min: 0, max: 2.5, label: 'Fog' },
       windStrength: { value: base.wind.strength, min: 0, max: 0.5, label: 'Wind' },
@@ -187,11 +187,11 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     [seed],
   )
 
-  // --- Film: emulsion grain — not exposed anywhere else since it's purely a "look", not a scene property ---
+  // --- Film: emulsion grain — not exposed anywhere else since it's purely a "look", not a scene property. Grain Amount's own initial value is seed-derived (base.grainAmount, see shared/generative.ts's `drama`) — Grain Size stays flat, see that field's docstring for why. ---
   const [filmControls] = useControls(
     'Film',
     () => ({
-      grainAmount: { value: 1, min: 0, max: 3, label: 'Grain Amount' },
+      grainAmount: { value: base.grainAmount, min: 0, max: 3, label: 'Grain Amount' },
       grainSize: { value: 1, min: 0.5, max: 4, label: 'Grain Size' },
     }),
     [seed],
@@ -264,11 +264,11 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   ])
 
   useEffect(() => {
-    // Deliberately logs base.palette (the seed's own pick), not the
-    // possibly-overridden state.palette — this fires once per reseed, not
-    // once per Colour-fold tweak, so it isn't spammed on every slider drag.
+    // Deliberately logs base.palette/base.drama (the seed's own picks), not
+    // the possibly-overridden state — this fires once per reseed, not once
+    // per Colour-fold tweak, so it isn't spammed on every slider drag.
     console.info(
-      `[flower-tool] seed=${base.seed} palette="${base.palette.name}" — reproduce with ?seed=${base.seed}`,
+      `[flower-tool] seed=${base.seed} palette="${base.palette.name}" drama=${base.drama.toFixed(2)} — reproduce with ?seed=${base.seed}`,
     )
   }, [base])
 
