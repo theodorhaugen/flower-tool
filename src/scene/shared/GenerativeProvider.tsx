@@ -198,12 +198,21 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   )
 
   // --- Grass: how much, how tall, how thick — not the blade taper/jitter shape itself ---
+  // Height/Width capped well under where a naive "as wide as it can go"
+  // range would let them run — environment/config.ts's own comment
+  // documents blades already tuned to sit just under flower-stem height at
+  // 1x; ENVIRONMENT_CONFIG.grass.heightRange scaled by ~1.45 already
+  // reaches the taller range that comment says was found regularly
+  // occluding blooms, so a naive max well past that (2.2 previously)
+  // reopens the exact bug that range was tightened to fix. Same reasoning
+  // for Width, capped tighter than a literal 3x since generateGrass.ts's
+  // scale also multiplies width by the *height* multiplier.
   const [grassControls] = useControls(
     'Grass',
     () => ({
       density: { value: 1, min: 0.3, max: 3, label: 'Density' },
-      height: { value: 1, min: 0.4, max: 2.2, label: 'Height' },
-      width: { value: 1, min: 0.4, max: 3, label: 'Width' },
+      height: { value: 1, min: 0.4, max: 1.4, label: 'Height' },
+      width: { value: 1, min: 0.4, max: 2, label: 'Width' },
     }),
     [seed],
   )

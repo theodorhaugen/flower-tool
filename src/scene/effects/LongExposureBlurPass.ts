@@ -53,7 +53,19 @@ const BLEND_FRAGMENT_SHADER = `
     // camera movement, rather than isolated bright objects moving against a
     // still background, so a soft average reads as shutter integration
     // instead of a light-trail/streak effect.
-    gl_FragColor = mix(texelNew, texelOld, decay);
+    //
+    // decay == 0.0 is handled as a true hard replacement (texelNew alone,
+    // never touching texelOld) rather than folded into the mix() below —
+    // mix(x, y, 0.0) is mathematically x, but if y happens to be NaN/Inf
+    // (an upstream HDR overflow — see HalationPass.ts/
+    // LensOpticsDepthOfFieldEffect.ts, both amplifiers this pass sits
+    // downstream of), y * 0.0 is NaN, not 0, so the "hard cut fully
+    // replaces the previous settle's history" guarantee this pass's own
+    // class docstring describes would silently fail to clear a poisoned
+    // accumulation buffer — it would instead corrupt every frame from
+    // then on, surviving reseeds indefinitely instead of clearing on the
+    // very next one.
+    gl_FragColor = decay > 0.0 ? mix(texelNew, texelOld, decay) : texelNew;
   }
 `
 

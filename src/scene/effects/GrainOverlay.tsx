@@ -48,7 +48,14 @@ export function GrainOverlay() {
     () =>
       new TextureGrainPass({
         grainTexture,
-        opacity: opacity * grainAmount,
+        // Clamped to 1 — TextureGrainPass's own `strength = opacity *
+        // highlightFade` feeds a plain `mix()`, which extrapolates rather
+        // than saturating past t=1 (see that file's docstring: "1 is a
+        // full Overlay blend"). grainAmount is seed-derived now (shared/
+        // generative.ts's `drama`) with a ceiling of 1.45, so
+        // `0.8 * 1.45 = 1.16` was a real, seed-reachable overshoot before
+        // this clamp, not just a Leva-manual one.
+        opacity: Math.min(opacity * grainAmount, 1),
         // Inverted — see effects/config.ts's `grain` docstring for why:
         // a bigger "Grain Size" should look like bigger grain, but a
         // bigger UV multiplier samples *more* of the plate per screen

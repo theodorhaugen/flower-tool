@@ -116,7 +116,20 @@ export function SettleDriver() {
 
     if (settleRequests.pendingReroll) {
       settleRequests.pendingReroll = false
-      virtualClock.time = Math.random() * 1000
+      // Quantised to a whole number of sweep periods, not a bare
+      // `Math.random() * 1000` — CameraSweep.tsx's zero-at-capture
+      // invariant (see its docstring) only holds when the burst's *start*
+      // time is itself a multiple of `periodSeconds`, since capture always
+      // lands exactly one more period after the start. An unquantised
+      // start landed capture at an arbitrary sweep phase instead of zero,
+      // reopening the same subject-pitched-out-of-frame bug the phase fix
+      // solved on the normal (non-reroll) path — confirmed to hit roughly
+      // half of all rerolls. Wind/drift/haze all run at frequencies
+      // unrelated to the sweep period, so quantising the start still
+      // lands on a genuinely different moment for those — reroll's actual
+      // purpose — without reintroducing the framing bug.
+      const periods = Math.floor(Math.random() * 400)
+      virtualClock.time = periods * CAMERA_CONFIG.sweep.periodSeconds
       remainingRef.current = SETTLE_VIRTUAL_SECONDS
       captureNextRef.current = false
       beginCapture()

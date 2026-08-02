@@ -44,8 +44,21 @@ const FRAGMENT_SHADER = `
     }
 
     if (totalWeight > 0.0001) {
+      // The average excess-brightness colour around this pixel, tinted and
+      // scaled by how much of the ring is actually contributing (so a
+      // pixel fully surrounded by blown-out neighbours bleeds harder than
+      // one with only a sliver of bright ring) — but capped at the tap
+      // count rather than left as a bare totalWeight multiplier. Bare
+      // totalWeight cancels the /totalWeight average above algebraically
+      // (color += bloomSum * tint * intensity), which grows unbounded
+      // with scene brightness — reachable in half-float overflow at
+      // extreme Colour-fold settings, which then poisons downstream
+      // passes with Inf/NaN. Capped at TAPS this is a no-op at the tuned
+      // operating point (per-tap weights of ~0.12-0.28 keep totalWeight
+      // well under 8 in ordinary highlights) and only engages the ceiling
+      // once the ring's average excess reaches roughly 1 stop over threshold.
       vec3 halation = (bloomSum / totalWeight) * tint;
-      color += halation * totalWeight * intensity;
+      color += halation * min(totalWeight, float(${TAPS})) * intensity;
     }
 
     gl_FragColor = vec4(color, texel.a);
