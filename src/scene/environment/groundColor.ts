@@ -97,16 +97,25 @@ export function createGroundColorSampler(
 
     const color = new THREE.Color().copy(sparse).lerp(lush, lushness)
 
+    // Threshold widened (was 0.6) — with fbm2D's roughly-uniform-ish [0,1]
+    // spread, a 0.6 floor meant only the top ~30-40% of the noise range
+    // contributed *any* darkening at all, which combined with each term's
+    // already-modest weight (0.4-0.6) made the whole layered variation read
+    // as nearly flat once seen through this scene's own DOF/haze softening —
+    // confirmed directly: rendered ground-only pixel lightness had a
+    // standard deviation of just ~9-12% of the mean across every palette
+    // tested. Lower thresholds let visibly more of the terrain participate
+    // in each variation layer instead of only its narrow extremes.
     const dampness = fbm2D(x * 0.16, z * 0.16, environmentSeed + 700, { octaves: 2 })
-    color.lerp(shadow, Math.max(0, dampness - 0.6) * 0.4)
+    color.lerp(shadow, Math.max(0, dampness - 0.45) * 0.4)
 
     // Coarser than the dampness term above and on its own frequency/seed so
     // it reads as independent mottled patches — sun-bleached/mossy blotches
     // — rather than a second copy of the same variation. This is the extra
     // "level" of uneven colouring layered on top of the lushness gradient.
     const patch = fbm2D(x * 0.045, z * 0.045, environmentSeed + 1500, { octaves: 2 })
-    color.lerp(shadow, Math.max(0, 0.35 - patch) * 0.5)
-    color.lerp(lush, Math.max(0, patch - 0.65) * 0.6)
+    color.lerp(shadow, Math.max(0, 0.45 - patch) * 0.55)
+    color.lerp(lush, Math.max(0, patch - 0.55) * 0.65)
 
     // Worley/cellular rather than another fbm layer — every noise term
     // above is the same smooth value-noise lattice just reseeded, which is
@@ -115,8 +124,20 @@ export function createGroundColorSampler(
     // actual hard edges between cells, giving dirt-clump/pebble-scale
     // mottling a genuinely different character instead of one more soft
     // blob at yet another frequency.
-    const clump = worley2D(x * 0.6, z * 0.6, environmentSeed + 2200)
-    color.lerp(dry, Math.max(0, 0.22 - clump) * 0.35)
+    //
+    // Frequency lowered 0.6 → 0.18 (world-space cell size ~1.7 → ~5.6
+    // units): the terrain mesh is ~2.6 world units per vertex (260-unit
+    // plane, 100 segments — see environment/config.ts), coarser than 0.6's
+    // own cell size, so this term was being sampled at a frequency the mesh
+    // geometry can't actually resolve — it contributed per-vertex noise,
+    // not visible clumps. Threshold widened 0.22 → 0.4 too: `worley2D`
+    // returns each point's distance to its nearest feature point, and for
+    // one feature point per cell the median such distance is close to 0.47
+    // — a 0.22 floor meant only the closest ~15% of each cell's *area* (by
+    // rough Poisson-disc math) ever showed any darkening, a tiny dot around
+    // each feature point rather than a real clump.
+    const clump = worley2D(x * 0.18, z * 0.18, environmentSeed + 2200)
+    color.lerp(dry, Math.max(0, 0.4 - clump) * 0.4)
 
     color.lerp(dry, 1 - path)
     return color

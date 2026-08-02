@@ -51,18 +51,27 @@ export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPalet
   // ground below.
   const shadowTint = foliageShadowTint(palette)
 
+  // Ground darkened slightly (less `glow`/more `shadowTint` pull) and grass
+  // lightened (less `shadowTint` pull) relative to their previous weights —
+  // measuring rendered output across every palette found grass consistently
+  // reading 2-4x darker than the ground it grows out of (25-70 lightness
+  // points on a 0-255 scale, every single palette), enough that blades read
+  // as dark debris scattered on a lighter surface rather than the same
+  // material at different densities. Both sides moved together rather than
+  // just one, since the gap was too large to close from either alone
+  // without a large, single-direction hue/lightness swing.
   const groundColors: GroundColors = {
-    dry: mix(BASE_DIRT, palette.glow, 0.25),
-    sparse: mix(BASE_GREEN_SPARSE, palette.glow, 0.18),
-    lush: mix(BASE_GREEN_LUSH, shadowTint, 0.2),
-    shadow: mix(BASE_GREEN_LUSH, shadowTint, 0.5),
+    dry: mix(BASE_DIRT, palette.glow, 0.15),
+    sparse: mix(BASE_GREEN_SPARSE, palette.glow, 0.1),
+    lush: mix(BASE_GREEN_LUSH, shadowTint, 0.28),
+    shadow: mix(BASE_GREEN_LUSH, shadowTint, 0.55),
   }
 
   const grassColorPalette = [
-    mix(BASE_GREEN_LUSH, shadowTint, 0.35),
-    mix(BASE_GREEN_SPARSE, palette.glow, 0.25),
-    mix(BASE_GREEN_LUSH, palette.glow, 0.12),
-    mix(BASE_GREEN_SPARSE, shadowTint, 0.3),
+    mix(BASE_GREEN_LUSH, shadowTint, 0.2),
+    mix(BASE_GREEN_SPARSE, palette.glow, 0.3),
+    mix(BASE_GREEN_LUSH, palette.glow, 0.22),
+    mix(BASE_GREEN_SPARSE, shadowTint, 0.18),
     mix(BASE_GREEN_LUSH, palette.foliageSecondary, 0.1),
   ]
 

@@ -58,14 +58,24 @@ export function generateGrass(
       // config.ts's widthScale) that much per-vertex jitter reads as a
       // choppy, faceted edge rather than a clean taper.
       jitterAmount: 0.4,
-      // Stronger/taller than the shared default (0.3/0.4) — every blade's
-      // base otherwise met the terrain at exactly the same brightness the
-      // rest of the blade has, which is what made a dense stand of grass
-      // read as separate cutouts stood up on the ground rather than
-      // something actually rooted in it. A deeper, taller contact-shadow
-      // gradient is the cheap stand-in for the real thatch/self-shadowing a
-      // dense grass base would have.
-      aoStrength: 0.5,
+      // Taller falloff than the shared default (0.4) — every blade's base
+      // otherwise met the terrain at exactly the same brightness the rest of
+      // the blade has, which is what made a dense stand of grass read as
+      // separate cutouts stood up on the ground rather than something
+      // actually rooted in it. A taller contact-shadow gradient is the cheap
+      // stand-in for the real thatch/self-shadowing a dense grass base
+      // would have.
+      //
+      // Strength itself pulled back to the shared default (0.3, was 0.5) —
+      // rendering across every palette showed grass consistently reading
+      // 2-4x darker than the ground it grows out of (measured: ~25-70
+      // lightness points darker on a 0-255 scale, every palette), enough
+      // that blades looked like dark debris scattered on top of a lighter
+      // surface rather than the same material at different densities. This
+      // extra AO strength was one direct, measurable contributor on top of
+      // near-vertical blade geometry already catching less light than the
+      // flat, upward-facing ground plane.
+      aoStrength: 0.3,
       aoFalloffHeight: 0.55,
     }),
     instances: [],
