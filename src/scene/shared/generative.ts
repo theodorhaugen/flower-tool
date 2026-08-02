@@ -392,8 +392,17 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // somewhere moderate, with the fully-calm/fully-dramatic extremes
   // genuinely rarer — the same shape a real mixed batch of photographs
   // would have, rather than a uniform spread across "flat" to "chaotic."
+  //
+  // Capped at 0.85 (was uncapped, i.e. up to ~1.0): sampling the seed
+  // distribution and rendering across it showed motionBlurStrength/
+  // hazeAmount/grainAmount all stacking high enough above drama ≈ 0.9 to
+  // erase the flower field into an illegible, muddy wash — a real "first
+  // render is mud" complaint, not just an aggressively-styled one. Legible
+  // (soft/hazy, but still readable) confirmed by direct render all the way
+  // up to 0.85 itself; the uncapped tail above it was ~1.4% of random
+  // seeds, common enough to hit repeatedly across ordinary reloads.
   const dramaRng = createRng(seed + SEED_OFFSETS.drama)
-  const drama = (gaussianish(dramaRng) + 1) / 2
+  const drama = Math.min(0.85, (gaussianish(dramaRng) + 1) / 2)
 
   // Wide on purpose — 0.2 barely sweeps at all (the residual blur comes
   // almost entirely from HandheldDrift's tiny tremor and wind sway, soft
