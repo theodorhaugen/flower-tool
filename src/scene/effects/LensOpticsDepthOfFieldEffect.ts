@@ -101,7 +101,27 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
   // Thin-lens equation: converts a world-space depth into the conjugate
   // image-plane distance for a lens of this focal length. Applied both to
   // the pixel's own depth and to the focus distance, then compared.
-  const float CIRCLE_OF_CONFUSION = 0.03; // mm — standard 35mm acceptable-sharpness criterion
+  //
+  // The standard 35mm acceptable-sharpness criterion (0.03mm) this used to
+  // be set to made blur reach its 0-1 clamp within roughly ±0.022 world
+  // units of the focus plane at this scene's focal length/aperture/scale —
+  // about a thousandth of the scene's actual depth range. In effect every
+  // pixel not at exactly the focus distance rendered at max blur, so
+  // focusDistance (per-seed and per-preset, see generative.ts) had
+  // essentially no visible effect: nothing ever read as gradually going
+  // soft with distance, it was binary knife-edge-sharp-or-fully-blurred at
+  // a razor's width. This is already a deliberately non-physical lens in
+  // every other respect (fStop is pinned at 1.4 specifically because "real
+  // macro is usually stopped down for more sharpness, the opposite of what
+  // we want here" — see camera/config.ts) — 2.0mm is picked the same way,
+  // for the falloff width it produces rather than any photographic
+  // criterion: it puts full-sharpness roughly ±0.6 to ±1.5 world units
+  // (preset-dependent — closer focus distances get a physically-correct
+  // *shallower* absolute range) around the focus plane, wide enough to read
+  // as a real gradual falloff across the near flower cluster rather than a
+  // single infinitesimal plane, while still keeping the shallow, defocus-
+  // dominant macro look this effect is going for.
+  const float CIRCLE_OF_CONFUSION = 2.0; // mm — tuned for falloff width, not a photographic criterion (see above)
   float focalPlaneMM = focus * 1000.0;
   float depthMM = linearDepthWorldUnits * metersPerWorldUnit * 1000.0;
   float focalPlane = (depthMM * focalLength) / (depthMM - focalLength);

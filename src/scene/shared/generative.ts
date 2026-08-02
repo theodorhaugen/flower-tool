@@ -92,6 +92,16 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
   },
   {
     // Low worm's-eye — camera drops near ground level and looks up into the field instead of steeply down.
+    // focusDistance left at the classic-shot-era value: this composition's
+    // dominant subject is the near flowers looming close to the lens (the
+    // whole point of "looking up into the blooms"), not a ground-plane
+    // intersection far out — a straight-line-of-sight ground raycast for
+    // this preset lands anywhere from ~15 to ~44 world units depending on
+    // seed jitter alone (grazing-angle distance estimates blow up exactly
+    // like this), too unstable to retune against with any confidence. The
+    // other three presets' raycast distances varied by seed by well under
+    // 2 units; this one swung by over 20. Left alone pending a live-render
+    // check rather than risk retuning against a proxy this seed-sensitive.
     weight: 0.15,
     positionOffset: [
       [-2, 2],
@@ -107,6 +117,15 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
   },
   {
     // Elevated — camera rises well above the base height, steepening the look-down angle towards near-top-down.
+    // focusDistance retuned 14 → 18: this composition's own camera→target
+    // geometry puts the near flower content the bottom of frame actually
+    // shows at ~18-20 world units (computed by casting a ray at the
+    // bottom-of-frame vertical angle from this preset's position/target
+    // down to the ground plane, averaged across many seeds — consistent to
+    // within ~1 unit across seeds, unlike worm's-eye above), not the 14 it
+    // was set to — invisible before fixing CIRCLE_OF_CONFUSION above only
+    // because *everything* rendered at max blur regardless of focus
+    // distance.
     weight: 0.15,
     positionOffset: [
       [-2, 2],
@@ -118,10 +137,13 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [-3, -1],
       [-2, 2],
     ],
-    focusDistance: 14,
+    focusDistance: 18,
   },
   {
     // Tight single-subject crop — camera pulls in noticeably closer to the focal cluster.
+    // focusDistance retuned 10 → 13, same reasoning/method as `elevated`
+    // above: this preset's own geometry puts its near ground content at
+    // ~13 world units, consistently across seeds, not the 10 it was set to.
     weight: 0.15,
     positionOffset: [
       [-1.5, 1.5],
@@ -133,7 +155,7 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [0, 0],
       [-1, 1],
     ],
-    focusDistance: 10,
+    focusDistance: 13,
   },
 ]
 
