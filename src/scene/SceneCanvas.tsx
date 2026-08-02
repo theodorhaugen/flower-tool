@@ -35,6 +35,19 @@ interface SceneCanvasProps {
  * silently inert. Real ACES tone mapping lives as a `<ToneMapping>` effect
  * inside that composer instead — see its docstring for why.
  *
+ * Also deliberately does *not* set `antialias` in `gl` (removed, was
+ * `true`) for the same reason: `<EffectComposer>` renders the scene into
+ * its own offscreen target via `RenderPass` (see @react-three/postprocessing's
+ * source), never the canvas's own default framebuffer — the one thing the
+ * context's native `antialias` flag actually affects. Edge antialiasing on
+ * the initial render is EffectComposer's own `multisampling` option
+ * instead (see PostProcessing.tsx). Verified this was truly inert, not
+ * just theoretically: diffed renders of the same seed with/without the
+ * flag against this pipeline's own run-to-run noise floor (LongExposureBlurPass's
+ * accumulation is frame-timing-dependent, so even *identical* code renders
+ * slightly differently run to run) — the flag's effect was indistinguishable
+ * from that noise.
+ *
  * This canvas is never actually looked at directly — CapturedView.tsx
  * (src/CapturedView.tsx, this component's caller) renders it fully hidden
  * and displays a captured still image on top instead (shared/
@@ -47,7 +60,6 @@ export function SceneCanvas({ children, frameloop }: SceneCanvasProps) {
       dpr={[1, 2]}
       frameloop={frameloop}
       gl={{
-        antialias: true,
         preserveDrawingBuffer: true,
       }}
       style={{ position: 'absolute', inset: 0 }}
