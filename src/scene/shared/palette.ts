@@ -25,7 +25,15 @@ import * as THREE from 'three'
  * - `glow`: the colour of light itself — sunlit grass tips, the key light,
  *   flower translucency glow, and the literal colour of the post-processing
  *   bloom (see lighting/SceneLighting.tsx, subjects/flowerField/materials.ts,
- *   effects/PaletteGradePass.ts).
+ *   effects/PaletteGradePass.ts). Since it tints the scene's actual light
+ *   colour (SceneLighting.tsx mixes it straight into the key/fill lights),
+ *   it needs real lightness/saturation regardless of how dark-and-moody the
+ *   rest of a palette runs — a `glow` that's too dim or too pale dims or
+ *   flattens the whole render's *real* illumination, not just its own
+ *   swatch. Every palette below sources it from whichever of its own roles
+ *   is both bright and colourful enough for that job (usually `core`, since
+ *   that role tends to be the photo's own warmest/most saturated mid-tone —
+ *   see each palette's own comments for exceptions).
  * - `foliagePrimary`/`foliageSecondary`: the meadow's own greenery — grass,
  *   wild vegetation, and (lightness-capped via `foliageShadowTint` below,
  *   doing double duty as "the colour of shadow") ground-bounce/fill-light
@@ -74,50 +82,55 @@ export const PALETTES: readonly ColorPalette[] = [
   {
     name: 'Golden hour meadow',
     background: '#E9EEC7',
-    backgroundSecondary: '#D8E2B8',
-    glow: '#F5C93A',
+    backgroundSecondary: '#4E6B44',
+    glow: '#F6D460',
     foliagePrimary: '#24392B',
-    foliageSecondary: '#3B5747',
+    foliageSecondary: '#415C3C',
     petalPrimary: '#6B7FB0',
-    petalSecondary: '#8C9BC4',
-    petalTertiary: '#F08A1E',
-    core: '#E8B62E',
+    petalSecondary: '#F08A1E',
+    petalTertiary: '#AE8467',
+    core: '#F5C93A',
     accent: '#FBEFA0',
     stem: '#1E2E22',
-    deepShade: '#19140B',
-    paleLight: '#F7F5EE',
+    deepShade: '#0A140F',
+    paleLight: '#FCFBF0',
   },
   {
     name: 'Emerald dahlia',
     background: '#12503D',
-    backgroundSecondary: '#0C3A2C',
-    glow: '#E8A85C',
+    backgroundSecondary: '#1F6E52',
+    glow: '#ECB77F',
     foliagePrimary: '#0C3A2C',
-    foliageSecondary: '#1A5A45',
+    foliageSecondary: '#195E47',
     petalPrimary: '#F4CBD6',
     petalSecondary: '#E88CA3',
-    petalTertiary: '#D45C7C',
-    core: '#DC9450',
-    accent: '#F9E3B5',
+    petalTertiary: '#EEACBC',
+    core: '#E8A85C',
+    accent: '#D45C7C',
     stem: '#2B2015',
-    deepShade: '#1D130C',
-    paleLight: '#F7EEF0',
+    deepShade: '#051F17',
+    paleLight: '#FDF8F5',
   },
   {
     name: 'Monarch sky',
-    background: '#5FA8D3',
-    backgroundSecondary: '#8FC4E0',
-    glow: '#F4A83D',
+    background: '#2E6DA4',
+    // `glow` reads `groundAccent` here rather than `core` (this palette's
+    // usual glow source, see the registry-wide note below) — `core` is
+    // deliberately dark on this one palette (the monarch's near-black wing
+    // marking, not a light colour), so the sky-blue groundAccent stands in
+    // as this theme's actual "colour of light" instead.
+    backgroundSecondary: '#285774',
+    glow: '#8FC4E0',
     foliagePrimary: '#1D2E1A',
-    foliageSecondary: '#2E4429',
+    foliageSecondary: '#203B36',
     petalPrimary: '#E8811E',
     petalSecondary: '#F4A83D',
-    petalTertiary: '#F5D9CF',
+    petalTertiary: '#EE942E',
     core: '#2B1B0E',
     accent: '#F5D9CF',
-    stem: '#231508',
-    deepShade: '#160F08',
-    paleLight: '#F2F6F8',
+    stem: '#162519',
+    deepShade: '#060F16',
+    paleLight: '#F7FAFC',
   },
   {
     name: 'Sunlit pastel',
@@ -138,18 +151,38 @@ export const PALETTES: readonly ColorPalette[] = [
   {
     name: 'Twilight garden',
     background: '#142819',
-    backgroundSecondary: '#1E3A22',
-    glow: '#D9B95C',
+    backgroundSecondary: '#102114',
+    // Nudged off `core` (`#D9B95C`) towards `paleLight` — this palette has
+    // no dedicated `highlight` stop to blend in the way the registry-wide
+    // note below describes, so falling straight back to `core` would leave
+    // `glow` an exact duplicate of it.
+    glow: '#DFC578',
     foliagePrimary: '#3C5A38',
-    foliageSecondary: '#274627',
+    foliageSecondary: '#344F31',
     petalPrimary: '#7C93D6',
     petalSecondary: '#EAF0E8',
-    petalTertiary: '#D98A7A',
-    core: '#CDAE50',
+    petalTertiary: '#B3C2DF',
+    core: '#D9B95C',
     accent: '#D98A7A',
-    stem: '#1F3A20',
-    deepShade: '#0A150D',
-    paleLight: '#F8F6F2',
+    stem: '#274627',
+    deepShade: '#081209',
+    paleLight: '#F8FBF7',
+  },
+  {
+    name: 'Minted bloom',
+    background: '#6FA695',
+    backgroundSecondary: '#F5ECE1',
+    glow: '#F3B656',
+    foliagePrimary: '#2E5548',
+    foliageSecondary: '#B9BFB3',
+    petalPrimary: '#F3C23C',
+    petalSecondary: '#E8752B',
+    petalTertiary: '#EE9C34',
+    core: '#F2A93D',
+    accent: '#D8503F',
+    stem: '#4A7A68',
+    deepShade: '#0A1F19',
+    paleLight: '#FBF6EE',
   },
   // The 5 palettes below are derived from photographic tonal ramps (source
   // photos' actual extracted stops, darkest to lightest) rather than
@@ -221,21 +254,27 @@ export const PALETTES: readonly ColorPalette[] = [
     deepShade: '#0C1606',
     paleLight: '#EFF6FA',
   },
+  // Lily pond was originally one of the tonal-ramp palettes above, but got
+  // superseded by a fuller-range revision of its own source photo (same
+  // mapping approach as the registry's original 6 — see their own comments)
+  // that fixed clustered midtone contrast the ramp version had. Left in
+  // this position rather than moved, since the array's order has no
+  // functional meaning (lookup is by name — see findPaletteByName below).
   {
     name: 'Lily pond',
-    background: '#F0CE9C',
-    backgroundSecondary: '#367F77',
-    glow: '#E8631C',
-    foliagePrimary: '#5A2A14',
-    foliageSecondary: '#3F6A5E',
+    background: '#2F5F58',
+    backgroundSecondary: '#F0CE9C',
+    glow: '#F8D36E',
+    foliagePrimary: '#1D3F39',
+    foliageSecondary: '#B1A37E',
     petalPrimary: '#E8558F',
-    petalSecondary: '#EA7836',
-    petalTertiary: '#F4DCB7',
-    core: '#B64E16',
-    accent: '#EE84A7',
-    stem: '#482110',
-    deepShade: '#1E0D06',
-    paleLight: '#FBF1DF',
+    petalSecondary: '#E8631C',
+    petalTertiary: '#E85C56',
+    core: '#F7C948',
+    accent: '#F2A061',
+    stem: '#193631',
+    deepShade: '#0F211D',
+    paleLight: '#FEFAF0',
   },
   {
     name: 'Marigold haze',
