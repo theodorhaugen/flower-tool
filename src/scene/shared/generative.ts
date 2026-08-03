@@ -409,21 +409,22 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // Wide on purpose — 0.2 barely sweeps at all (the residual blur comes
   // almost entirely from HandheldDrift's tiny tremor and wind sway, soft
   // enough to still read the underlying flower shapes) while 1.7 sweeps
-  // meaningfully wider than the original fixed amplitude ever did (a
-  // strongly directional, shape-erasing streak). Capped well under the
-  // naive "as wide as it can go" ceiling: `rotationAmplitudeDeg`(20°) * 1.7
-  // ≈ 34°, against a 22° vertical FOV — verified directly that going much
-  // past this (an earlier version allowed up to 2.2, i.e. 44° peak swing)
-  // let the camera swing far enough off the actual scene, for enough of the
-  // accumulation window landing on empty sky/haze, that the blended result
-  // lost *all* structure — flat noise, not a strong streak, a genuinely
-  // different (broken) failure mode from what a wide sweep is supposed to
-  // produce. Direction is a full circle, not just a left-right pan — see
-  // CAMERA_CONFIG.sweep's docstring for why that used to always be
-  // almost-pure yaw. The centre of the range now comes from `drama`
-  // (see above) rather than rolling independently across the whole 0.2-1.7
-  // span; the ±0.15 jitter on top keeps two similarly-dramatic seeds from
-  // landing on the exact same strength.
+  // into a strongly directional streak that's still legible — `
+  // rotationAmplitudeDeg`(8°, camera/config.ts) × 1.7 ≈ 13.6°, just under
+  // that file's own `maxRotationAmplitudeDeg`(14°) ceiling, so this never
+  // needs that clamp to actually bite in normal use. Hard-capped at 1.7
+  // itself (not just left to the degrees-per-unit scale above) because an
+  // earlier version let `motionBlurStrength` run up to 2.2 and verified
+  // directly that swinging the camera that far off the actual scene left
+  // too much of the accumulation window landing on empty sky/haze — the
+  // blended result lost *all* structure (flat noise), a genuinely
+  // different failure mode from a strong-but-legible streak. Direction is
+  // a full circle, not just a left-right pan — see CAMERA_CONFIG.sweep's
+  // docstring for why that used to always be almost-pure yaw. The centre of
+  // the range now comes from `drama` (see above) rather than rolling
+  // independently across the whole 0.2-1.7 span; the ±0.15 jitter on top
+  // keeps two similarly-dramatic seeds from landing on the exact same
+  // strength.
   const motionBlurRng = createRng(seed + SEED_OFFSETS.motionBlur)
   const motionBlurCenter = 0.2 + (1.7 - 0.2) * drama
   const motionBlurStrength = Math.min(1.7, Math.max(0.2, motionBlurCenter + range(motionBlurRng, -0.15, 0.15)))

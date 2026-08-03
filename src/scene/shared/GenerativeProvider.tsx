@@ -126,11 +126,16 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       // A direct value (like `focusDistance`/`maxBlur` in the Lens fold
       // below), not a multiplier on top of the seed's own pick — dragging
       // this slider replaces which "how blurred" this render is, the same
-      // way dragging Focus Distance replaces where it's focused. Still
-      // clamped at the physical-sweep level (camera/config.ts's
-      // `maxRotationAmplitudeDeg`) so it alone can't swing the camera far
-      // enough off-scene to lose all structure — see CameraSweep.tsx.
-      blurLength: { value: base.motionBlurStrength, min: 0.15, max: 1.9, label: 'Blur Length' },
+      // way dragging Focus Distance replaces where it's focused. Range
+      // matches `motionBlurStrength`'s own natural floor/ceiling exactly
+      // (shared/generative.ts) rather than extending past it — min used to
+      // be 0.15, so the slider could never actually reach zero sweep; max
+      // used to be 1.9, past camera/config.ts's `maxRotationAmplitudeDeg`
+      // clamp, so the top of the slider's travel did nothing. 0 now means a
+      // genuinely motionless sweep (CameraSweep.tsx's amplitude is a
+      // straight multiply, so 0 in means 0 out); 1.7 lands exactly on that
+      // clamp, a strong but still-recognisable streak rather than past it.
+      blurLength: { value: base.motionBlurStrength, min: 0, max: 1.7, label: 'Blur Length' },
       blurDirection: { value: THREE.MathUtils.radToDeg(base.motionBlurDirectionAngle), min: 0, max: 360, label: 'Blur Direction' },
     }),
     [seed],
