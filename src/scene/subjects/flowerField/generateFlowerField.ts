@@ -228,6 +228,14 @@ export function generateFlowerField(
       group.instances.push({ matrix: petalMatrix.clone(), color: jitterColor(rng, petalColor, 0.05) })
     }
 
+    // Guards against ever emitting a centre with nothing around it — no
+    // current config path actually lets `petalCount` reach 0 (every
+    // depth-band/species/outlier range bottoms out at 3+), but nothing
+    // structurally tied the two together either, so a future range change
+    // could silently reproduce a "centre with no petals" flower with no
+    // warning. Cheap enough to guard unconditionally.
+    if (petalCount <= 0) return
+
     const centerRadius = range(rng, centerRadiusRange[0], centerRadiusRange[1]) * headScale
     const centerPosition = headPosition.clone().addScaledVector(worldFace, centerRadius * 0.3)
 

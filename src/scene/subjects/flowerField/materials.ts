@@ -195,6 +195,24 @@ export function buildPetalMaterialVariants(
  * next to petals' 0.28, since a granular pollen cluster shouldn't read as
  * uniformly glossy the way a smooth petal surface does — see the per-variant
  * scale below for why it varies by shape.
+ *
+ * `transparent`/`depthWrite`/`opacity` mirror `sharedPetalProps` (petals
+ * above) rather than the plain-opaque defaults centres had before — an
+ * opaque, depth-writing centre sits in front of its *own* petals whenever
+ * the head's cup angle pushes their bases away from camera (see
+ * generateFlowerField.ts's `emitHead`: the centre is always pushed *toward*
+ * the camera along `worldFace`, independent of that per-flower cup angle),
+ * and petals are depth-tested (just not depth-written) so they silently
+ * fail that test and vanish behind their own opaque centre — the exact
+ * "centre with no petals around it" bug. depthWrite:false stops the centre
+ * from being able to occlude anything via the depth buffer, the same way
+ * petals already don't occlude each other. Opacity nudged down from a flat
+ * 1 (not all the way into petals' 0.7-0.85 range — a pollen mass should
+ * still read far more solid than a translucent petal) mainly so the
+ * centre's own edge softens into whatever's around/behind it instead of
+ * cutting a hard silhouette against it — that hard edge is what made a
+ * centre read as a second, separately-smeared object under motion blur
+ * rather than part of the same bloom as its softer, alpha-blended petals.
  */
 export function buildCenterMaterialProps(palette: ColorPalette): THREE.MeshPhysicalMaterialParameters {
   const pollenAmber = new THREE.Color('#7a5a2a')
@@ -202,6 +220,9 @@ export function buildCenterMaterialProps(palette: ColorPalette): THREE.MeshPhysi
 
   return {
     color: new THREE.Color('#ffffff'),
+    transparent: true,
+    depthWrite: false,
+    opacity: 0.92,
     roughness: 0.6,
     metalness: 0.05,
     clearcoat: 0.22,
