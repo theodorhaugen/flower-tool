@@ -289,9 +289,22 @@ export const PALETTES: readonly ColorPalette[] = [
     // gentler ground the vivid version would clash rather than pop).
     background: '#A8BDB8',
     backgroundSecondary: '#E8B98A',
-    glow: '#E8935A',
-    foliagePrimary: '#5C6B4A',
-    foliageSecondary: '#8C9868',
+    // Desaturated from a more vivid `#E8935A` — glow tints the actual key
+    // light colour (SceneLighting.tsx), and at that saturation a strong
+    // key light multiplying over *any* underlying surface (including the
+    // pale water background above) pushed the whole rendered ground
+    // towards saturated orange-brown regardless of its own albedo. Same
+    // warm hue/lightness, just paler, so the light stops overpowering
+    // what it's lighting. Confirmed by a near-white diagnostic swap: that
+    // shifted the rendered ground off orange as expected, but it stayed
+    // darker/more olive than the source's pads — foliagePrimary/Secondary
+    // below (the lily pads' own colour, which is what actually dominates
+    // the visible "ground" here, not `background` — see
+    // environment/paletteColors.ts) needed brightening on top of this, not
+    // instead of it.
+    glow: '#E8D4B8',
+    foliagePrimary: '#8FA878',
+    foliageSecondary: '#A8B888',
     petalPrimary: '#E8A0C0',
     petalSecondary: '#C85A2E',
     petalTertiary: '#F0EAE0',

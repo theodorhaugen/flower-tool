@@ -92,7 +92,7 @@ export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPalet
     // do, so `dry` staying mostly BASE_DIRT+`glow` left the *actual*
     // visible ground still reading as plain warm dirt regardless of the
     // `sparse`/`lush` fix above.
-    dry: mix(mix(BASE_DIRT, palette.glow, 0.1), palette.background, 0.5),
+    dry: mix(mix(BASE_DIRT, palette.glow, 0.05), palette.background, 0.7),
     sparse: mix(BASE_GREEN_SPARSE, palette.foliagePrimary, 0.5),
     lush: mix(BASE_GREEN_LUSH, palette.foliagePrimary, 0.55),
     shadow: mix(BASE_GREEN_LUSH, shadowTint, 0.65),
