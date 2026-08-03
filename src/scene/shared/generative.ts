@@ -301,6 +301,8 @@ export interface GenerativeState {
   grassHeight: number
   /** Grass fold "Width" — multiplies each blade's width independently of height. 1 = as tuned. */
   grassWidth: number
+  /** Camera fold "Zoom" — overrides CAMERA_CONFIG.fov (degrees). Narrower = more zoomed in/telephoto-compressed, wider = more zoomed out. As tuned. */
+  fov: number
 }
 
 export interface DeriveGenerativeStateOptions {
@@ -484,6 +486,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     grassDensity: 1,
     grassHeight: 1,
     grassWidth: 1,
+    fov: CAMERA_CONFIG.fov,
   }
 }
 

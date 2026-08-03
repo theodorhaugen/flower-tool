@@ -90,6 +90,17 @@ export interface LongExposureBlurPassOptions {
   movementMultiplier?: number
   /** Per-seed `motionBlurDirectionAngle` (see shared/generative.ts) — same angle CameraSweep.tsx blends its yaw/pitch weights by, so this pass estimates a streak in the same direction the camera is actually sweeping instead of always assuming a horizontal pan. Radians, 0 = pure yaw. */
   directionAngle?: number
+  /**
+   * The active render's actual vertical field of view, degrees (the
+   * generative state's `fov` — CAMERA_CONFIG.fov by default, Leva's
+   * Camera > Zoom-overridable — see MainCamera.tsx). Used only to convert
+   * the yaw/pitch delta estimate below into a UV fraction (`render()`) — a
+   * narrower FOV (more zoomed in) means the same angular delta covers a
+   * *larger* fraction of the frame, so this has to track whatever
+   * MainCamera.tsx is actually using, not a fixed constant, or the streak
+   * would desync from the zoom level the moment it's no longer the default.
+   */
+  fov?: number
 }
 
 const DEFAULT_HALF_LIFE_SECONDS = 0.12
@@ -109,7 +120,6 @@ const BASE_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep
 // the two right at the extreme end, so it's applied here too.
 const MAX_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.maxRotationAmplitudeDeg)
 const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
-const VERTICAL_FOV_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.fov)
 /**
  * The full per-frame yaw delta is the physically "correct" streak length —
  * a real continuous exposure would smear *everything* by exactly that much
@@ -200,6 +210,7 @@ export class LongExposureBlurPass extends Pass {
   private halfLifeSeconds: number
   private readonly movementMultiplier: number
   private readonly directionAngle: number
+  private readonly verticalFovRad: number
   private lastVirtualTime = 0
   /** Tracked from `setSize()` purely to convert the yaw/pitch estimate below into a UV displacement — see `render()`. */
   private aspect = 1
@@ -208,12 +219,14 @@ export class LongExposureBlurPass extends Pass {
     halfLifeSeconds = DEFAULT_HALF_LIFE_SECONDS,
     movementMultiplier = 1,
     directionAngle = 0,
+    fov = CAMERA_CONFIG.fov,
   }: LongExposureBlurPassOptions = {}) {
     super('LongExposureBlurPass')
 
     this.halfLifeSeconds = halfLifeSeconds
     this.movementMultiplier = movementMultiplier
     this.directionAngle = directionAngle
+    this.verticalFovRad = THREE.MathUtils.degToRad(fov)
 
     const targetOptions = { type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false }
     this.accumulated = new THREE.WebGLRenderTarget(1, 1, targetOptions)
@@ -295,9 +308,9 @@ export class LongExposureBlurPass extends Pass {
       const deltaYaw = yawAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - yawAt(previousVirtualTime, this.movementMultiplier, this.directionAngle)
       const deltaPitch =
         pitchAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - pitchAt(previousVirtualTime, this.movementMultiplier, this.directionAngle)
-      const horizontalFovRad = 2 * Math.atan(Math.tan(VERTICAL_FOV_RAD / 2) * this.aspect)
+      const horizontalFovRad = 2 * Math.atan(Math.tan(this.verticalFovRad / 2) * this.aspect)
       blurStepU = THREE.MathUtils.clamp((deltaYaw * STREAK_STRENGTH) / horizontalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
-      blurStepV = THREE.MathUtils.clamp((deltaPitch * STREAK_STRENGTH) / VERTICAL_FOV_RAD, -MAX_STREAK_UV, MAX_STREAK_UV)
+      blurStepV = THREE.MathUtils.clamp((deltaPitch * STREAK_STRENGTH) / this.verticalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
     }
 
     this.blendMaterial.uniforms.decay.value = decay

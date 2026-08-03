@@ -8,15 +8,20 @@ import { CAMERA_CONFIG } from './config'
  * single place to live — see camera/config.ts. Position comes from the
  * active render's generative state (a jitter around `CAMERA_CONFIG.position`
  * — see shared/generative.ts) rather than the static config value directly,
- * so every seed gets a genuinely different vantage point.
+ * so every seed gets a genuinely different vantage point. `fov` is likewise
+ * the generative state's value (Leva's Camera > Zoom, `CAMERA_CONFIG.fov` by
+ * default) rather than the static config directly, for the same reason —
+ * effects/LongExposureBlurPass.ts reads the same generative `fov` too, so
+ * its own within-frame streak estimate never desyncs from whatever this
+ * camera is actually seeing.
  */
 export function MainCamera() {
-  const { camera } = useGenerative()
+  const { camera, fov } = useGenerative()
 
   return (
     <PerspectiveCamera
       makeDefault
-      fov={CAMERA_CONFIG.fov}
+      fov={fov}
       near={CAMERA_CONFIG.near}
       far={CAMERA_CONFIG.far}
       position={camera.position}

@@ -19,11 +19,15 @@ import { LongExposureBlurPass } from './LongExposureBlurPass'
  * concern; changes are infrequent) and matches LensOpticsDepthOfField.tsx/
  * AtmosphericHaze.tsx's own pattern, and SettleDriver.tsx already restarts
  * the whole settle burst — and thus this pass's accumulated history — on any
- * generative-state change anyway.
+ * generative-state change anyway. `fov` (Leva's Camera > Zoom-overridable —
+ * see MainCamera.tsx) is threaded through for the same reason: the pass
+ * converts an angular yaw/pitch delta into a UV fraction of the frame, which
+ * depends on the actual field of view MainCamera.tsx is using, not a fixed
+ * default.
  */
 export function LongExposureBlur() {
   const { halfLifeSeconds } = POST_PROCESSING_CONFIG.motionBlur
-  const { motionBlurStrength, motionBlurDirectionAngle } = useGenerative()
+  const { motionBlurStrength, motionBlurDirectionAngle, fov } = useGenerative()
 
   const pass = useMemo(
     () =>
@@ -31,8 +35,9 @@ export function LongExposureBlur() {
         halfLifeSeconds,
         movementMultiplier: motionBlurStrength,
         directionAngle: motionBlurDirectionAngle,
+        fov,
       }),
-    [halfLifeSeconds, motionBlurStrength, motionBlurDirectionAngle],
+    [halfLifeSeconds, motionBlurStrength, motionBlurDirectionAngle, fov],
   )
 
   useEffect(() => {

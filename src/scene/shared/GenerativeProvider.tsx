@@ -111,6 +111,18 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       height: { value: base.camera.position[1], min: CAMERA_CONFIG.position[1] - 7, max: CAMERA_CONFIG.position[1] + 8, label: 'Height' },
       distance: { value: base.camera.position[2], min: CAMERA_CONFIG.position[2] - 5, max: CAMERA_CONFIG.position[2] + 4, label: 'Distance' },
       pan: { value: base.camera.target[0], min: CAMERA_CONFIG.target[0] - 5, max: CAMERA_CONFIG.target[0] + 5, label: 'Pan' },
+      // A real optical zoom — narrows/widens the lens's actual field of
+      // view (MainCamera.tsx), not a dolly (Distance above moves the
+      // camera itself, changing perspective/parallax along with framing;
+      // this changes only the framing/compression, the way swapping lenses
+      // does). Inverted from the raw FOV value (fov = base / zoom) rather
+      // than exposing degrees directly, so — unlike Height/Distance/Pan
+      // above, which are raw physical values — dragging this slider right
+      // reads as "more zoomed in" the way every camera zoom control does,
+      // matching this app's own "1 = as tuned" multiplier convention
+      // (Blur Amount, Aperture, etc.) instead of a raw, non-intuitive FOV
+      // number where smaller is actually more zoomed in.
+      zoom: { value: 1, min: 0.6, max: 2.2, label: 'Zoom' },
       // A direct value (like `focusDistance`/`maxBlur` in the Lens fold
       // below), not a multiplier on top of the seed's own pick — dragging
       // this slider replaces which "how blurred" this render is, the same
@@ -238,6 +250,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       wind: { ...base.wind, strength: atmosphereControls.windStrength },
       motionBlurStrength: cameraControls.blurLength,
       motionBlurDirectionAngle: THREE.MathUtils.degToRad(cameraControls.blurDirection),
+      fov: CAMERA_CONFIG.fov / cameraControls.zoom,
       lightingOvercast: lightingControls.overcast,
       lightingWarmth: lightingControls.warmth,
       lightingShadowDepth: lightingControls.shadowDepth,
