@@ -171,12 +171,18 @@ export const PALETTES: readonly ColorPalette[] = [
     // wide highlight) to offset them. Still the darkest of the palettes —
     // just no longer darker than the scene's own lighting can make legible.
     backgroundSecondary: '#0C221B',
-    glow: '#3FA88C',
+    // glow/petalPrimary/petalTertiary raised in lightness too — glow tints
+    // the key/fill lights (SceneLighting.tsx), so a dim glow dims the whole
+    // scene's actual illumination, not just its own swatch, and the raw
+    // ramp's petal stops were too close in lightness to the background to
+    // read as a "pop" the way the other palettes' brighter petal families
+    // do against their own dark backgrounds (compare Emerald dahlia).
+    glow: '#72B8A4',
     foliagePrimary: '#144033',
     foliageSecondary: '#227A63',
-    petalPrimary: '#369A80',
+    petalPrimary: '#5BA894',
     petalSecondary: '#B9CDC6',
-    petalTertiary: '#32937A',
+    petalTertiary: '#50A08B',
     core: '#C99A5B',
     accent: '#D3DFDB',
     stem: '#0F2D24',
