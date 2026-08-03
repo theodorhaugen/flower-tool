@@ -79,7 +79,7 @@ export function Grass() {
     [grassColorPalette, environmentSeed, meadowLayout, terrainShape, grassDensity, grassHeight, grassWidth],
   )
   const material = useMemo(() => {
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color('#ffffff'),
       roughness: 0.85,
       side: THREE.DoubleSide,
@@ -88,6 +88,17 @@ export function Grass() {
       // colour attribute is simply ignored and every blade stays flatly lit
       // top-to-bottom.
       vertexColors: true,
+      // Small clearcoat — the same mechanism flowerField/materials.ts's
+      // petals/centres use for their own specular catchlight, extended here
+      // for the same reason: a blade's thin cuticle is waxy enough to throw
+      // an occasional small bright glint (real macro grass photography shows
+      // this clearly), which plain roughness=0.85 diffuse response alone
+      // never produces regardless of light intensity. Kept low relative to
+      // petals' 0.28/centres' 0.22 — a blade is a much thinner, less
+      // "solid" surface, so a strong unified highlight would read as wet
+      // plastic rather than a believable thin-cuticle glint.
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.35,
     })
     applyWindDisplacement(mat, wind)
     applyVertexColorBrightnessFloor(mat, 0.55)

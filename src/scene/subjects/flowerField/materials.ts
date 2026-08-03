@@ -181,8 +181,22 @@ export function buildPetalMaterialVariants(
   return materials
 }
 
-/** Flower-centre material — emissive warmth mixed from a fixed pollen-amber anchor and the palette's `accent` (the small, sparing detail-highlight role), so centres stay believably warm even under a cool palette while still picking up its mood. */
-export function buildCenterMaterialProps(palette: ColorPalette): THREE.MeshStandardMaterialParameters {
+/**
+ * Flower-centre material — emissive warmth mixed from a fixed pollen-amber
+ * anchor and the palette's `accent` (the small, sparing detail-highlight
+ * role), so centres stay believably warm even under a cool palette while
+ * still picking up its mood.
+ *
+ * `clearcoat` added for the same reason petals have one (see
+ * `sharedPetalProps` above) — centres previously had no specular mechanism
+ * beyond plain roughness-based PBR response, which never forms the small,
+ * bright catchlight real pollen/stamen clusters show under direct light
+ * (they're often slightly waxy/dewy, same as a petal's cuticle). Modest
+ * next to petals' 0.28, since a granular pollen cluster shouldn't read as
+ * uniformly glossy the way a smooth petal surface does — see the per-variant
+ * scale below for why it varies by shape.
+ */
+export function buildCenterMaterialProps(palette: ColorPalette): THREE.MeshPhysicalMaterialParameters {
   const pollenAmber = new THREE.Color('#7a5a2a')
   const accent = new THREE.Color(palette.accent)
 
@@ -190,6 +204,8 @@ export function buildCenterMaterialProps(palette: ColorPalette): THREE.MeshStand
     color: new THREE.Color('#ffffff'),
     roughness: 0.6,
     metalness: 0.05,
+    clearcoat: 0.22,
+    clearcoatRoughness: 0.3,
     emissive: pollenAmber.clone().lerp(accent, 0.4),
     emissiveIntensity: 0.12,
     vertexColors: true,
@@ -201,28 +217,38 @@ interface CenterVariantMaterialBase {
   metalness: number
   /** Multiplies buildCenterMaterialProps' base emissiveIntensity — breaks the "every center blooms identically" uniformity the highlight-bloom pass otherwise produces on a single shared material. */
   emissiveIntensityScale: number
+  /**
+   * Multiplies buildCenterMaterialProps' base clearcoat — a smooth domed
+   * centre can plausibly show a small unified specular highlight the way a
+   * petal does; a granular pollen cluster or a deeply cupped/hollow centre
+   * is too broken-up/self-shadowing a surface for one to read as believable,
+   * so those get scaled down rather than sharing one flat value.
+   */
+  clearcoatScale: number
 }
 
 /** One entry per buildCenterGeometryVariants shape — domed/granular/spiky/cupped. */
 const CENTER_VARIANT_MATERIAL_BASE: readonly CenterVariantMaterialBase[] = [
-  { roughness: 0.6, metalness: 0.05, emissiveIntensityScale: 1 },
-  { roughness: 0.8, metalness: 0.02, emissiveIntensityScale: 1.4 },
-  { roughness: 0.5, metalness: 0.1, emissiveIntensityScale: 0.85 },
-  { roughness: 0.88, metalness: 0, emissiveIntensityScale: 0.55 },
+  { roughness: 0.6, metalness: 0.05, emissiveIntensityScale: 1, clearcoatScale: 1.2 },
+  { roughness: 0.8, metalness: 0.02, emissiveIntensityScale: 1.4, clearcoatScale: 0.4 },
+  { roughness: 0.5, metalness: 0.1, emissiveIntensityScale: 0.85, clearcoatScale: 0.9 },
+  { roughness: 0.88, metalness: 0, emissiveIntensityScale: 0.55, clearcoatScale: 0.3 },
 ]
 
 /** One material per center geometry variant — mirrors buildPetalMaterialVariants' reasoning, applied to the center cluster instead of the petals. */
-export function buildCenterMaterialVariants(palette: ColorPalette): THREE.MeshStandardMaterial[] {
+export function buildCenterMaterialVariants(palette: ColorPalette): THREE.MeshPhysicalMaterial[] {
   const base = buildCenterMaterialProps(palette)
   const baseEmissiveIntensity = base.emissiveIntensity ?? 0.12
+  const baseClearcoat = base.clearcoat ?? 0.22
 
   return CENTER_VARIANT_MATERIAL_BASE.map(
     (variant) =>
-      new THREE.MeshStandardMaterial({
+      new THREE.MeshPhysicalMaterial({
         ...base,
         roughness: variant.roughness,
         metalness: variant.metalness,
         emissiveIntensity: baseEmissiveIntensity * variant.emissiveIntensityScale,
+        clearcoat: baseClearcoat * variant.clearcoatScale,
       }),
   )
 }

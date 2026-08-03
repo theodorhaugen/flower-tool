@@ -67,13 +67,18 @@ export function FlowerField() {
   const centerMaterials = useMemo(() => buildCenterMaterialVariants(palette), [palette])
   // Plain and green like Grass.tsx's material, not translucent like the
   // petals — coloured per-instance from stemColorPalette below, its own
-  // green-family tint derived from the palette's `stem` role.
+  // green-family tint derived from the palette's `stem` role. Small
+  // clearcoat for the same reason Grass.tsx's blades have one now — a thin
+  // stem has the same waxy-cuticle catchlight potential a grass blade does,
+  // same low strength since it's the same kind of thin, non-solid surface.
   const stemMaterial = useMemo(() => {
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color('#ffffff'),
       roughness: 0.85,
       side: THREE.DoubleSide,
       vertexColors: true,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.35,
     })
     applyWindDisplacement(mat, wind, STEM_WIND_STRENGTH_MULTIPLIER)
     return mat
