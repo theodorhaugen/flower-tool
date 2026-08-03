@@ -47,9 +47,23 @@ function sampleFromPalette(rng: Rng, palette: readonly HslColor[], jitter: HslCo
  */
 const POPPY_ANCHOR: HslColor = { h: 27 / 360, s: 0.62, l: 0.56 }
 
-/** The palette's `petalPrimary`/`petalSecondary`/`petalTertiary`, converted to HSL anchors and capped below bloom-bleach territory — this render's petal "family". */
+/**
+ * The palette's `petalPrimary`/`petalSecondary`/`petalTertiary`, converted
+ * to HSL anchors and capped below bloom-bleach territory — this render's
+ * petal "family". `deepShade`/`paleLight` are folded in too, each listed
+ * once against the family's three anchors listed twice — every palette's
+ * three petal anchors cluster in the middle of the lightness range (rarely
+ * spanning past roughly 0.5-0.7) with no genuinely dark or near-white
+ * option at all, so without this the field could never actually produce a
+ * near-black or near-white bloom regardless of `sampleFromPalette`'s
+ * jitter. Weighted 2:2:2:1:1 rather than flat 1:1:1:1:1 so the two extremes
+ * stay a genuine minority presence (25% combined) — real variety, not a
+ * shift away from the palette's own defining "family" colours.
+ */
 function petalAnchors(palette: ColorPalette): HslColor[] {
-  return [palette.petalPrimary, palette.petalSecondary, palette.petalTertiary].map((hex) => {
+  const family = [palette.petalPrimary, palette.petalSecondary, palette.petalTertiary].flatMap((hex) => [hex, hex])
+  const extremes = [palette.deepShade, palette.paleLight]
+  return [...family, ...extremes].map((hex) => {
     const hsl = toHsl(hex)
     return { ...hsl, l: Math.min(hsl.l, MAX_PETAL_LIGHTNESS) }
   })

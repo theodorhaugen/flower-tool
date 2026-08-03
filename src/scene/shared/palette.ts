@@ -40,6 +40,18 @@ import * as THREE from 'three'
  * - `stem`: stem/branch colour family, kept distinct from `foliagePrimary`/
  *   `foliageSecondary` so stems can read as their own thing rather than
  *   simply reusing the grass palette.
+ * - `deepShade`/`paleLight`: dedicated dark and near-white anchors, each
+ *   tinted to the palette's own hue family rather than flat black/white —
+ *   every existing role clusters in the middle of the lightness range
+ *   (petalPrimary/Secondary/Tertiary rarely span past roughly 0.5-0.7
+ *   lightness; `foliagePrimary` is dark on most palettes but is the light
+ *   mint `Sunlit pastel` needs `foliageShadowTint` to use as shadow at all;
+ *   `glow` is colourful-and-light, not genuinely near-white, on every
+ *   palette but `Sunlit pastel`). Without a real anchor at each extreme,
+ *   nothing in a render — petal colour variety, the post-process two-point
+ *   grade's shadow/highlight tint (effects/PaletteGrade.tsx) — can actually
+ *   reach a wide lightness range regardless of how strongly those consumers
+ *   push towards "dark"/"light". These fill that gap directly.
  */
 export interface ColorPalette {
   name: string
@@ -54,6 +66,8 @@ export interface ColorPalette {
   core: string
   accent: string
   stem: string
+  deepShade: string
+  paleLight: string
 }
 
 export const PALETTES: readonly ColorPalette[] = [
@@ -70,6 +84,8 @@ export const PALETTES: readonly ColorPalette[] = [
     core: '#E8B62E',
     accent: '#FBEFA0',
     stem: '#1E2E22',
+    deepShade: '#19140B',
+    paleLight: '#F7F5EE',
   },
   {
     name: 'Emerald dahlia',
@@ -84,6 +100,8 @@ export const PALETTES: readonly ColorPalette[] = [
     core: '#DC9450',
     accent: '#F9E3B5',
     stem: '#2B2015',
+    deepShade: '#1D130C',
+    paleLight: '#F7EEF0',
   },
   {
     name: 'Monarch sky',
@@ -98,6 +116,8 @@ export const PALETTES: readonly ColorPalette[] = [
     core: '#2B1B0E',
     accent: '#F5D9CF',
     stem: '#231508',
+    deepShade: '#160F08',
+    paleLight: '#F2F6F8',
   },
   {
     name: 'Sunlit pastel',
@@ -112,6 +132,8 @@ export const PALETTES: readonly ColorPalette[] = [
     core: '#DC6B22',
     accent: '#FBF6EE',
     stem: '#C7896E',
+    deepShade: '#2B1E12',
+    paleLight: '#F5F9F8',
   },
   {
     name: 'Twilight garden',
@@ -126,6 +148,8 @@ export const PALETTES: readonly ColorPalette[] = [
     core: '#CDAE50',
     accent: '#D98A7A',
     stem: '#1F3A20',
+    deepShade: '#0A150D',
+    paleLight: '#F8F6F2',
   },
 ]
 
@@ -146,6 +170,8 @@ const HUE_SHIFTED_FIELDS = [
   'core',
   'accent',
   'stem',
+  'deepShade',
+  'paleLight',
 ] as const
 
 /**

@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react'
 import { useGenerative, usePalette } from '../shared/generativeContext'
-import { foliageShadowTint } from '../shared/palette'
 import { POST_PROCESSING_CONFIG } from './config'
 import { PaletteGradePass } from './PaletteGradePass'
 
@@ -23,10 +22,15 @@ export function PaletteGrade() {
   const pass = useMemo(
     () =>
       new PaletteGradePass({
-        highlightColor: palette.glow,
-        // Lightness-capped, not the raw palette value — see
-        // shared/palette.ts's foliageShadowTint docstring.
-        shadowColor: foliageShadowTint(palette),
+        // Dedicated near-white/dark anchors (shared/palette.ts), not
+        // `glow`/`foliagePrimary` — neither of those is reliably near the
+        // actual lightness extreme on every palette (glow reads as
+        // colourful-and-light, not white, on 4 of 5; foliagePrimary needed
+        // `foliageShadowTint`'s cap just to count as "dark" on one), so the
+        // two-point grade below could never reach a genuinely wide
+        // lightness range regardless of highlightStrength/shadowStrength.
+        highlightColor: palette.paleLight,
+        shadowColor: palette.deepShade,
         bloomTintColor: palette.glow,
         highlightStrength,
         shadowStrength,
