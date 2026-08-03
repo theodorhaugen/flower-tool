@@ -113,22 +113,27 @@ export const PALETTES: readonly ColorPalette[] = [
   },
   {
     name: 'Monarch sky',
-    background: '#2E6DA4',
+    // Every prominent role's lightness raised (same hue/saturation,
+    // higher L) — the render was reading generally too dark. `core`
+    // stays untouched: it's deliberately dark on this one palette (the
+    // monarch's near-black wing marking, not a light colour, see below),
+    // so it's not one of the "prominent" colours this was about.
+    background: '#5898D0',
     // `glow` reads `groundAccent` here rather than `core` (this palette's
     // usual glow source, see the registry-wide note below) — `core` is
     // deliberately dark on this one palette (the monarch's near-black wing
     // marking, not a light colour), so the sky-blue groundAccent stands in
     // as this theme's actual "colour of light" instead.
-    backgroundSecondary: '#285774',
-    glow: '#8FC4E0',
-    foliagePrimary: '#1D2E1A',
-    foliageSecondary: '#203B36',
-    petalPrimary: '#E8811E',
-    petalSecondary: '#F4A83D',
-    petalTertiary: '#EE942E',
+    backgroundSecondary: '#3C83AE',
+    glow: '#A7D1E7',
+    foliagePrimary: '#355530',
+    foliageSecondary: '#396A61',
+    petalPrimary: '#ED9D4F',
+    petalSecondary: '#F6BA65',
+    petalTertiary: '#F2AA5A',
     core: '#2B1B0E',
     accent: '#F5D9CF',
-    stem: '#162519',
+    stem: '#26402B',
     deepShade: '#060F16',
     paleLight: '#F7FAFC',
   },
