@@ -70,26 +70,36 @@ export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPalet
   // directly, that's most of them (this tool has no wide establishing
   // shots). Without this, `background` could go entirely unseen in a given
   // render despite being the palette's own most contrast-critical anchor.
+  // `shadowTint`/`foliageSecondary` weights raised across the board below
+  // (glow's own tint kept, just layered on top rather than competing at
+  // equal or greater weight) — a palette whose `foliagePrimary` sits far
+  // from green (e.g. Marigold haze's sky-blue) was otherwise invisible in
+  // the actual rendered grass/ground: BASE_GREEN/BASE_DIRT plus a 10-30%
+  // pull is dominated by the fixed anchor, so "grass should be this
+  // palette's own ground colour" never actually read on screen. Every
+  // other palette's `foliagePrimary` is already green, so this mostly just
+  // makes their grass more distinctly *that palette's* green instead of a
+  // shared generic default — the "cohesive" goal this file already states.
   const groundColors: GroundColors = {
     dry: mix(mix(BASE_DIRT, palette.glow, 0.15), palette.background, 0.2),
-    sparse: mix(BASE_GREEN_SPARSE, palette.glow, 0.1),
-    lush: mix(BASE_GREEN_LUSH, shadowTint, 0.28),
-    shadow: mix(BASE_GREEN_LUSH, shadowTint, 0.55),
+    sparse: mix(mix(BASE_GREEN_SPARSE, shadowTint, 0.28), palette.glow, 0.1),
+    lush: mix(BASE_GREEN_LUSH, shadowTint, 0.42),
+    shadow: mix(BASE_GREEN_LUSH, shadowTint, 0.62),
   }
 
   const grassColorPalette = [
-    mix(BASE_GREEN_LUSH, shadowTint, 0.2),
-    mix(BASE_GREEN_SPARSE, palette.glow, 0.3),
-    mix(BASE_GREEN_LUSH, palette.glow, 0.22),
-    mix(BASE_GREEN_SPARSE, shadowTint, 0.18),
-    mix(BASE_GREEN_LUSH, palette.foliageSecondary, 0.1),
+    mix(BASE_GREEN_LUSH, shadowTint, 0.38),
+    mix(mix(BASE_GREEN_SPARSE, shadowTint, 0.3), palette.glow, 0.15),
+    mix(mix(BASE_GREEN_LUSH, shadowTint, 0.3), palette.glow, 0.12),
+    mix(BASE_GREEN_SPARSE, shadowTint, 0.34),
+    mix(BASE_GREEN_LUSH, palette.foliageSecondary, 0.3),
   ]
 
   const wildVegetationColorPalette = [
-    mix(BASE_GREEN_LUSH, shadowTint, 0.25),
-    mix(BASE_GREEN_SPARSE, palette.glow, 0.2),
-    mix(BASE_GREEN_LUSH, palette.foliageSecondary, 0.12),
-    mix(BASE_GREEN_SPARSE, palette.foliageSecondary, 0.15),
+    mix(BASE_GREEN_LUSH, shadowTint, 0.35),
+    mix(mix(BASE_GREEN_SPARSE, shadowTint, 0.28), palette.glow, 0.12),
+    mix(BASE_GREEN_LUSH, palette.foliageSecondary, 0.28),
+    mix(BASE_GREEN_SPARSE, palette.foliageSecondary, 0.3),
   ]
 
   const stemColorPalette = [
