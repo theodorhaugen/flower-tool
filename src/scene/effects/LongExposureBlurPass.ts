@@ -131,17 +131,24 @@ const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
  * discrete accumulated frames, not to re-derive the whole exposure from
  * scratch, so it's dialled back well under 1.
  *
- * Raised from 0.08 — at that strength the within-frame streak was smaller
- * than a grass blade's own width most frames, so it closed the gap between
- * accumulated samples (no more *aliasing*) without actually leaving a
- * visible trail behind each blade — grass still read crisp/static while
- * bloom highlights streaked. This is still well under the "full physically
- * correct" smear the comment above warns against, just enough that thin
- * geometry visibly drags rather than merely avoiding a comb artifact.
+ * Raised from 0.08, then again from 0.22 — the accumulation blend above is
+ * what does most of the work streaking *large* features (a flower cluster
+ * shifts a real fraction of its own size across the settle burst's camera
+ * sweep), but small/fine detail — a flower centre's dark disc, a petal's
+ * own edge — shifts by only a few pixels over that same angular sweep,
+ * nowhere near its own size, so it kept reading as crisp even at Blur
+ * Length's max. This term is what actually reaches that detail: it's a
+ * direct directional blur of *this one frame* before it ever joins the
+ * accumulation, sized off the camera's instantaneous angular speed rather
+ * than the swept range, so it scales with Blur Length independently of how
+ * far the overall sweep is allowed to travel. Still well under the "full
+ * physically correct" smear the comment above warns against — that's
+ * measured in whole-frame terms, and this is scaled for small-feature
+ * reach, not to redo the large-feature job the blend above already does.
  */
-const STREAK_STRENGTH = 0.22
+const STREAK_STRENGTH = 1.1
 /** Caps the within-frame streak to a sane fraction of the screen — a guard against a single unusually large virtual-time step (e.g. a slow real frame) producing an absurdly long smear rather than a subtle one. Raised alongside `STREAK_STRENGTH` so the cap isn't clipping the strengthened streak back down to the old, barely-visible length. */
-const MAX_STREAK_UV = 0.045
+const MAX_STREAK_UV = 0.1
 
 function clampedRotationAmplitude(movementMultiplier: number): number {
   return Math.min(BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier, MAX_ROTATION_AMPLITUDE_RAD)
