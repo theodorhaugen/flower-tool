@@ -195,30 +195,27 @@ export const PALETTES: readonly ColorPalette[] = [
   // discipline the original 5 needed fixing for earlier.
   {
     name: 'Nocturne teal',
-    background: '#123328',
-    // backgroundSecondary/foliagePrimary/stem nudged up from the raw ramp's
-    // deepShadow/shadow stops — those stops stacked on every large-area role
-    // at once rendered as a near-black frame (measured: ~7/255 mean
-    // brightness vs 20-50/255 for this tool's other palettes), since unlike
-    // the source photo this renderer has no bright large-area anchor (sky,
-    // wide highlight) to offset them. Still the darkest of the palettes —
-    // just no longer darker than the scene's own lighting can make legible.
-    backgroundSecondary: '#0C221B',
-    // glow/petalPrimary/petalTertiary raised in lightness too — glow tints
-    // the key/fill lights (SceneLighting.tsx), so a dim glow dims the whole
-    // scene's actual illumination, not just its own swatch, and the raw
-    // ramp's petal stops were too close in lightness to the background to
-    // read as a "pop" the way the other palettes' brighter petal families
-    // do against their own dark backgrounds (compare Emerald dahlia).
+    // background/backgroundSecondary/foliagePrimary/foliageSecondary/stem
+    // were all the same cyan-green "turquoise" hue as the petals below,
+    // just darker — grass/shadow and petals were the same colour family,
+    // so the petals never actually popped, they just read as a lighter
+    // patch of the same ground. Shifted the whole ground/shadow/stem family
+    // to a genuinely different, more standard forest-green hue so
+    // turquoise is now the petals' hue alone.
+    background: '#132D1C',
+    backgroundSecondary: '#0E2015',
+    // glow raised in lightness earlier too — glow tints the key/fill
+    // lights (SceneLighting.tsx), so a dim glow dims the whole scene's
+    // actual illumination, not just its own swatch.
     glow: '#72B8A4',
-    foliagePrimary: '#144033',
-    foliageSecondary: '#227A63',
+    foliagePrimary: '#1A3D1F',
+    foliageSecondary: '#2E6B3A',
     petalPrimary: '#5BA894',
     petalSecondary: '#B9CDC6',
     petalTertiary: '#50A08B',
     core: '#C99A5B',
     accent: '#D3DFDB',
-    stem: '#0F2D24',
+    stem: '#122B18',
     deepShade: '#050D0A',
     paleLight: '#F2F6F4',
   },
@@ -229,9 +226,13 @@ export const PALETTES: readonly ColorPalette[] = [
     glow: '#F2B705',
     foliagePrimary: '#2B3D14',
     foliageSecondary: '#708A2E',
+    // All three petal anchors are white/cream now — they were previously
+    // yellow (`#F1BD20`/`#EECC5E`), which muddied the white-petals/yellow-
+    // centre distinction real daisies have. `core`/`accent` below carry the
+    // yellow instead, so it reads as the flower's centre, not its petals.
     petalPrimary: '#F3EFD8',
-    petalSecondary: '#F1BD20',
-    petalTertiary: '#EECC5E',
+    petalSecondary: '#F5F5EC',
+    petalTertiary: '#F2E9DE',
     core: '#CA9F08',
     accent: '#F4C840',
     stem: '#223210',
@@ -247,11 +248,20 @@ export const PALETTES: readonly ColorPalette[] = [
     foliageSecondary: '#4A701F',
     petalPrimary: '#DBECF4',
     petalSecondary: '#E3F0F6',
-    petalTertiary: '#40611B',
+    // Was `#40611B` — green, the same hue as foliagePrimary/Secondary
+    // above, so a third of the petal family was accidentally "grass"
+    // coloured. A clear, more saturated sky blue keeps every petal anchor
+    // in the blue family (and adds real variety next to Primary/Secondary,
+    // which are both near-white pale blue on their own).
+    petalTertiary: '#A8CFE3',
     core: '#B8A945',
     accent: '#CDE4F0',
     stem: '#1B2A0E',
-    deepShade: '#0C1606',
+    // Nudged from green-black to blue-black — this is still primarily the
+    // petal family's near-black extreme (see shared/generative petal
+    // sampling), so it stays hue-true to "petals are blue" even at the
+    // dark end.
+    deepShade: '#0A1218',
     paleLight: '#EFF6FA',
   },
   // Lily pond was originally one of the tonal-ramp palettes above, but got
@@ -267,9 +277,14 @@ export const PALETTES: readonly ColorPalette[] = [
     glow: '#F8D36E',
     foliagePrimary: '#1D3F39',
     foliageSecondary: '#B1A37E',
-    petalPrimary: '#E8558F',
-    petalSecondary: '#E8631C',
-    petalTertiary: '#E85C56',
+    // All three petal anchors pushed more saturated — `petalTertiary` in
+    // particular was a flat 50/50 blend of Primary/Secondary, which
+    // desaturates towards grey rather than reading as a third vivid hue.
+    // Kept lightness close to the previous values so this doesn't feed
+    // back into overall scene brightness, just vividness.
+    petalPrimary: '#EF4C8C',
+    petalSecondary: '#F2650F',
+    petalTertiary: '#F2523F',
     core: '#F7C948',
     accent: '#F2A061',
     stem: '#193631',
@@ -281,14 +296,23 @@ export const PALETTES: readonly ColorPalette[] = [
     background: '#6FAEDD',
     backgroundSecondary: '#F5D89A',
     glow: '#F2A31A',
-    foliagePrimary: '#6E3E0C',
-    foliageSecondary: '#C77712',
+    // foliagePrimary/foliageSecondary/stem moved from brown/orange to the
+    // same sky-blue family as `background` — grass/ground should read as
+    // this palette's light-blue "sky colour" grown out of the earth, not
+    // compete with the warm petal family below for the same brown/orange
+    // hue. `accent` moved the other direction (was blue, now warm gold) so
+    // the flower centre stays warm — mixing a blue accent into its pollen
+    // warmth (see materials.ts's buildCenterMaterialProps) would have
+    // undercut "yellow and browns are purely for the petals" right where
+    // it matters most.
+    foliagePrimary: '#3E6E96',
+    foliageSecondary: '#5A97C4',
     petalPrimary: '#F3AE34',
     petalSecondary: '#B56C11',
     petalTertiary: '#F8E3B5',
     core: '#92550E',
-    accent: '#84B9DE',
-    stem: '#5A320A',
+    accent: '#E8B54A',
+    stem: '#24425C',
     deepShade: '#2C1704',
     paleLight: '#FDF7E6',
   },
