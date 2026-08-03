@@ -619,7 +619,14 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     lightingShadowDepth: 1,
     flowerDensity: 1,
     flowerScale: 1,
-    poppyAccentProbability: 0.15,
+    // Zeroed for Baby Blue Eyes and Lupine specifically — both are meant to
+    // be a field of *one* flower colour (blue, yellow respectively), and the
+    // poppy accent (flowerField/palette.ts's `rollIsPoppy`) is deliberately
+    // independent of the active palette so a stray warm poppy can show up
+    // regardless of mood; that's the right default for every other palette
+    // here, but it's exactly the "why is there an off-colour flower in my
+    // single-colour field" report both of these got.
+    poppyAccentProbability: palette.name === 'Baby Blue Eyes' || palette.name === 'Lupine' ? 0 : 0.15,
     hueShiftDeg: 0,
     hazeAmount,
     softness: 1,

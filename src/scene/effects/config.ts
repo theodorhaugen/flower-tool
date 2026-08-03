@@ -100,8 +100,8 @@ export const POST_PROCESSING_CONFIG = {
     exposure: 1,
     /** A mild punch on top of the now wider-dynamic-range lighting input, not the whole contrast mechanism — see SceneLighting.tsx. */
     contrast: 1.18,
-    /** Strongest on already-muddy/desaturated pixels, tapers off on already-vivid ones — see the shader for the exact falloff. Colour/saturation tuning, deliberately left at its original value — see class docstring. */
-    vibrance: 0.4,
+    /** Strongest on already-muddy/desaturated pixels, tapers off on already-vivid ones — see the shader for the exact falloff. */
+    vibrance: 1.2,
     /** Soft corner falloff — see PaletteGradePass.ts's shader comment for why this is multiplicative distance-based darkening, not the harder-edged `Vignette` effect this project deliberately dropped earlier. A luminance-only lens/lighting characteristic, not a colour choice. */
     vignette: 0.22,
   },

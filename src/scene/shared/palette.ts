@@ -201,8 +201,11 @@ export const PALETTES: readonly ColorPalette[] = [
     // Bright yellow, hot pink, crisp white — three genuinely different
     // hues rather than one family's value range, so the sampled field
     // actually reads as a mixed bouquet instead of one dominant colour with
-    // stray accents.
-    petalPrimary: '#F5C518',
+    // stray accents. Yellow pushed to max saturation (was already fairly
+    // saturated, still reported as reading muted) — same fix as
+    // `petalSecondary`'s magenta below, just less severe since yellow
+    // survives the warm-light multiply far better than magenta does.
+    petalPrimary: '#FFCB0F',
     // Pushed to near-maximum saturation — measured directly that a more
     // moderate magenta lost roughly half its saturation by the time it hit
     // the screen (checked pixel-for-pixel against the raw sampled colour).
@@ -228,24 +231,21 @@ export const PALETTES: readonly ColorPalette[] = [
   },
   {
     name: 'Baby Blue Eyes',
-    // Neutral warm sand rather than green — the "mix of cool and warm
-    // green" the brief describes lives entirely in foliagePrimary/Secondary
-    // below; letting background stay green too would just flatten that mix
-    // into "all one green" once it dominates the bare-ground patches.
-    background: '#D8D3B0',
+    // Revised from an earlier "mix of cool/warm green" ground towards a
+    // consistently cold, almost-teal one instead — that's the specific
+    // correction this got. `background` (dominates the visible bare-ground
+    // patches — see `deriveEnvironmentColors`'s `dry`) and both greenery
+    // roles all lean the same cold blue-green direction now rather than
+    // splitting warm/cool between them.
+    background: '#BDD1CF',
     backgroundSecondary: '#BFE0EC',
-    // Warm cream sunlight — deliberately warm despite the cool flowers, the
-    // complementary warm-light/cool-petal contrast is what makes the blue
-    // actually pop rather than just sitting there as another cool tone.
+    // Warm cream sunlight — deliberately warm despite the cool flowers/
+    // ground, the complementary warm-light/cool-everything-else contrast is
+    // what makes the blue actually pop rather than just sitting there as
+    // another cool tone.
     glow: '#F5E7B8',
-    // The cool/warm green mix the brief asks for, mapped directly onto the
-    // two greenery roles instead of split across background/grass —
-    // foliagePrimary reads as this palette's "cool" grass, foliageSecondary
-    // as its "warm" grass, and `deriveEnvironmentColors` blends both into
-    // every grass swatch, so the mix shows up as real texture rather than
-    // a single averaged-out green.
-    foliagePrimary: '#3A5648',
-    foliageSecondary: '#6B7A3A',
+    foliagePrimary: '#194341',
+    foliageSecondary: '#2B6464',
     // Pushed to near-maximum saturation, then pushed again after measuring
     // the actual rendered pixels: the key light's colour (`glow`) is a
     // multiply against albedo, and even this warm cream has nowhere near as
@@ -262,9 +262,16 @@ export const PALETTES: readonly ColorPalette[] = [
     // A small warm-gold fleck in the centres' pollen warmth — real pale
     // flowers still show a warm throat/pollen note even with a white face.
     accent: '#F0C168',
-    stem: '#37472A',
+    stem: '#1E4846',
     deepShade: '#0E1A18',
-    paleLight: '#FBFCF9',
+    // Light blue rather than near-white — this is also the petal family's
+    // near-white extreme (flowerField/palette.ts's `petalAnchors`, folded
+    // into petal sampling at real weight), and every petal here is meant to
+    // be blue, full stop; a nearly-white `paleLight` was exactly what put a
+    // stray white bloom into an all-blue field (on top of the poppy-accent
+    // one, see `poppyAccentProbability` above). `core` stays the actual
+    // stark white — that's the flower *centre*, a different role.
+    paleLight: '#B8D9EA',
   },
   {
     name: 'Lupine',
@@ -284,19 +291,35 @@ export const PALETTES: readonly ColorPalette[] = [
     // own colour read as one warm-on-blue idea rather than two unrelated
     // colours.
     glow: '#F5D77A',
-    petalPrimary: '#F0B518',
-    petalSecondary: '#E0A012',
-    petalTertiary: '#F7DC7A',
-    // Deeper gold-orange centre for definition against the petals' yellow.
-    core: '#E8940F',
+    // Maxed to 100% source saturation, all three anchors kept in the same
+    // narrow yellow hue band (only value/lightness varies) — "bright bright
+    // yellow, and only yellow" was explicit, so there's no room here for
+    // the family to drift towards gold/orange the way a wider hue spread
+    // would read as variety instead of one dominant colour.
+    petalPrimary: '#FFD11A',
+    petalSecondary: '#F5B800',
+    petalTertiary: '#FFE45C',
+    // Same maxed-saturation treatment as the petals — a softer gold centre
+    // would read as a second, less-saturated colour against them.
+    core: '#FFC300',
     accent: '#F5D24A',
     // Blue-green rather than plain garden-green — ties the stems into the
     // water theme instead of reading as a mismatched normal plant.
     stem: '#3E6B5E',
     // Dark gold-brown, tinted to the yellow petal family — not the ground's
     // blue, same reasoning as Daisies'/Poppy petal's own `deepShade` above.
-    deepShade: '#241A06',
-    paleLight: '#FBF3D8',
+    // Pushed more saturated than a plain neutral dark/pale would be, same
+    // "only yellow" reasoning as the petals themselves — these two are the
+    // petal family's near-black/near-white extremes too (flowerField/
+    // palette.ts's `petalAnchors`), so a washed-out version of either would
+    // put an off-family flower into the field the same way it would if
+    // petalPrimary/Secondary/Tertiary themselves were muted. Lightness
+    // floor raised (was near-black, l≈0.1) — verified directly that yellow
+    // that dark reads as plain brown to the eye regardless of hue, putting
+    // "off-colour" flowers back into an otherwise "only yellow" field just
+    // through shading rather than through an actual wrong hue.
+    deepShade: '#6B5106',
+    paleLight: '#F9ECB8',
   },
 ]
 
