@@ -60,8 +60,18 @@ export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPalet
   // material at different densities. Both sides moved together rather than
   // just one, since the gap was too large to close from either alone
   // without a large, single-direction hue/lightness swing.
+  // `dry` also pulls towards `palette.background` — that role is documented
+  // (and, per its `flowerpalettesfullrange.json` source, explicitly
+  // contrast-tested) as "the dominant ground colour the flowers are
+  // rendered against," but until this line it only ever reached the far
+  // Horizon backdrop/fog (see Horizon.tsx/Fog.tsx below) rather than the
+  // actual bare-dirt patches under the flowers in every camera framing
+  // that's close enough to keep the horizon out of frame — measured
+  // directly, that's most of them (this tool has no wide establishing
+  // shots). Without this, `background` could go entirely unseen in a given
+  // render despite being the palette's own most contrast-critical anchor.
   const groundColors: GroundColors = {
-    dry: mix(BASE_DIRT, palette.glow, 0.15),
+    dry: mix(mix(BASE_DIRT, palette.glow, 0.15), palette.background, 0.2),
     sparse: mix(BASE_GREEN_SPARSE, palette.glow, 0.1),
     lush: mix(BASE_GREEN_LUSH, shadowTint, 0.28),
     shadow: mix(BASE_GREEN_LUSH, shadowTint, 0.55),
