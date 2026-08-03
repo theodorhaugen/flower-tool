@@ -71,10 +71,10 @@ function petalAnchors(palette: ColorPalette): HslColor[] {
 
 /**
  * Flower centres are rooted in the palette's own `core` anchor, warmed
- * towards `glow` (the palette's "colour of light" — already warm on Golden
- * hour meadow/Emerald dahlia, paler on Sunlit pastel) and deepened towards
- * a lightness-capped `foliagePrimary` (see shared/palette.ts's
- * `foliageShadowTint`) for some shadow depth, instead of one flat tone.
+ * towards `glow` (the palette's "colour of light" — already warm on most
+ * palettes, paler on Sunlit pastel) and deepened towards a lightness-capped
+ * `foliagePrimary` (see shared/palette.ts's `foliageShadowTint`) for some
+ * shadow depth, instead of one flat tone.
  */
 function centerAnchors(palette: ColorPalette): HslColor[] {
   const core = new THREE.Color(palette.core)

@@ -60,6 +60,20 @@ import * as THREE from 'three'
  *   grade's shadow/highlight tint (effects/PaletteGrade.tsx) — can actually
  *   reach a wide lightness range regardless of how strongly those consumers
  *   push towards "dark"/"light". These fill that gap directly.
+ *
+ * The 5 palettes below `Sunlit pastel` are designed role-first rather than
+ * matched against a reference photo: each one starts from a short plain-
+ * language brief (what the ground/grass should feel like, what colour the
+ * flowers lead with) and every hex is picked for the specific job its role
+ * actually does downstream (see `deriveEnvironmentColors`,
+ * flowerField/palette.ts, materials.ts) rather than for how it looks as an
+ * isolated swatch — `background` is picked knowing it dominates the visible
+ * *ground* far more than the sky, `glow` knowing it has to stay genuinely
+ * bright/colourful because it's the actual key-light tint, and so on. That
+ * sidesteps the mismatch hand-picking hex against a photo kept running
+ * into: this renderer's lighting multiply + grade/bloom/haze pipeline sits
+ * between a palette's raw hex and the final pixel, so a hex chosen to *look
+ * like* the target on its own rarely survives that pipeline unchanged.
  */
 export interface ColorPalette {
   name: string
@@ -80,64 +94,6 @@ export interface ColorPalette {
 
 export const PALETTES: readonly ColorPalette[] = [
   {
-    name: 'Golden hour meadow',
-    background: '#E9EEC7',
-    backgroundSecondary: '#4E6B44',
-    glow: '#F6D460',
-    foliagePrimary: '#24392B',
-    foliageSecondary: '#415C3C',
-    petalPrimary: '#6B7FB0',
-    petalSecondary: '#F08A1E',
-    petalTertiary: '#AE8467',
-    core: '#F5C93A',
-    accent: '#FBEFA0',
-    stem: '#1E2E22',
-    deepShade: '#0A140F',
-    paleLight: '#FCFBF0',
-  },
-  {
-    name: 'Emerald dahlia',
-    background: '#12503D',
-    backgroundSecondary: '#1F6E52',
-    glow: '#ECB77F',
-    foliagePrimary: '#0C3A2C',
-    foliageSecondary: '#195E47',
-    petalPrimary: '#F4CBD6',
-    petalSecondary: '#E88CA3',
-    petalTertiary: '#EEACBC',
-    core: '#E8A85C',
-    accent: '#D45C7C',
-    stem: '#2B2015',
-    deepShade: '#051F17',
-    paleLight: '#FDF8F5',
-  },
-  {
-    name: 'Monarch sky',
-    // Every prominent role's lightness raised (same hue/saturation,
-    // higher L) — the render was reading generally too dark. `core`
-    // stays untouched: it's deliberately dark on this one palette (the
-    // monarch's near-black wing marking, not a light colour, see below),
-    // so it's not one of the "prominent" colours this was about.
-    background: '#5898D0',
-    // `glow` reads `groundAccent` here rather than `core` (this palette's
-    // usual glow source, see the registry-wide note below) — `core` is
-    // deliberately dark on this one palette (the monarch's near-black wing
-    // marking, not a light colour), so the sky-blue groundAccent stands in
-    // as this theme's actual "colour of light" instead.
-    backgroundSecondary: '#3C83AE',
-    glow: '#A7D1E7',
-    foliagePrimary: '#355530',
-    foliageSecondary: '#396A61',
-    petalPrimary: '#ED9D4F',
-    petalSecondary: '#F6BA65',
-    petalTertiary: '#F2AA5A',
-    core: '#2B1B0E',
-    accent: '#F5D9CF',
-    stem: '#26402B',
-    deepShade: '#060F16',
-    paleLight: '#F7FAFC',
-  },
-  {
     name: 'Sunlit pastel',
     background: '#F5ECE1',
     backgroundSecondary: '#BFDCD2',
@@ -154,197 +110,181 @@ export const PALETTES: readonly ColorPalette[] = [
     paleLight: '#F5F9F8',
   },
   {
-    name: 'Twilight garden',
-    background: '#142819',
-    backgroundSecondary: '#102114',
-    // Nudged off `core` (`#D9B95C`) towards `paleLight` — this palette has
-    // no dedicated `highlight` stop to blend in the way the registry-wide
-    // note below describes, so falling straight back to `core` would leave
-    // `glow` an exact duplicate of it.
-    glow: '#DFC578',
-    foliagePrimary: '#3C5A38',
-    foliageSecondary: '#344F31',
-    petalPrimary: '#7C93D6',
-    petalSecondary: '#EAF0E8',
-    petalTertiary: '#B3C2DF',
-    core: '#D9B95C',
-    accent: '#D98A7A',
-    stem: '#274627',
-    deepShade: '#081209',
-    paleLight: '#F8FBF7',
+    name: 'Poppy petal',
+    // Ground/grass lean warm green rather than neutral — `background` is
+    // what actually dominates the visible bare-ground patches (see
+    // `deriveEnvironmentColors`'s `dry`, weighted 70% towards it), so this
+    // needs to read as warm ground on its own, not just as a sky tint. Its
+    // remaining 30% is `BASE_DIRT` (environment/paletteColors.ts's fixed
+    // warm-brown soil anchor) — that's what supplies "faint brown details
+    // across" the ground without needing a dedicated role for it.
+    background: '#D9CBA3',
+    backgroundSecondary: '#B9D6E0',
+    // Warm gold sunlight — bright and saturated on purpose (this tints the
+    // actual key light, see the class docstring's `glow` note), which is
+    // also what lets the poppy orange below bloom convincingly instead of
+    // just sitting there as flat colour.
+    glow: '#F6C568',
+    foliagePrimary: '#4A5A28',
+    foliageSecondary: '#7C8C4A',
+    // All three petal anchors and `core` stay in one tight orange family —
+    // value/chroma varies (bright/mid/deep), hue doesn't. That's the actual
+    // mechanism behind "orange leads with clear contrast": a petal family
+    // spread across three different hues reads as *variety*, not a single
+    // dominant colour punching through a green field the way the brief
+    // wants.
+    petalPrimary: '#E8541A',
+    petalSecondary: '#F27C1E',
+    petalTertiary: '#C93F14',
+    core: '#D9430F',
+    // Leans orange rather than a neutral gold — this blends into the
+    // flower centres' pollen warmth (materials.ts), so keeping it in-family
+    // reinforces the centre reading as the same stark orange as the
+    // petals, not a separate yellow dot.
+    accent: '#F2831A',
+    stem: '#4F4522',
+    // Tinted to the petal family's own orange rather than a neutral
+    // dark/cream — this is also the two-point grade's global shadow/
+    // highlight tint (effects/PaletteGrade.tsx), and the petal sampling's
+    // near-black/near-white extremes (flowerField/palette.ts's
+    // `petalAnchors`), so a neutral choice here would put a stray
+    // grey-green or plain cream flower into an otherwise orange-led field.
+    deepShade: '#33150A',
+    paleLight: '#FBE4C4',
   },
   {
-    name: 'Minted bloom',
-    background: '#6FA695',
-    backgroundSecondary: '#F5ECE1',
-    glow: '#F3B656',
-    foliagePrimary: '#2E5548',
-    foliageSecondary: '#B9BFB3',
-    petalPrimary: '#F3C23C',
-    petalSecondary: '#E8752B',
-    petalTertiary: '#EE9C34',
-    core: '#F2A93D',
-    accent: '#D8503F',
-    stem: '#4A7A68',
-    deepShade: '#0A1F19',
-    paleLight: '#FBF6EE',
-  },
-  // The 5 palettes below are derived from photographic tonal ramps (source
-  // photos' actual extracted stops, darkest to lightest) rather than
-  // hand-picked anchors like the 5 above — `deepShade`/`paleLight` are
-  // direct copies of each ramp's own deepShadow/specular stops (that's
-  // exactly what those two roles are for), and every other role is mapped
-  // from whichever ramp stop reads as that role in the source photo, nudged
-  // slightly off any stop already used for a different role so no two
-  // roles within one palette collide on the exact same hex — same
-  // discipline the original 5 needed fixing for earlier.
-  {
-    name: 'Nocturne teal',
-    // Re-matched directly against the source photo (heavily blurred pale
-    // white/grey-blue blooms against a near-black green ground) — the
-    // ground/shadow family stays genuinely dark here, that's authentic to
-    // the reference, not the earlier "everything reads muddy" bug. What
-    // was actually wrong: the petals were a vivid saturated turquoise that
-    // doesn't exist anywhere in the source (its blooms are pale, almost
-    // desaturated white-grey), and `glow` was too dim/cool to light the
-    // scene — both fixed below, which gets the dark-ground-plus-pale-bloom
-    // contrast the reference has without needing to prop the ground up.
-    background: '#0E2A1C',
-    backgroundSecondary: '#081810',
-    glow: '#C4D2CC',
-    foliagePrimary: '#123A26',
-    foliageSecondary: '#1E5038',
-    petalPrimary: '#D4DBD8',
-    petalSecondary: '#C4CDC8',
-    petalTertiary: '#DCD4CC',
-    core: '#B8935C',
-    accent: '#D3DFDB',
-    stem: '#0A2318',
-    deepShade: '#050D0A',
-    paleLight: '#F2F6F4',
+    name: 'Daisies',
+    // Cooler-leaning than Poppy petal's ground on purpose — a calm, slightly
+    // overcast-feeling green rather than a sunbaked one.
+    background: '#D7E0D2',
+    backgroundSecondary: '#C7D9DE',
+    // Grass gets its "bright yellow accent" for free from this: every
+    // grass-blade swatch in `deriveEnvironmentColors` mixes a little
+    // `glow` into an otherwise-green base, so a vivid yellow `glow` shows
+    // up as scattered warm flecks across mostly-green grass rather than
+    // needing a colour role of its own.
+    glow: '#F2C230',
+    foliagePrimary: '#3C5240',
+    foliageSecondary: '#6B8A5C',
+    // Crisp white/cream, not flat identical hex — enough spread for the
+    // per-instance jitter (flowerField/palette.ts) to still read as
+    // texture rather than a single flat white cutout.
+    petalPrimary: '#F7F6EE',
+    petalSecondary: '#FBFAF3',
+    petalTertiary: '#F2F0E4',
+    // Strong yellow centre — shares its hue with `glow` above so the
+    // centre-anchor blend towards `glow` (flowerField/palette.ts's
+    // `centerAnchors`) deepens/enriches the same yellow instead of pulling
+    // it towards an unrelated colour.
+    core: '#E8A800',
+    accent: '#F5D24A',
+    stem: '#2E4023',
+    // Deliberately near-neutral, not hue-tinted like the other new
+    // palettes' `deepShade` — this is also the petal family's near-black
+    // extreme (flowerField/palette.ts's `petalAnchors`, folded into petal
+    // sampling at real weight), and the petals here are meant to be *only*
+    // white — a saturated brown here would put a visibly off-hue flower
+    // into an otherwise all-white field. Low enough saturation to read as
+    // "white in deep shadow," not a competing colour.
+    deepShade: '#171512',
+    paleLight: '#FCFBF6',
   },
   {
-    name: 'Daisy meadow',
-    background: '#EAE1B8',
-    backgroundSecondary: '#95A457',
-    glow: '#F2B705',
-    // Lightened towards the source photo's actual grass (a moderate olive
-    // green, not this dark) — closest-matching of the batch already, this
-    // and `core` below (brightened to the source's own vivid golden
-    // centres) were the only real gaps.
-    foliagePrimary: '#3A4C1E',
-    foliageSecondary: '#708A2E',
-    // All three petal anchors are white/cream now — they were previously
-    // yellow (`#F1BD20`/`#EECC5E`), which muddied the white-petals/yellow-
-    // centre distinction real daisies have. `core`/`accent` below carry the
-    // yellow instead, so it reads as the flower's centre, not its petals.
-    petalPrimary: '#F3EFD8',
-    petalSecondary: '#F5F5EC',
-    petalTertiary: '#F2E9DE',
+    name: 'Potpourri',
+    // Ground/grass copied from Daisies exactly — same field, deliberately
+    // diverse flowers planted in it.
+    background: '#D7E0D2',
+    backgroundSecondary: '#C7D9DE',
+    glow: '#F2C230',
+    foliagePrimary: '#3C5240',
+    foliageSecondary: '#6B8A5C',
+    // Bright yellow, hot pink, crisp white — three genuinely different
+    // hues rather than one family's value range, so the sampled field
+    // actually reads as a mixed bouquet instead of one dominant colour with
+    // stray accents.
+    petalPrimary: '#F5C518',
+    petalSecondary: '#EC3F82',
+    petalTertiary: '#F7F5EC',
+    // A warm gold-orange centre reads as believable pollen against all
+    // three petal hues at once, where a colour pulled from any single one
+    // of them would clash with the other two.
+    core: '#EFA51C',
+    accent: '#F2D24A',
+    stem: '#2E4023',
+    // Warm neutral rather than the ground's cool green — with three
+    // different petal hues there's no single family to tint towards, so
+    // this stays close to black with just enough warmth to sit comfortably
+    // behind yellow/pink/white rather than reading as a leftover green.
+    deepShade: '#1C130F',
+    paleLight: '#FCFBF6',
+  },
+  {
+    name: 'Baby Blue Eyes',
+    // Neutral warm sand rather than green — the "mix of cool and warm
+    // green" the brief describes lives entirely in foliagePrimary/Secondary
+    // below; letting background stay green too would just flatten that mix
+    // into "all one green" once it dominates the bare-ground patches.
+    background: '#D8D3B0',
+    backgroundSecondary: '#BFE0EC',
+    // Warm cream sunlight — deliberately warm despite the cool flowers, the
+    // complementary warm-light/cool-petal contrast is what makes the blue
+    // actually pop rather than just sitting there as another cool tone.
+    glow: '#F5E7B8',
+    // The cool/warm green mix the brief asks for, mapped directly onto the
+    // two greenery roles instead of split across background/grass —
+    // foliagePrimary reads as this palette's "cool" grass, foliageSecondary
+    // as its "warm" grass, and `deriveEnvironmentColors` blends both into
+    // every grass swatch, so the mix shows up as real texture rather than
+    // a single averaged-out green.
+    foliagePrimary: '#3A5648',
+    foliageSecondary: '#6B7A3A',
+    // Pushed noticeably more saturated than a literal dusty "baby blue"
+    // would be — against a warm sand/cream ground and light, a softer blue
+    // read as washed-out rather than popping the way the brief's "popping
+    // blue" asks for.
+    petalPrimary: '#3CAEEC',
+    petalSecondary: '#1785D3',
+    petalTertiary: '#88D0F2',
+    // Stark white centre.
+    core: '#F7F8F5',
+    // A small warm-gold fleck in the centres' pollen warmth — real pale
+    // flowers still show a warm throat/pollen note even with a white face.
+    accent: '#F0C168',
+    stem: '#37472A',
+    deepShade: '#0E1A18',
+    paleLight: '#FBFCF9',
+  },
+  {
+    name: 'Lupine',
+    // Ground and grass both lean into the "waterlike light blue" the brief
+    // asks for — this is the same mechanism a light, off-green
+    // foliagePrimary/Secondary already needed elsewhere in this registry
+    // (see Baby Blue Eyes above): `deriveEnvironmentColors` weights
+    // foliagePrimary/Secondary heavily enough into the grass/vegetation mix
+    // that a blue anchor reads as blue grass rather than getting pulled
+    // back to green by the mix's own fixed green base.
+    background: '#B9D9E8',
+    backgroundSecondary: '#8FC3DE',
+    foliagePrimary: '#6FA8C4',
+    foliageSecondary: '#4E8FAE',
+    // Warm gold sunlight glinting off a blue field — and shares its hue
+    // with the petals below, so bloom/glow around a flower and the flower's
+    // own colour read as one warm-on-blue idea rather than two unrelated
+    // colours.
+    glow: '#F5D77A',
+    petalPrimary: '#F0B518',
+    petalSecondary: '#E0A012',
+    petalTertiary: '#F7DC7A',
+    // Deeper gold-orange centre for definition against the petals' yellow.
     core: '#E8940F',
-    accent: '#F5C93A',
-    stem: '#223210',
-    deepShade: '#0E1808',
-    paleLight: '#FBFAF3',
-  },
-  {
-    name: 'Grass and sky',
-    // background/petalPrimary/Secondary nudged off pure near-white towards
-    // the source photo's own dustier, more saturated sky-blue — the
-    // reference has no stark white anywhere, just a fairly even midtone
-    // spread between sunlit green and soft blue.
-    background: '#C9DDE8',
-    backgroundSecondary: '#BEDCEC',
-    glow: '#7CB238',
-    // Lightened towards the source's actual sunlit blade colour — it reads
-    // considerably less dark/saturated than this was.
-    foliagePrimary: '#3D5620',
-    foliageSecondary: '#5C8028',
-    petalPrimary: '#B8D4E3',
-    petalSecondary: '#CFE3EE',
-    // Was `#40611B` — green, the same hue as foliagePrimary/Secondary
-    // above, so a third of the petal family was accidentally "grass"
-    // coloured. A clear, more saturated sky blue keeps every petal anchor
-    // in the blue family (and adds real variety next to Primary/Secondary,
-    // which are both near-white pale blue on their own).
-    petalTertiary: '#9CC3D9',
-    core: '#A8B850',
-    accent: '#CDE4F0',
-    stem: '#1B2A0E',
-    // Nudged from green-black to blue-black — this is still primarily the
-    // petal family's near-black extreme (see shared/generative petal
-    // sampling), so it stays hue-true to "petals are blue" even at the
-    // dark end.
-    deepShade: '#142012',
-    paleLight: '#EFF6FA',
-  },
-  // Lily pond was originally one of the tonal-ramp palettes above, but got
-  // superseded by a fuller-range revision of its own source photo (same
-  // mapping approach as the registry's original 6 — see their own comments)
-  // that fixed clustered midtone contrast the ramp version had. Left in
-  // this position rather than moved, since the array's order has no
-  // functional meaning (lookup is by name — see findPaletteByName below).
-  {
-    name: 'Lily pond',
-    // Re-matched directly against the source photo — its water reads as a
-    // pale grey-sage wash, not the dark teal this was, and its lily
-    // flowers are a soft pastel pink/white, not the vivid saturated
-    // pink/orange the previous version pushed towards (that was tuned for
-    // "more vibrant" against a *dark* ground; against this much lighter,
-    // gentler ground the vivid version would clash rather than pop).
-    background: '#A8BDB8',
-    backgroundSecondary: '#E8B98A',
-    // Desaturated from a more vivid `#E8935A` — glow tints the actual key
-    // light colour (SceneLighting.tsx), and at that saturation a strong
-    // key light multiplying over *any* underlying surface (including the
-    // pale water background above) pushed the whole rendered ground
-    // towards saturated orange-brown regardless of its own albedo. Same
-    // warm hue/lightness, just paler, so the light stops overpowering
-    // what it's lighting. Confirmed by a near-white diagnostic swap: that
-    // shifted the rendered ground off orange as expected, but it stayed
-    // darker/more olive than the source's pads — foliagePrimary/Secondary
-    // below (the lily pads' own colour, which is what actually dominates
-    // the visible "ground" here, not `background` — see
-    // environment/paletteColors.ts) needed brightening on top of this, not
-    // instead of it.
-    glow: '#E8D4B8',
-    foliagePrimary: '#8FA878',
-    foliageSecondary: '#A8B888',
-    petalPrimary: '#E8A0C0',
-    petalSecondary: '#C85A2E',
-    petalTertiary: '#F0EAE0',
-    core: '#E8B33C',
-    accent: '#E8A868',
-    stem: '#24453D',
-    deepShade: '#12241F',
-    paleLight: '#FEFAF0',
-  },
-  {
-    name: 'Marigold haze',
-    // Re-matched directly against the source photo — a bright, high-key
-    // ICM blur with essentially no true shadow anywhere (its darkest
-    // visible tone is a medium warm brown, nothing near-black) and a
-    // noticeably lighter, dustier sky-blue than this had. `deepShade`/
-    // `core` in particular came down from near-black to that same medium
-    // brown, since pushing them dark was manufacturing shadow depth the
-    // reference simply doesn't have.
-    background: '#A8CEE3',
-    backgroundSecondary: '#F7EFDD',
-    glow: '#F0A21C',
-    // foliagePrimary/foliageSecondary/stem stay in the sky-blue family
-    // (grass/ground reading as this palette's light-blue "sky colour" was
-    // the specific ask that shaped this palette), just lightened to match
-    // the reference's own brightness rather than this darker version.
-    foliagePrimary: '#6FA8C9',
-    foliageSecondary: '#8FC0DE',
-    petalPrimary: '#F0A429',
-    petalSecondary: '#E8850A',
-    petalTertiary: '#F7EFD0',
-    core: '#7A4E12',
-    accent: '#E8B54A',
-    stem: '#5A8CAD',
-    deepShade: '#5C3D14',
-    paleLight: '#FDF7E6',
+    accent: '#F5D24A',
+    // Blue-green rather than plain garden-green — ties the stems into the
+    // water theme instead of reading as a mismatched normal plant.
+    stem: '#3E6B5E',
+    // Dark gold-brown, tinted to the yellow petal family — not the ground's
+    // blue, same reasoning as Daisies'/Poppy petal's own `deepShade` above.
+    deepShade: '#241A06',
+    paleLight: '#FBF3D8',
   },
 ]
 
