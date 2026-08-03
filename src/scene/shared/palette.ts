@@ -203,7 +203,15 @@ export const PALETTES: readonly ColorPalette[] = [
     // actually reads as a mixed bouquet instead of one dominant colour with
     // stray accents.
     petalPrimary: '#F5C518',
-    petalSecondary: '#EC3F82',
+    // Pushed to near-maximum saturation — measured directly that a more
+    // moderate magenta lost roughly half its saturation by the time it hit
+    // the screen (checked pixel-for-pixel against the raw sampled colour).
+    // The warm yellow `glow` above is what does it: lighting is a multiply
+    // against albedo, and yellow light has almost no blue component to
+    // multiply against, so anything on the blue/magenta side of the wheel
+    // gets its blue channel crushed towards red/orange — a punchier magenta
+    // going in is what survives as an actually-visible hot pink coming out.
+    petalSecondary: '#FF1492',
     petalTertiary: '#F7F5EC',
     // A warm gold-orange centre reads as believable pollen against all
     // three petal hues at once, where a colour pulled from any single one
@@ -238,13 +246,17 @@ export const PALETTES: readonly ColorPalette[] = [
     // a single averaged-out green.
     foliagePrimary: '#3A5648',
     foliageSecondary: '#6B7A3A',
-    // Pushed noticeably more saturated than a literal dusty "baby blue"
-    // would be — against a warm sand/cream ground and light, a softer blue
-    // read as washed-out rather than popping the way the brief's "popping
-    // blue" asks for.
-    petalPrimary: '#3CAEEC',
-    petalSecondary: '#1785D3',
-    petalTertiary: '#88D0F2',
+    // Pushed to near-maximum saturation, then pushed again after measuring
+    // the actual rendered pixels: the key light's colour (`glow`) is a
+    // multiply against albedo, and even this warm cream has nowhere near as
+    // much blue as these petals do, so the blue channel loses proportionally
+    // more than red/green do — same effect as Potpourri's `petalSecondary`
+    // above, just milder here since this `glow` at least has *some* blue
+    // (unlike Potpourri's pure yellow one). Confirmed directly: the previous
+    // value's peak on-screen saturation was roughly half its source value.
+    petalPrimary: '#1FADFF',
+    petalSecondary: '#007FE0',
+    petalTertiary: '#74D0FB',
     // Stark white centre.
     core: '#F7F8F5',
     // A small warm-gold fleck in the centres' pollen warmth — real pale
