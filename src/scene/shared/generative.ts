@@ -1,8 +1,92 @@
 import { CAMERA_CONFIG } from '../camera/config'
 import { POST_PROCESSING_CONFIG } from '../effects/config'
+import { frustumWidthHalfAt } from './frustum'
+import type { MeadowLayoutConfig } from './meadowLayout'
+import { sampleMeadowClusterField } from './meadowLayout'
+import { createMeadowLayout } from './meadowLayoutConfig'
 import type { ColorPalette } from './palette'
 import { findPaletteByName, PALETTES } from './palette'
 import { createRng, gaussianish, range } from './random'
+
+/**
+ * How many candidate cluster-centre draws `deriveGenerativeState`'s camera
+ * aim tries before settling for whichever landed on the highest meadow
+ * cluster density seen — see that function's own comment for why this
+ * exists at all. Not "until a good one is found and stop" without a cap:
+ * every draw still has to consume `cameraRng` deterministically for a given
+ * seed to stay reproducible, and an unbounded loop would too if a seed's
+ * meadow genuinely has no dense spot within the search radius at all.
+ */
+const CLUSTER_AIM_RETRY_ATTEMPTS = 20
+/** "Good enough" meadow cluster density (see `sampleMeadowClusterField`'s [0, 1] range) to stop retrying at — comfortably above the meadow's own gap floor (0.03) without demanding the absolute peak. */
+const CLUSTER_AIM_DENSITY_MIN = 0.35
+/**
+ * How far from the base target point (in each of x/z) the cluster-aim
+ * search above is willing to look for a better spot — deliberately wider
+ * than any single preset's own `targetOffset`, since the whole point is
+ * reaching *past* a preset's narrow window into a neighbouring cluster
+ * when that window itself sits inside one contiguous low-density region.
+ * `clusterFrequency` 0.05 (meadowLayoutConfig.ts) puts clusters roughly 20
+ * units apart; ±9 comfortably reaches the nearest one in most cases without
+ * searching so far the shot stops being a plausible jitter around the
+ * original composition.
+ */
+const CLUSTER_SEARCH_RADIUS: OffsetRange = [-9, 9]
+
+/**
+ * Sample-point offsets `sampleClusterAreaDensity` averages over, world
+ * units. A single-point `sampleMeadowClusterField` read is dominated by
+ * whichever of its two blended noise layers happens to spike right at that
+ * exact coordinate — `detailFrequency`0.22 is high enough to swing a point
+ * from "gap" to "looks dense" over just a couple of world units, even inside
+ * a broad region the *low*-frequency `clusterFrequency`0.05 layer (the one
+ * that actually corresponds to "a cluster of flowers is here", not fine
+ * texture within one) says is genuinely sparse. Verified directly: seeds
+ * 1111 and 1814 both had a lucky single-point spike pass the density search,
+ * landing the camera on what was really still an empty area with one
+ * detail-noise blip — averaging a small cross of points a few units apart
+ * cancels that high-frequency component out and leaves mostly the
+ * low-frequency signal the search is actually meant to be following.
+ */
+const CLUSTER_AREA_SAMPLE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
+  [0, 0],
+  [3, 0],
+  [-3, 0],
+  [0, 3],
+  [0, -3],
+]
+
+function sampleClusterAreaDensity(x: number, z: number, layout: MeadowLayoutConfig): number {
+  let sum = 0
+  for (const [dx, dz] of CLUSTER_AREA_SAMPLE_OFFSETS) {
+    sum += sampleMeadowClusterField(x + dx, z + dz, layout)
+  }
+  return sum / CLUSTER_AREA_SAMPLE_OFFSETS.length
+}
+
+/**
+ * Safety margin against `frustumWidthHalfAt`'s own half-width, below — a
+ * candidate right at the boundary is still in the thinly-populated fringe
+ * the flower field's own edge falloff leaves sparse, not the solid interior
+ * the density search is trying to land on.
+ */
+const CLUSTER_FRUSTUM_MARGIN = 0.85
+
+/**
+ * `sampleMeadowClusterField`/`sampleClusterAreaDensity` are pure noise over
+ * *all* of world space — they have no idea the flower field itself only
+ * actually spawns instances inside the camera's own widening frustum
+ * (`frustumWidthHalfAt`, shared/frustum.ts): narrow near the camera, wider
+ * far away. Without this check, the search can (and for seeds 1111/1814,
+ * did) "find" a world position the noise field calls dense, that's simply
+ * outside where any flower was ever placed — an abstractly-dense coordinate
+ * in empty space, landing the camera on nothing. Every candidate the search
+ * considers has to actually be inside the field's real populated area, not
+ * just score well on the density field alone.
+ */
+function isWithinMeadowFrustum(x: number, z: number): boolean {
+  return Math.abs(x) <= frustumWidthHalfAt(z) * CLUSTER_FRUSTUM_MARGIN
+}
 
 /**
  * Everything in this scene — flower placement/species/colour, the meadow's
@@ -333,6 +417,73 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   const [baseX, baseY, baseZ] = CAMERA_CONFIG.position
   const [targetX, targetY, targetZ] = CAMERA_CONFIG.target
   const shotPreset = pickCameraShotPreset(cameraRng)
+
+  // The target's x/z jitter used to be a single independent draw — the
+  // camera had no idea where the meadow's own generated content actually
+  // was, so it could (and, sampled across enough seeds, did) land pointed
+  // at one of the meadow's own low-density "gaps" (shared/meadowLayout.ts's
+  // `densityFloor` deliberately allows clearings as sparse as 3% of peak
+  // density, for realism) purely by chance, rendering as a near-empty
+  // frame — a handful of distant/heavily-blurred flowers over what's
+  // otherwise just ground/haze, regardless of how much content exists
+  // elsewhere in the same field.
+  //
+  // Two stages, not one rejection-sampling pass over each preset's own
+  // (small) `targetOffset`: measured directly that for a real fraction of
+  // seeds, that whole narrow window sits inside one contiguous low-density
+  // region (clusters are ~20 units apart at `clusterFrequency`0.05 — easily
+  // wider than a ±1-3 unit preset offset), so no amount of retries *inside
+  // it* ever finds anything better. `CLUSTER_SEARCH_RADIUS` searches a
+  // window wide enough to reliably reach a neighbouring cluster instead,
+  // landing on a genuinely good general area; each preset's own
+  // `targetOffset` is then applied as before, as fine composition variety
+  // *around* that area rather than around the fixed base target point —
+  // still exactly as much per-preset framing character, just centred on
+  // real content.
+  // Its own RNG stream, deliberately not `cameraRng` — this loop's iteration
+  // count varies per seed (it early-exits the moment a candidate clears
+  // `CLUSTER_AIM_DENSITY_MIN`), so drawing from the same stream `cameraRng`
+  // used just below it would shift *every* subsequent position/targetOffset
+  // draw by a different amount seed to seed. Verified directly: that
+  // shared-stream version fixed some of the originally-flagged seeds but
+  // made others (e.g. 1111, 1814) render emptier than before, because it was
+  // really just re-rolling the camera position/offset jitter under a
+  // different name, not landing it on better content — the density search
+  // has to be fully decoupled from `cameraRng`'s own draw sequence for the
+  // rest of this function to keep meaning what it says.
+  //
+  // Only actually search when the base target point itself is sparse.
+  // Running the search unconditionally for every seed — even ones whose
+  // original (untouched) aim was already fine — still changes the shot for
+  // those seeds too, since the search's own candidate (0, 0) isn't
+  // guaranteed to win against a denser-but-still-fine spot nearby; verified
+  // directly that doing it unconditionally regressed seeds 1111 and 1814,
+  // which were never actually landing on a gap in the first place. Checking
+  // the base point first means a seed that was already fine keeps its exact
+  // original framing — this only ever redirects the seeds that need it.
+  const meadowLayout = createMeadowLayout(seed + SEED_OFFSETS.meadowLayout)
+  let clusterCenterX = 0
+  let clusterCenterZ = 0
+  let bestClusterDensity = sampleClusterAreaDensity(targetX, targetZ, meadowLayout)
+
+  if (bestClusterDensity < CLUSTER_AIM_DENSITY_MIN) {
+    const clusterSearchRng = createRng(seed + SEED_OFFSETS.camera + 50_000)
+    for (let attempt = 0; attempt < CLUSTER_AIM_RETRY_ATTEMPTS; attempt++) {
+      const candidateX = range(clusterSearchRng, ...CLUSTER_SEARCH_RADIUS)
+      const candidateZ = range(clusterSearchRng, ...CLUSTER_SEARCH_RADIUS)
+      const worldX = targetX + candidateX
+      const worldZ = targetZ + candidateZ
+      if (!isWithinMeadowFrustum(worldX, worldZ)) continue
+      const density = sampleClusterAreaDensity(worldX, worldZ, meadowLayout)
+      if (density > bestClusterDensity) {
+        bestClusterDensity = density
+        clusterCenterX = candidateX
+        clusterCenterZ = candidateZ
+      }
+      if (density >= CLUSTER_AIM_DENSITY_MIN) break
+    }
+  }
+
   const camera: GenerativeCamera = {
     position: [
       baseX + range(cameraRng, ...shotPreset.positionOffset[0]),
@@ -340,9 +491,9 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
       baseZ + range(cameraRng, ...shotPreset.positionOffset[2]),
     ],
     target: [
-      targetX + range(cameraRng, ...shotPreset.targetOffset[0]),
+      targetX + clusterCenterX + range(cameraRng, ...shotPreset.targetOffset[0]),
       targetY + range(cameraRng, ...shotPreset.targetOffset[1]),
-      targetZ + range(cameraRng, ...shotPreset.targetOffset[2]),
+      targetZ + clusterCenterZ + range(cameraRng, ...shotPreset.targetOffset[2]),
     ],
   }
 
