@@ -86,7 +86,13 @@ export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPalet
   // grass more distinctly *that palette's* green instead of a shared
   // generic default — the "cohesive" goal this file already states.
   const groundColors: GroundColors = {
-    dry: mix(mix(BASE_DIRT, palette.glow, 0.15), palette.background, 0.2),
+    // `background` weight raised again (was 0.2) — worn-path patches (see
+    // groundColor.ts's `1 - path` pull towards `dry`) turned out to
+    // dominate far more of a typical close-up framing than `sparse`/`lush`
+    // do, so `dry` staying mostly BASE_DIRT+`glow` left the *actual*
+    // visible ground still reading as plain warm dirt regardless of the
+    // `sparse`/`lush` fix above.
+    dry: mix(mix(BASE_DIRT, palette.glow, 0.1), palette.background, 0.5),
     sparse: mix(BASE_GREEN_SPARSE, palette.foliagePrimary, 0.5),
     lush: mix(BASE_GREEN_LUSH, palette.foliagePrimary, 0.55),
     shadow: mix(BASE_GREEN_LUSH, shadowTint, 0.65),
