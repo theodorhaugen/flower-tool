@@ -163,16 +163,23 @@ export const PALETTES: readonly ColorPalette[] = [
   {
     name: 'Nocturne teal',
     background: '#123328',
-    backgroundSecondary: '#081510',
+    // backgroundSecondary/foliagePrimary/stem nudged up from the raw ramp's
+    // deepShadow/shadow stops — those stops stacked on every large-area role
+    // at once rendered as a near-black frame (measured: ~7/255 mean
+    // brightness vs 20-50/255 for this tool's other palettes), since unlike
+    // the source photo this renderer has no bright large-area anchor (sky,
+    // wide highlight) to offset them. Still the darkest of the palettes —
+    // just no longer darker than the scene's own lighting can make legible.
+    backgroundSecondary: '#0C221B',
     glow: '#3FA88C',
-    foliagePrimary: '#0D241C',
+    foliagePrimary: '#144033',
     foliageSecondary: '#227A63',
     petalPrimary: '#369A80',
     petalSecondary: '#B9CDC6',
     petalTertiary: '#32937A',
     core: '#C99A5B',
     accent: '#D3DFDB',
-    stem: '#0A1A14',
+    stem: '#0F2D24',
     deepShade: '#050D0A',
     paleLight: '#F2F6F4',
   },
