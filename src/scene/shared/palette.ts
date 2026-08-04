@@ -321,6 +321,56 @@ export const PALETTES: readonly ColorPalette[] = [
     deepShade: '#6B5106',
     paleLight: '#F9ECB8',
   },
+  {
+    name: 'Greenhouse bloom',
+    // Matched directly against a reference render rather than a plain-
+    // language brief — a warm, high-key still-life mood: terracotta and
+    // deep green up top, a soft rose bloom and a blown-out warm-white
+    // highlight through the middle, one cool blue note breaking the warmth,
+    // small muted brown-grey flecks, a deep brick red anchoring the bottom.
+    // Every anchor nudged a little lighter than the reference's own
+    // measured tone (as asked) — consistent with every other palette in
+    // this registry, a hex picked to *match* a reference on its own tends
+    // to render dimmer than intended once the lighting-multiply/grade/haze
+    // pipeline is done with it (see the class docstring above).
+    background: '#F2E6D2',
+    // Warm, not the reference's blue glass note — `backgroundSecondary`
+    // drives the horizon/fog atmosphere actually visible in a tight macro
+    // framing (see `deriveEnvironmentColors`), not a distant zenith sky, so
+    // a saturated blue here dominated the whole visible backdrop instead of
+    // staying the small accent it is in the reference. That note lives in
+    // `accent` alone instead — sparing, the way it actually reads there.
+    backgroundSecondary: '#EAD9BC',
+    // Warm peachy light — bright and colourful on purpose, same as every
+    // other palette's `glow` (the class docstring's note on why this role
+    // specifically can't just be a pale neutral).
+    glow: '#F0C9A0',
+    foliagePrimary: '#26432E',
+    foliageSecondary: '#5C7A46',
+    // The three petal anchors span the reference's own warm bloom
+    // colours — coral-pink, terracotta-orange, brick-red — rather than one
+    // tight family, matching a still life's genuinely mixed warm palette
+    // instead of one dominant hue.
+    petalPrimary: '#E8A79C',
+    petalSecondary: '#E37A45',
+    petalTertiary: '#B04A3D',
+    // The reference's small muted brown-grey flecks (visible against the
+    // bright highlight) — a real, grounded "centre" tone rather than
+    // something invented for the role.
+    core: '#6B5F56',
+    // The one cool note breaking an otherwise all-warm reference — kept as
+    // a small, sparing accent (its actual role, per the class docstring)
+    // rather than promoted to a petal anchor, so it reads as a detail the
+    // way it does in the reference, not a second competing petal family.
+    accent: '#5C93AC',
+    stem: '#4A4A32',
+    // Dark warm red-brown and pale warm cream — tinted to the petal
+    // family's own warm hues (the reference's darkest/lightest visible
+    // tones) rather than a neutral black/white, same reasoning as every
+    // other palette's `deepShade`/`paleLight` in this registry.
+    deepShade: '#2E1512',
+    paleLight: '#FBF3E8',
+  },
 ]
 
 /** Exact-name lookup, used by shared/generative.ts to let a `?palette=` override win over the seed-picked one. */
