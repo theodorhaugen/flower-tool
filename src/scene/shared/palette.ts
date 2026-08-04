@@ -338,10 +338,16 @@ export const PALETTES: readonly ColorPalette[] = [
     // visible dry-ground patches (`deriveEnvironmentColors`'s `dry`), so a
     // warm value here reads as a genuinely *hot* ground, not just a warm
     // mood. Ties the ground into the palette's one cool note rather than
-    // leaving it only on the petals, without pushing it fully blue —
-    // desaturated enough to still read as a plausible pale dirt/stone
-    // surface, not literally blue-tinted ground.
-    background: '#CBD3D8',
+    // leaving it only on the petals. Pushed a second time — the first,
+    // lightly-desaturated pass computed a `dry` result close to neutral
+    // grey (192, 193, 185, barely any hue at all) rather than something
+    // actually readable as blue: the remaining 30% of that mix is
+    // BASE_DIRT/`glow`, both warm, and diluted a soft blue back towards
+    // neutral. This is saturated enough to survive that dilution and land
+    // the computed ground colour clearly in the blue family (verified
+    // directly: ~134, 173, 192, hue ≈ 200°) instead of just cooler-than-
+    // before.
+    background: '#78B6E2',
     // Stays warm — unlike `background` above, this drives the horizon/fog
     // atmosphere actually visible in a tight macro framing (see
     // `deriveEnvironmentColors`), not the ground: a saturated blue here
