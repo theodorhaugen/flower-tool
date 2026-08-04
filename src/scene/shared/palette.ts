@@ -156,8 +156,36 @@ export const PALETTES: readonly ColorPalette[] = [
     name: 'Daisies',
     // Cooler-leaning than Poppy petal's ground on purpose — a calm, slightly
     // overcast-feeling green rather than a sunbaked one.
-    background: '#D7E0D2',
-    backgroundSecondary: '#C7D9DE',
+    //
+    // Darkened from an earlier '#D7E0D2' (lightness 0.85) — `background` is
+    // 70% of the actual visible bare-ground patches
+    // (environment/paletteColors.ts's `dry`), and at that lightness the
+    // *base* ground colour computed out to luminance 0.78 before any
+    // lighting/haze/bloom ever touched it. Confirmed via a controlled
+    // before/after render on the same seed that this alone barely moves the
+    // actual on-screen result (~1.5% luminance change) despite the formula
+    // itself dropping a real 15% — this role isn't what's actually washing
+    // the ground out. Still worth keeping darker (real, if minor, headroom),
+    // paired with the `backgroundSecondary` fix below that addresses the
+    // dominant cause.
+    background: '#A3BB95',
+    // Darkened from an earlier '#C7D9DE' (lightness 0.83) — this is what
+    // AtmosphericHaze.tsx's screen-space haze and environment/
+    // paletteColors.ts's `fogColor`/horizon fog both read (`background`
+    // above is the *sky top* and dry-ground albedo, a separate role from
+    // the actual air/haze colour). At 0.83 lightness, both of those veil
+    // the midground in something already close to white before any of
+    // their own strength/depth falloff is applied, which is what was
+    // actually reading as "very light areas in the ground" — a haze/fog
+    // wash sitting in front of the ground, not the ground's own colour.
+    // This role turned out to have far more leverage on the final image
+    // than `background` above — fog, screen-space haze, and volumetric
+    // scatter all compound on it — confirmed the hard way: an initial pass
+    // to lightness 0.48 (matching `background`'s own cut) measured an
+    // *overall frame* luminance drop of 58-75%, nowhere near the moderate
+    // "less washed out" this was going for. This is the corrected, much
+    // gentler cut. Same cool-blue "overcast" family throughout.
+    backgroundSecondary: '#A5C2CA',
     // Grass gets its "bright yellow accent" for free from this: every
     // grass-blade swatch in `deriveEnvironmentColors` mixes a little
     // `glow` into an otherwise-green base, so a vivid yellow `glow` shows
