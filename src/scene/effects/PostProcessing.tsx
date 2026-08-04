@@ -66,10 +66,20 @@ import { PaletteGrade } from './PaletteGrade'
  * - ChromaticAberration: radially modulated, so the colour fringing only
  *   shows up towards the edges the way a real lens's does, not as a
  *   full-frame colour shift.
- * - LensDistortion: a slight barrel bow, not a fisheye.
  * - LongExposureBlur: simulated handheld-long-exposure blur, blending in a
  *   decaying history of recent frames — driven by the scene's own existing
- *   camera drift, not a synthetic per-object velocity streak.
+ *   camera drift, not a synthetic per-object velocity streak. Listed
+ *   *before* LensDistortion (next), not after — LensDistortionEffect's own
+ *   shader hard-zeroes any pixel whose distorted UV lands outside [0, 1],
+ *   which is a real (if normally subtle) edge vignette, but this pass's
+ *   within-frame streak samples up to ~10% of the frame along the pan
+ *   direction (see LongExposureBlurPass.ts's `MAX_STREAK_UV`): with
+ *   distortion running first, a strong sweep dragged that black edge
+ *   visibly inward every time, turning a thin lens vignette into a wide
+ *   dark band specifically on blurred renders. Blurring first means
+ *   LensDistortion's own edge-blackening is the last thing applied to
+ *   those pixels, so there's nothing left downstream to smear it with.
+ * - LensDistortion: a slight barrel bow, not a fisheye.
  * - GrainOverlay: last, on top of the fully-formed image — a real
  *   photographed grain plate laid over the frame with a standard Overlay
  *   blend and a highlight falloff (dense in shadows/midtones, thinning
@@ -113,8 +123,8 @@ export function PostProcessing() {
         radialModulation={chromaticAberration.radialModulation}
         modulationOffset={chromaticAberration.modulationOffset}
       />
-      <LensDistortion />
       <LongExposureBlur />
+      <LensDistortion />
       <GrainOverlay />
     </EffectComposer>
   )
