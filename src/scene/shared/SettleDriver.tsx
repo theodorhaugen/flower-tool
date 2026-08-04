@@ -17,6 +17,16 @@ import { settleRequests, virtualClock } from './virtualClock'
 const SETTLE_VIRTUAL_SECONDS = CAMERA_CONFIG.sweep.periodSeconds
 
 /**
+ * Hard cap on how much virtual time a single real frame's `delta` is
+ * allowed to advance the burst by — see the `useFrame` callback below for
+ * why this exists at all. `1/20`s is comfortably smaller than
+ * `effects/config.ts`'s `motionBlur.halfLifeSeconds` (0.7s), so even a
+ * frame capped at this step still contributes a normal, small decay
+ * increment rather than a single huge jump.
+ */
+const MAX_VIRTUAL_STEP_SECONDS = 1 / 20
+
+/**
  * Drives `virtualClock.time` (shared/virtualClock.ts) through a short,
  * deterministic burst on mount and on every seed/parameter change, then
  * captures the result — this is the piece that turns "camera sweeps and
@@ -137,7 +147,25 @@ export function SettleDriver() {
 
     if (remainingRef.current <= 0) return
 
-    const step = Math.min(delta, remainingRef.current)
+    // `delta` also gets capped at `MAX_VIRTUAL_STEP_SECONDS`, not just
+    // `remainingRef.current` — the real frame right after a parameter
+    // change is often the one that has to rebuild the flower field's own
+    // geometry/materials, which can make that single real frame take far
+    // longer than a normal one. Left uncapped, that one slow frame's own
+    // `delta` could — and, verified directly, did — cover most or all of
+    // `SETTLE_VIRTUAL_SECONDS` by itself: the burst would end after that
+    // one frame, whose `elapsed` versus the *previous* burst's leftover
+    // `lastVirtualTime` is negative (a fresh-burst hard cut, see
+    // LongExposureBlurPass's own docstring), so it's captured with zero
+    // accumulated history and zero within-frame streak — grass, petals,
+    // and centres suddenly reading fully sharp despite a real Blur Length,
+    // right after changing an unrelated parameter. Capping the step forces
+    // the burst to keep going across however many *more* real frames
+    // (fast again, once that one rebuild is done) it actually takes to
+    // spend the full virtual budget, giving LongExposureBlurPass's
+    // temporal accumulation the real frame count it needs to converge
+    // before capture, regardless of how slow any single frame was.
+    const step = Math.min(delta, remainingRef.current, MAX_VIRTUAL_STEP_SECONDS)
     virtualClock.time += step
     remainingRef.current -= step
     captureNextRef.current = remainingRef.current <= 0

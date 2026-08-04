@@ -237,7 +237,24 @@ export function generateFlowerField(
     if (petalCount <= 0) return
 
     const centerRadius = range(rng, centerRadiusRange[0], centerRadiusRange[1]) * headScale
-    const centerPosition = headPosition.clone().addScaledVector(worldFace, centerRadius * 0.3)
+    // Tracks the *same* forward/backward lean `cupAngle` gives the petals
+    // themselves (the loop above: `growthLocal`'s FACE_AXIS component is
+    // `sin(cup)`) — using `petalInsetRange`'s own midpoint as the matching
+    // radius, so the centre moves with the petal cluster's average
+    // position instead of always sitting pinned in front of the head along
+    // `worldFace` regardless of cup direction. That fixed offset was still
+    // "centre detached from petals" for any flower with a negative
+    // `cupAngle` (petals curling backward, away from `worldFace`) even
+    // after materials.ts's depth/opacity fix — that fix stopped the centre
+    // from *occluding* backward-curled petals, but did nothing about the
+    // centre visually floating in front of a petal cluster that had itself
+    // moved the other way. `0.15` is a small fixed forward epsilon on top —
+    // enough to keep the centre disc off the petals' own attachment plane
+    // (avoiding z-fighting) without being large enough to reintroduce the
+    // mismatch by itself.
+    const petalInsetMid = ((petalInsetRange[0] + petalInsetRange[1]) / 2) * headScale
+    const centerForward = centerRadius * 0.15 + petalInsetMid * Math.sin(cupAngle)
+    const centerPosition = headPosition.clone().addScaledVector(worldFace, centerForward)
 
     centerMatrix.makeBasis(rightWorld, upWorld, worldFace)
     centerMatrix.scale(new THREE.Vector3(centerRadius, centerRadius, centerRadius))
