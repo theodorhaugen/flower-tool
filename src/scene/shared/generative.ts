@@ -150,18 +150,20 @@ interface CameraShotPreset {
  * Every seed used to vary within one continuous jitter band around a single
  * base pose — every render was "the same macro shot from a slightly
  * different tripod position," with no seed ever producing a genuinely
- * different composition. These four discrete presets (picked per seed, then
- * jittered *within* the picked preset the same way the old single band was)
- * give real compositional variety instead: a classic dead-on macro, a low
- * worm's-eye looking up into the blooms, an elevated near-top-down look, and
- * a tighter single-subject crop. `classic` keeps most of the weight so the
- * field still mostly reads as the deliberately-composed base shot — the
- * others are a meaningful minority, not a coin flip.
+ * different composition. These three discrete presets (picked per seed,
+ * then jittered *within* the picked preset the same way the old single band
+ * was) give real compositional variety instead: a classic dead-on macro, a
+ * low worm's-eye looking up into the blooms, and a tighter single-subject
+ * crop. Equal weight (an even 1-in-3 each) rather than `classic` dominating
+ * — a deliberate choice to make the less-common framings show up often
+ * enough to actually find/reproduce one, not a coin flip that happens to
+ * look even. An `elevated` near-top-down preset used to sit here too;
+ * dropped for reading as too visually complex/busy a composition.
  */
 const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
   {
     // Classic macro — the original tuned base framing's own jitter band, unchanged.
-    weight: 0.55,
+    weight: 1,
     positionOffset: [
       [-3, 3],
       [-1.2, 1.2],
@@ -183,10 +185,10 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     // this preset lands anywhere from ~15 to ~44 world units depending on
     // seed jitter alone (grazing-angle distance estimates blow up exactly
     // like this), too unstable to retune against with any confidence. The
-    // other three presets' raycast distances varied by seed by well under
+    // other two presets' raycast distances varied by seed by well under
     // 2 units; this one swung by over 20. Left alone pending a live-render
     // check rather than risk retuning against a proxy this seed-sensitive.
-    weight: 0.15,
+    weight: 1,
     positionOffset: [
       [-2, 2],
       [-6, -4],
@@ -200,35 +202,12 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     focusDistance: 11,
   },
   {
-    // Elevated — camera rises well above the base height, steepening the look-down angle towards near-top-down.
-    // focusDistance retuned 14 → 18: this composition's own camera→target
-    // geometry puts the near flower content the bottom of frame actually
-    // shows at ~18-20 world units (computed by casting a ray at the
-    // bottom-of-frame vertical angle from this preset's position/target
-    // down to the ground plane, averaged across many seeds — consistent to
-    // within ~1 unit across seeds, unlike worm's-eye above), not the 14 it
-    // was set to — invisible before fixing CIRCLE_OF_CONFUSION above only
-    // because *everything* rendered at max blur regardless of focus
-    // distance.
-    weight: 0.15,
-    positionOffset: [
-      [-2, 2],
-      [4, 7],
-      [-1, 1],
-    ],
-    targetOffset: [
-      [-2, 2],
-      [-3, -1],
-      [-2, 2],
-    ],
-    focusDistance: 18,
-  },
-  {
     // Tight single-subject crop — camera pulls in noticeably closer to the focal cluster.
     // focusDistance retuned 10 → 13, same reasoning/method as `elevated`
-    // above: this preset's own geometry puts its near ground content at
-    // ~13 world units, consistently across seeds, not the 10 it was set to.
-    weight: 0.15,
+    // used to have before it was dropped — this preset's own geometry puts
+    // its near ground content at ~13 world units, consistently across
+    // seeds, not the 10 it was set to.
+    weight: 1,
     positionOffset: [
       [-1.5, 1.5],
       [-1, 1],
