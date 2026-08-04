@@ -87,14 +87,14 @@ const BLEND_FRAGMENT_SHADER = `
 const COPY_FRAGMENT_SHADER = `
   uniform sampler2D tDiffuse;
   // How much within-frame streak is happening *this displayed frame*, 0-1
-  // (see render()'s \`streakAmount\` for how this is derived) — used only to
-  // scale the saturation boost below. Explicitly not derived from \`decay\`/
+  // (see render()'s \`streakAmount\` for how this is derived) — used to
+  // scale both recovery boosts below. Explicitly not derived from \`decay\`/
   // the accumulation buffer's own history here: this shader runs once per
   // displayed frame and its output is never read back in, so there's
   // nothing to compound regardless of what this value does — see
   // BLEND_FRAGMENT_SHADER's docstring for why that guarantee matters and
-  // where the *previous* version of this fix went wrong by living there
-  // instead of here.
+  // where the *previous* version of the saturation fix went wrong by living
+  // there instead of here.
   uniform float streakAmount;
   varying vec2 vUv;
 
@@ -105,17 +105,36 @@ const COPY_FRAGMENT_SHADER = `
     return mix(vec3(luma), color, amount);
   }
 
+  // Same pivot-around-mid-grey contrast punch PaletteGradePass.ts's own
+  // \`contrast\` control uses, for the same reason it works there: a plain
+  // linear pivot, not a filmic S-curve, is enough to read as "punchier"
+  // without needing per-channel tone-curve tuning.
+  vec3 contrastBoost(vec3 color, float amount) {
+    return (color - 0.5) * amount + 0.5;
+  }
+
   void main() {
     vec4 color = texture2D(tDiffuse, vUv);
     // Averaging (both BLEND_FRAGMENT_SHADER's within-frame streak tap sum
-    // and its temporal blend against the accumulated history) pulls colour
-    // towards whatever a moving petal/blade swept *across*, not just its
-    // own hue — thin, saturated detail measurably loses vividness the more
-    // it's actually being blurred, reading as "petals losing their life"
-    // even though nothing is literally more transparent. Reboosting
-    // saturation on the *displayed* frame only (not the accumulation
-    // buffer feeding this texture — see BLEND_FRAGMENT_SHADER) recovers
-    // that lost vividness proportionally to how much streak is actually
+    // and its temporal blend against the accumulated history) doesn't just
+    // dilute saturation — it's fundamentally a contrast-flattening
+    // operation: a bloomed highlight sampled at one swept camera position
+    // averages against whatever *duller* midtone sat there a moment
+    // earlier/later in the sweep, and a deep shadow averages against
+    // whatever was brighter nearby. The wider the sweep (higher Blur
+    // Length), the further apart those blended positions are, so the more
+    // the whole frame's dynamic range collapses towards a flat middle —
+    // exactly the "loses its bloomed highlights/warm colour/deep shadow
+    // character" complaint, and a much bigger effect than the saturation
+    // dilution alone. Boosting contrast here, same safe display-only spot
+    // as the saturation recovery below, claws a good deal of that punch
+    // back without touching the actual directional smear this pass exists
+    // to produce.
+    color.rgb = contrastBoost(color.rgb, 1.0 + streakAmount * 0.5);
+    // Reboosting saturation on the *displayed* frame only (not the
+    // accumulation buffer feeding this texture — see BLEND_FRAGMENT_SHADER)
+    // recovers vividness thin, saturated detail otherwise loses under that
+    // same averaging, proportionally to how much streak is actually
     // happening, without the boost ever being applied twice to the same
     // history.
     color.rgb = saturate3(color.rgb, 1.0 + streakAmount * 0.6);
