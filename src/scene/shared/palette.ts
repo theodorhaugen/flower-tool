@@ -333,13 +333,21 @@ export const PALETTES: readonly ColorPalette[] = [
     // this registry, a hex picked to *match* a reference on its own tends
     // to render dimmer than intended once the lighting-multiply/grade/haze
     // pipeline is done with it (see the class docstring above).
-    background: '#F2E6D2',
-    // Warm, not the reference's blue glass note — `backgroundSecondary`
-    // drives the horizon/fog atmosphere actually visible in a tight macro
-    // framing (see `deriveEnvironmentColors`), not a distant zenith sky, so
-    // a saturated blue here dominated the whole visible backdrop instead of
-    // staying the small accent it is in the reference. That note lives in
-    // `accent` alone instead — sparing, the way it actually reads there.
+    // Cooled towards the same blue family as `petalTertiary`, not the
+    // warm cream this started with — `background` is 70% of the actual
+    // visible dry-ground patches (`deriveEnvironmentColors`'s `dry`), so a
+    // warm value here reads as a genuinely *hot* ground, not just a warm
+    // mood. Ties the ground into the palette's one cool note rather than
+    // leaving it only on the petals, without pushing it fully blue —
+    // desaturated enough to still read as a plausible pale dirt/stone
+    // surface, not literally blue-tinted ground.
+    background: '#CBD3D8',
+    // Stays warm — unlike `background` above, this drives the horizon/fog
+    // atmosphere actually visible in a tight macro framing (see
+    // `deriveEnvironmentColors`), not the ground: a saturated blue here
+    // dominated the whole visible backdrop instead of staying the small
+    // accent it is in the reference (see the petal-colour fix's own
+    // commit). Cooling the ground didn't need to touch this.
     backgroundSecondary: '#EAD9BC',
     // Warm peachy light — bright and colourful on purpose, same as every
     // other palette's `glow` (the class docstring's note on why this role
