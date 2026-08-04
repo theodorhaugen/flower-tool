@@ -341,11 +341,7 @@ export class LongExposureBlurPass extends Pass {
     // elapsed < 0 means SettleDriver.tsx just started a fresh settle burst
     // from a new virtual time — decay=0 fully replaces the previous
     // settle's leftover history instead of blending into it (see the class
-    // docstring). elapsed > 0 is the normal mid-burst case. Same guard for
-    // the within-frame streak below: `previousVirtualTime` is meaningless
-    // across that discontinuous jump, so there's no valid yaw/pitch delta to
-    // estimate — leave the incoming frame unstreaked rather than smearing
-    // it across a jump that was never actually swept through.
+    // docstring). elapsed > 0 is the normal mid-burst case.
     const decay = elapsed > 0 ? THREE.MathUtils.clamp(Math.pow(0.5, elapsed / this.halfLifeSeconds), 0, 1) : 0
 
     // Estimates how far the camera's own sweep panned/tilted *during this
@@ -358,16 +354,33 @@ export class LongExposureBlurPass extends Pass {
     // from radians to UV fraction of the relevant FOV axis; clamped since a
     // single unusually large virtual-time step (a slow real frame) shouldn't
     // produce a runaway streak.
-    let blurStepU = 0
-    let blurStepV = 0
-    if (elapsed > 0) {
-      const deltaYaw = yawAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - yawAt(previousVirtualTime, this.movementMultiplier, this.directionAngle)
-      const deltaPitch =
-        pitchAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - pitchAt(previousVirtualTime, this.movementMultiplier, this.directionAngle)
-      const horizontalFovRad = 2 * Math.atan(Math.tan(this.verticalFovRad / 2) * this.aspect)
-      blurStepU = THREE.MathUtils.clamp((deltaYaw * STREAK_STRENGTH) / horizontalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
-      blurStepV = THREE.MathUtils.clamp((deltaPitch * STREAK_STRENGTH) / this.verticalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
-    }
+    //
+    // On a fresh-burst hard cut (elapsed < 0), `previousVirtualTime` is
+    // leftover from the *previous* settle and meaningless as a streak
+    // reference — but that doesn't mean this frame has no streak at all.
+    // `virtualClock.burstStartTime` (set by SettleDriver.tsx whenever it
+    // (re)starts a burst) is the actual virtual time this frame's own
+    // step began from, so `virtualClock.time - burstStartTime` is this
+    // frame's real elapsed virtual time within the new burst, exactly like
+    // `elapsed` on every later frame — just computed against a different
+    // reference point than `lastVirtualTime` tracks. Without this, the
+    // burst's very first frame was a hard, unstreaked cut on top of having
+    // zero accumulated history, so it read as fully tack-sharp; the
+    // temporal accumulation below only ever dilutes that sharp frame's
+    // *weight* towards zero (a matter of degree, never fully to zero by
+    // capture time), which is disproportionately visible specifically on
+    // thin/high-contrast geometry — a grass blade, a petal rim, a flower
+    // centre's disc — as a faint but genuinely sharp double-image ghost,
+    // even once its blended weight is down in the single digits. Giving
+    // this frame a real streak of its own, same as every other frame gets,
+    // fixes the actual cause instead of just shrinking its residual.
+    const previousForStreak = elapsed > 0 ? previousVirtualTime : virtualClock.burstStartTime
+    const deltaYaw = yawAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - yawAt(previousForStreak, this.movementMultiplier, this.directionAngle)
+    const deltaPitch =
+      pitchAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - pitchAt(previousForStreak, this.movementMultiplier, this.directionAngle)
+    const horizontalFovRad = 2 * Math.atan(Math.tan(this.verticalFovRad / 2) * this.aspect)
+    const blurStepU = THREE.MathUtils.clamp((deltaYaw * STREAK_STRENGTH) / horizontalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
+    const blurStepV = THREE.MathUtils.clamp((deltaPitch * STREAK_STRENGTH) / this.verticalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
 
     this.blendMaterial.uniforms.decay.value = decay
     this.blendMaterial.uniforms.tOld.value = this.accumulated.texture
