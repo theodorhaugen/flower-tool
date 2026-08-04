@@ -324,10 +324,10 @@ export const PALETTES: readonly ColorPalette[] = [
   {
     name: 'Greenhouse bloom',
     // Matched directly against a reference render rather than a plain-
-    // language brief — a warm, high-key still-life mood: terracotta and
-    // deep green up top, a soft rose bloom and a blown-out warm-white
-    // highlight through the middle, one cool blue note breaking the warmth,
-    // small muted brown-grey flecks, a deep brick red anchoring the bottom.
+    // language brief — a warm, high-key still life: deep green up top, a
+    // blown-out warm-white highlight through the middle, saturated yellow
+    // and red blooms, one cool blue breaking the warmth as its own real
+    // colour rather than a background tint, small muted brown-grey flecks.
     // Every anchor nudged a little lighter than the reference's own
     // measured tone (as asked) — consistent with every other palette in
     // this registry, a hex picked to *match* a reference on its own tends
@@ -347,28 +347,37 @@ export const PALETTES: readonly ColorPalette[] = [
     glow: '#F0C9A0',
     foliagePrimary: '#26432E',
     foliageSecondary: '#5C7A46',
-    // The three petal anchors span the reference's own warm bloom
-    // colours — coral-pink, terracotta-orange, brick-red — rather than one
-    // tight family, matching a still life's genuinely mixed warm palette
-    // instead of one dominant hue.
-    petalPrimary: '#E8A79C',
-    petalSecondary: '#E37A45',
-    petalTertiary: '#B04A3D',
+    // Re-read against the reference a second time: the dominant bloom
+    // colours are actually a *saturated* yellow and red, not the muted
+    // coral/terracotta this started with, and the cool blue note is a real
+    // third petal colour, not just a background/accent detail — corrected
+    // on both counts below. Blue needed pushing much further than seemed
+    // reasonable in isolation, and even that first pass wasn't enough:
+    // this palette's `glow` is warm, and a warm key light multiplying over
+    // a blue petal crushes its blue channel on the way through (the exact
+    // mechanism Baby Blue Eyes/Lupine's own petal anchors elsewhere in
+    // this registry already had to correct for) — pixel-sampling the
+    // actual render found the first, more moderate blue topping out at
+    // ~30% saturation on screen, barely distinguishable from neutral
+    // despite the source hex reading as a clear teal-blue on its own.
+    petalPrimary: '#F5C518',
+    petalSecondary: '#E0331C',
+    petalTertiary: '#06A1EF',
     // The reference's small muted brown-grey flecks (visible against the
     // bright highlight) — a real, grounded "centre" tone rather than
     // something invented for the role.
     core: '#6B5F56',
-    // The one cool note breaking an otherwise all-warm reference — kept as
-    // a small, sparing accent (its actual role, per the class docstring)
-    // rather than promoted to a petal anchor, so it reads as a detail the
-    // way it does in the reference, not a second competing petal family.
-    accent: '#5C93AC',
+    // Warm gold pollen note — distinct from the petals' own yellow/red/blue
+    // so the centres still read as their own thing.
+    accent: '#E8A93A',
     stem: '#4A4A32',
-    // Dark warm red-brown and pale warm cream — tinted to the petal
-    // family's own warm hues (the reference's darkest/lightest visible
-    // tones) rather than a neutral black/white, same reasoning as every
-    // other palette's `deepShade`/`paleLight` in this registry.
-    deepShade: '#2E1512',
+    // Warm neutral rather than tinted to any one petal hue — yellow, red,
+    // and blue don't share a family to tint towards the way a single-hue
+    // petal set would, so this just stays close to black with enough
+    // warmth to sit behind all three without reading as a fourth, off-key
+    // colour (same reasoning Potpourri's own mixed-hue `deepShade` uses
+    // elsewhere in this registry).
+    deepShade: '#241A12',
     paleLight: '#FBF3E8',
   },
 ]
