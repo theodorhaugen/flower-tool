@@ -34,6 +34,11 @@ const BLEND_FRAGMENT_SHADER = `
   // every accumulated sample its own soft smear instead of a lone thin line,
   // which is what a real shutter integrating continuous motion would do.
   uniform vec2 blurStep;
+  // Matches the JS-side MAX_STREAK_UV constant — normalises \`blurStep\`'s
+  // length into a 0-1 "how much streak is actually happening right now"
+  // fraction for the saturation boost below, rather than a raw UV distance
+  // that means something different at every zoom/FOV.
+  uniform float maxStreakUV;
   varying vec2 vUv;
 
   vec4 streakedSample(sampler2D tex, vec2 uv, vec2 step) {
@@ -43,6 +48,13 @@ const BLEND_FRAGMENT_SHADER = `
       sum += texture2D(tex, uv + step * t);
     }
     return sum / float(${STREAK_TAPS});
+  }
+
+  // Standard luma-lerp saturation adjustment — \`amount\` 1 is unchanged,
+  // above 1 boosts saturation, below 1 desaturates towards grey.
+  vec3 saturate3(vec3 color, float amount) {
+    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    return mix(vec3(luma), color, amount);
   }
 
   void main() {
@@ -65,7 +77,24 @@ const BLEND_FRAGMENT_SHADER = `
     // accumulation buffer — it would instead corrupt every frame from
     // then on, surviving reseeds indefinitely instead of clearing on the
     // very next one.
-    gl_FragColor = decay > 0.0 ? mix(texelNew, texelOld, decay) : texelNew;
+    vec4 blended = decay > 0.0 ? mix(texelNew, texelOld, decay) : texelNew;
+
+    // Averaging (both the within-frame streak's tap sum above, and the
+    // temporal blend against tOld — itself already an average of earlier
+    // frames) pulls colour towards whatever a moving petal/blade swept
+    // *across*, not just its own hue — thin, saturated detail measurably
+    // loses vividness the more it's actually being blurred, reading as
+    // "petals losing their life" even though nothing is literally more
+    // transparent. Reboosting saturation here, scaled by how much streak
+    // is actually happening this frame (near 0 at Blur Length's low end,
+    // stacking every frame back into \`tOld\` at the high end since this
+    // shader's own output *is* next frame's history), recovers the lost
+    // vividness proportionally instead of leaving every blurred render
+    // looking washed out relative to a sharp one.
+    float streakAmount = clamp(length(blurStep) / maxStreakUV, 0.0, 1.0);
+    blended.rgb = saturate3(blended.rgb, 1.0 + streakAmount * 0.6);
+
+    gl_FragColor = blended;
   }
 `
 
@@ -245,6 +274,7 @@ export class LongExposureBlurPass extends Pass {
         tNew: { value: null },
         decay: { value: 0 },
         blurStep: { value: new THREE.Vector2() },
+        maxStreakUV: { value: MAX_STREAK_UV },
       },
       vertexShader: VERTEX_SHADER,
       fragmentShader: BLEND_FRAGMENT_SHADER,
