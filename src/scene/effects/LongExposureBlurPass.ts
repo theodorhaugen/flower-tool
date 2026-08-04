@@ -86,16 +86,18 @@ const BLEND_FRAGMENT_SHADER = `
 
 const COPY_FRAGMENT_SHADER = `
   uniform sampler2D tDiffuse;
-  // How much within-frame streak is happening *this displayed frame*, 0-1
-  // (see render()'s \`streakAmount\` for how this is derived) — used to
-  // scale both recovery boosts below. Explicitly not derived from \`decay\`/
-  // the accumulation buffer's own history here: this shader runs once per
-  // displayed frame and its output is never read back in, so there's
-  // nothing to compound regardless of what this value does — see
-  // BLEND_FRAGMENT_SHADER's docstring for why that guarantee matters and
-  // where the *previous* version of the saturation fix went wrong by living
-  // there instead of here.
-  uniform float streakAmount;
+  // How much this *render's* contrast/saturation recovery below should
+  // kick in, 0-1 — fixed once per pass instance from this render's own
+  // Blur Length setting (see the constructor's \`recoveryAmount\` for how
+  // this is derived and why it's a per-render constant, not a per-frame
+  // signal). Explicitly not derived from \`decay\`/the accumulation
+  // buffer's own history here: this shader runs once per displayed frame
+  // and its output is never read back in, so there's nothing to compound
+  // regardless of what this value does — see BLEND_FRAGMENT_SHADER's
+  // docstring for why that guarantee matters and where the *previous*
+  // version of the saturation fix went wrong by living there instead of
+  // here.
+  uniform float recoveryAmount;
   varying vec2 vUv;
 
   // Standard luma-lerp saturation adjustment — \`amount\` 1 is unchanged,
@@ -130,14 +132,13 @@ const COPY_FRAGMENT_SHADER = `
     // as the saturation recovery below, claws a good deal of that punch
     // back without touching the actual directional smear this pass exists
     // to produce.
-    color.rgb = contrastBoost(color.rgb, 1.0 + streakAmount * 0.5);
+    color.rgb = contrastBoost(color.rgb, 1.0 + recoveryAmount * 0.5);
     // Reboosting saturation on the *displayed* frame only (not the
     // accumulation buffer feeding this texture — see BLEND_FRAGMENT_SHADER)
     // recovers vividness thin, saturated detail otherwise loses under that
-    // same averaging, proportionally to how much streak is actually
-    // happening, without the boost ever being applied twice to the same
-    // history.
-    color.rgb = saturate3(color.rgb, 1.0 + streakAmount * 0.6);
+    // same averaging, proportionally to this render's own blur strength,
+    // without the boost ever being applied twice to the same history.
+    color.rgb = saturate3(color.rgb, 1.0 + recoveryAmount * 0.6);
     gl_FragColor = color;
   }
 `
@@ -317,8 +318,29 @@ export class LongExposureBlurPass extends Pass {
       depthWrite: false,
     })
 
+    // How much this *render's* contrast/saturation recovery (see
+    // COPY_FRAGMENT_SHADER) should kick in, 0-1 — fixed for this pass
+    // instance's whole lifetime, deliberately *not* recomputed per frame
+    // from the within-frame streak estimate below (`blurStepU`/`blurStepV`
+    // in `render()`) the way an earlier version of this fix did. That
+    // estimate is this *one frame's* instantaneous angular step, which at
+    // any real frame rate fast enough to matter (measured directly: real
+    // per-frame `elapsed` during a burst is typically 0.015-0.05s, not the
+    // much larger step a slow/capped frame would take) stays small — under
+    // 0.2 — even at Blur Length's maximum, regardless of how far the sweep
+    // itself actually travels over the *whole* burst. Scaling the recovery
+    // by it meant the boost barely engaged even at max Blur Length, which
+    // is exactly backwards: the contrast/saturation *loss* this recovers is
+    // a cumulative effect of the whole burst's accumulation blending frames
+    // further apart, not of any single frame's own tiny step. This render's
+    // actual swept amplitude versus its own hard ceiling
+    // (`MAX_ROTATION_AMPLITUDE_RAD`) is what actually tracks how much
+    // washing the whole burst does, so that ratio — not the per-frame
+    // streak — is what the recovery below scales with.
+    const recoveryAmount = clampedRotationAmplitude(movementMultiplier) / MAX_ROTATION_AMPLITUDE_RAD
+
     this.copyMaterial = new THREE.ShaderMaterial({
-      uniforms: { tDiffuse: { value: null }, streakAmount: { value: 0 } },
+      uniforms: { tDiffuse: { value: null }, recoveryAmount: { value: recoveryAmount } },
       vertexShader: VERTEX_SHADER,
       fragmentShader: COPY_FRAGMENT_SHADER,
       depthTest: false,
@@ -346,11 +368,11 @@ export class LongExposureBlurPass extends Pass {
     if (elapsed === 0) {
       // Frozen (settled, orbit-triggered render-on-demand tick) — see the
       // class docstring for why a straight pass-through is correct here,
-      // not a bug. Nothing moved, so no saturation boost either — 0, not
-      // whatever `streakAmount` happened to be left over from the last
-      // frame that actually streaked.
+      // not a bug. `recoveryAmount` is left as whatever the constructor set
+      // it to (this render's fixed blur-strength recovery, not a per-frame
+      // motion signal) — nothing moved *this frame*, but that doesn't change
+      // how much this render's own accumulation has washed the image out.
       this.copyMaterial.uniforms.tDiffuse.value = inputBuffer.texture
-      this.copyMaterial.uniforms.streakAmount.value = 0
       this.fullscreenMaterial = this.copyMaterial
       renderer.setRenderTarget(this.renderToScreen ? null : outputBuffer)
       renderer.render(this.scene, this.camera)
@@ -409,14 +431,7 @@ export class LongExposureBlurPass extends Pass {
     renderer.setRenderTarget(this.composited)
     renderer.render(this.scene, this.camera)
 
-    // Saturation-boost amount for the *displayed* copy below, 0-1 — how far
-    // this frame's streak got towards its own maximum length. Deliberately
-    // computed from `blurStep` (this frame's estimate), not from `decay`/
-    // the accumulation buffer: see COPY_FRAGMENT_SHADER's docstring for why
-    // the boost has to live on this copy, not the accumulation blend above.
-    const streakAmount = THREE.MathUtils.clamp(Math.hypot(blurStepU, blurStepV) / MAX_STREAK_UV, 0, 1)
     this.copyMaterial.uniforms.tDiffuse.value = this.composited.texture
-    this.copyMaterial.uniforms.streakAmount.value = streakAmount
     this.fullscreenMaterial = this.copyMaterial
     renderer.setRenderTarget(this.renderToScreen ? null : outputBuffer)
     renderer.render(this.scene, this.camera)
