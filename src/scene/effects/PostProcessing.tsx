@@ -11,6 +11,24 @@ import { LensDistortion } from './LensDistortion'
 import { LensOpticsDepthOfField } from './LensOpticsDepthOfField'
 import { LongExposureBlur } from './LongExposureBlur'
 import { PaletteGrade } from './PaletteGrade'
+import { zoomGlowFactor } from './zoomGlowCompensation'
+
+/**
+ * How much of the raw zoom factor (zoomGlowCompensation.ts) actually reaches
+ * Bloom's intensity, 0-1. Kept well under a full 1:1 multiply deliberately:
+ * unlike Halation's ring radius (a literal on-screen distance this can
+ * scale directly and correctly), Bloom's mip-chain reach isn't something
+ * this can resize continuously without either destabilising the tuned
+ * look or requiring a coarse, integer mip-level change — so intensity is a
+ * proxy for "more glow," not a matched fix for "wider glow." Measured
+ * directly that only ~11% of a highlight's peak brightness was actually
+ * lost across the *whole* Zoom range (0.6-2.2, a 3.67x span) once the
+ * frame's own sky-crop compositional effect is excluded — a full linear
+ * intensity multiply across that same range would overshoot that gap by
+ * several times over. 0.3 recovers a meaningful fraction of the loss
+ * without reading as "the flowers got glowier" on its own.
+ */
+const BLOOM_ZOOM_COMPENSATION = 0.3
 
 /**
  * Post-processing pipeline, styled after analogue photography rather than a
@@ -27,19 +45,25 @@ import { PaletteGrade } from './PaletteGrade'
  *   pale/diffusely-lit surfaces — atmosphere, not a highlight blowing out.
  *   `intensity` comes from the active render's generative state (a jitter
  *   around `POST_PROCESSING_CONFIG.bloom.intensity` — see
- *   shared/generative.ts).
+ *   shared/generative.ts), scaled by `bloomZoomScale` (see
+ *   `BLOOM_ZOOM_COMPENSATION`'s own docstring) — Bloom's glow is sized in
+ *   fixed screen-space pixels with no idea what Zoom is doing, so without
+ *   this a zoomed-in render's magnified subject outgrows its own glow.
  * - Bloom (highlight): a second, high-threshold/narrow-smoothing bloom on
  *   top — only pixels bright enough to actually be blown-out highlights
  *   (direct sun catching an edge, sky) glow, and glow hard. This is the
  *   "highlight bloom" the panel's Lens > Highlight Bloom control drives
  *   (`highlightBloomIntensity`) — the soft bloom above can't produce this
- *   look on its own without also flattening the whole frame into haze.
+ *   look on its own without also flattening the whole frame into haze. Also
+ *   scaled by `bloomZoomScale`, same reasoning as the soft bloom above.
  *   Both blooms are listed early so depth of field (next) blurs their glow
  *   into soft bokeh discs rather than leaving them crisp on top of the blur.
  * - Halation: a warm-tinted bleed around only the brightest highlights,
  *   gated by the same threshold as the highlight bloom above — light
  *   scattering back through a real emulsion's red-sensitive layer skews
- *   warm, which a colour-neutral bloom on its own can't produce. Listed
+ *   warm, which a colour-neutral bloom on its own can't produce. Its own
+ *   ring-sample radius scales directly (1:1) with zoom too — see
+ *   Halation.tsx. Listed
  *   right after both blooms for the same reason they're grouped together —
  *   depth of field (next) softens this bleed into the highlight's bokeh too.
  * - LensOpticsDepthOfField: the dominant characteristic — a thin,
@@ -87,7 +111,12 @@ import { PaletteGrade } from './PaletteGrade'
  */
 export function PostProcessing() {
   const { bloom, highlightBloom, chromaticAberration } = POST_PROCESSING_CONFIG
-  const { bloomIntensity, highlightBloomIntensity } = useGenerative()
+  const { bloomIntensity, highlightBloomIntensity, fov } = useGenerative()
+
+  // See `BLOOM_ZOOM_COMPENSATION`'s own docstring for why this is a damped
+  // partial compensation, not a direct 1:1 scale the way Halation's ring
+  // radius (Halation.tsx) gets.
+  const bloomZoomScale = 1 + (zoomGlowFactor(fov) - 1) * BLOOM_ZOOM_COMPENSATION
 
   return (
     // multisampling was 4 — MSAA's whole job is smoothing raw geometric
@@ -102,13 +131,13 @@ export function PostProcessing() {
     <EffectComposer multisampling={0}>
       <PaletteGrade />
       <Bloom
-        intensity={bloomIntensity}
+        intensity={bloomIntensity * bloomZoomScale}
         luminanceThreshold={bloom.luminanceThreshold}
         luminanceSmoothing={bloom.luminanceSmoothing}
         mipmapBlur
       />
       <Bloom
-        intensity={highlightBloomIntensity}
+        intensity={highlightBloomIntensity * bloomZoomScale}
         luminanceThreshold={highlightBloom.luminanceThreshold}
         luminanceSmoothing={highlightBloom.luminanceSmoothing}
         mipmapBlur

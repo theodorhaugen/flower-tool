@@ -17,6 +17,15 @@ const FRAGMENT_SHADER = `
   uniform float threshold;
   uniform float intensity;
   uniform vec3 tint;
+  // How far the sampling ring reaches, in multiples of its base 7-texel
+  // radius — see zoomGlowCompensation.ts's docstring. 1 = as tuned. This
+  // ring is a fixed pixel radius by construction, with no idea what the
+  // camera's FOV is doing; zooming in magnifies a highlight's own on-screen
+  // size without this ring growing to match it, so relative to the subject
+  // the bleed reads thinner the more zoomed in a render is. Scaling this by
+  // the render's actual zoom factor keeps the ring's reach proportional to
+  // the magnified subject instead of fixed to the frame.
+  uniform float radiusScale;
   varying vec2 vUv;
 
   float localLuminance(vec3 c) {
@@ -36,7 +45,7 @@ const FRAGMENT_SHADER = `
     float totalWeight = 0.0;
     for (int i = 0; i < ${TAPS}; i++) {
       float angle = float(i) / float(${TAPS}) * 6.28318530718;
-      vec2 offset = vec2(cos(angle), sin(angle)) * texelSize * 7.0;
+      vec2 offset = vec2(cos(angle), sin(angle)) * texelSize * 7.0 * radiusScale;
       vec3 sample3 = texture2D(tDiffuse, vUv + offset).rgb;
       float weight = max(0.0, localLuminance(sample3) - threshold);
       bloomSum += sample3 * weight;
@@ -71,6 +80,8 @@ export interface HalationPassOptions {
   intensity?: number
   /** Warm red/orange bleed, the way light scattering back through a real emulsion layer skews warm. */
   tint?: readonly [number, number, number]
+  /** Multiplies the sampling ring's base 7-texel radius — see zoomGlowCompensation.ts. 1 = as tuned. */
+  radiusScale?: number
 }
 
 /**
@@ -85,7 +96,7 @@ export interface HalationPassOptions {
 export class HalationPass extends Pass {
   private readonly material: THREE.ShaderMaterial
 
-  constructor({ threshold = 0.82, intensity = 0.18, tint = [1, 0.45, 0.25] }: HalationPassOptions = {}) {
+  constructor({ threshold = 0.82, intensity = 0.18, tint = [1, 0.45, 0.25], radiusScale = 1 }: HalationPassOptions = {}) {
     super('HalationPass')
 
     this.material = new THREE.ShaderMaterial({
@@ -95,6 +106,7 @@ export class HalationPass extends Pass {
         threshold: { value: threshold },
         intensity: { value: intensity },
         tint: { value: new THREE.Vector3(...tint) },
+        radiusScale: { value: radiusScale },
       },
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
