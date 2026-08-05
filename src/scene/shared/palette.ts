@@ -125,8 +125,16 @@ export const PALETTES: readonly ColorPalette[] = [
     // also what lets the poppy orange below bloom convincingly instead of
     // just sitting there as flat colour.
     glow: '#F6C568',
-    foliagePrimary: '#4A5A28',
-    foliageSecondary: '#7C8C4A',
+    // Re-hued from a yellow-green olive (hue ≈75-79°) to a real forest
+    // green (hue ≈128-131°) — measured directly via HSL that this was the
+    // most off-hue foliage in the whole registry, rendering as khaki/yellow
+    // grass rather than green. Shares its target hue with the
+    // `GREEN_FOLIAGE_*` correction applied to Daisies/Potpourri's and
+    // Greenhouse bloom's own `foliageSecondary` below, so grass reads as
+    // one consistent green family across every palette that isn't
+    // deliberately blue/teal (Baby Blue Eyes, Lupine).
+    foliagePrimary: '#2D5232',
+    foliageSecondary: '#368144',
     // All three petal anchors and `core` stay in one tight orange family —
     // value/chroma varies (bright/mid/deep), hue doesn't. That's the actual
     // mechanism behind "orange leads with clear contrast": a petal family
@@ -192,8 +200,12 @@ export const PALETTES: readonly ColorPalette[] = [
     // up as scattered warm flecks across mostly-green grass rather than
     // needing a colour role of its own.
     glow: '#F2C230',
+    // `foliagePrimary` was already a genuine forest green (hue ≈131°) —
+    // left as-is. `foliageSecondary` was yellow-green (hue ≈100°),
+    // re-hued to match Poppy petal's own correction above so grass reads
+    // as one consistent green family across the registry.
     foliagePrimary: '#3C5240',
-    foliageSecondary: '#6B8A5C',
+    foliageSecondary: '#368144',
     // Crisp white/cream, not flat identical hex — enough spread for the
     // per-instance jitter (flowerField/palette.ts) to still read as
     // texture rather than a single flat white cutout.
@@ -220,12 +232,16 @@ export const PALETTES: readonly ColorPalette[] = [
   {
     name: 'Potpourri',
     // Ground/grass copied from Daisies exactly — same field, deliberately
-    // diverse flowers planted in it.
-    background: '#D7E0D2',
-    backgroundSecondary: '#C7D9DE',
+    // diverse flowers planted in it. `background`/`backgroundSecondary`
+    // synced with Daisies' own ground/haze fix (they'd drifted out of
+    // sync — this palette was still on the pre-fix washed-out values).
+    background: '#A3BB95',
+    backgroundSecondary: '#A5C2CA',
     glow: '#F2C230',
+    // `foliageSecondary` re-hued the same way as Daisies' own — see that
+    // palette's comment.
     foliagePrimary: '#3C5240',
-    foliageSecondary: '#6B8A5C',
+    foliageSecondary: '#368144',
     // Bright yellow, hot pink, crisp white — three genuinely different
     // hues rather than one family's value range, so the sampled field
     // actually reads as a mixed bouquet instead of one dominant colour with
@@ -387,8 +403,11 @@ export const PALETTES: readonly ColorPalette[] = [
     // other palette's `glow` (the class docstring's note on why this role
     // specifically can't just be a pale neutral).
     glow: '#F0C9A0',
+    // `foliagePrimary` was already a genuine forest green (hue ≈137°) —
+    // left as-is. `foliageSecondary` was yellow-green (hue ≈95°), re-hued
+    // the same way as Poppy petal's/Daisies' own corrections above.
     foliagePrimary: '#26432E',
-    foliageSecondary: '#5C7A46',
+    foliageSecondary: '#368144',
     // Re-read against the reference a second time: the dominant bloom
     // colours are actually a *saturated* yellow and red, not the muted
     // coral/terracotta this started with, and the cool blue note is a real
