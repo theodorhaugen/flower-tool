@@ -22,6 +22,27 @@ const UP = new THREE.Vector3(0, 1, 0)
 /** ~137.5°, the classic phyllotaxis spiral angle — used to spread spike blooms around the stem the way real florets on a raceme actually spiral, not a mechanical even split. */
 const GOLDEN_ANGLE = 2.39996
 
+/**
+ * How much shallower a flower centre sits than it is wide, relative to
+ * `centerRadius` — every centre geometry variant (geometryVariants.ts's
+ * `buildCenterGeometryVariants`) is built from a roughly-spherical base
+ * (an icosahedron or partial sphere), and scaling that uniformly by
+ * `centerRadius` on all three axes made the centre stick as far *out*
+ * towards the camera as it spans side-to-side — a true ball sitting on
+ * the petal face, not a disc-like cluster of stamens/florets. Only the
+ * `worldFace` axis (the centre's depth/protrusion direction — see
+ * `centerMatrix.makeBasis` below) gets this reduction; the radial
+ * footprint (how much of the petal ring the centre visually covers)
+ * stays at the full `centerRadius`.
+ *
+ * Raised from an initial 0.55 — checked directly against a sharp (motion
+ * blur and DOF bokeh both minimised) render and 0.55 still read as a
+ * distinctly round ball with a clear circular specular highlight, not a
+ * flatter disc; 0.35 is enough of a cut to actually change the silhouette
+ * from most viewing angles, not just soften it.
+ */
+const CENTER_DEPTH_SCALE = 0.35
+
 type Species = 'bloom' | 'umbel' | 'spike'
 
 /** Weighted pick among the three plant structures — see config.ts's `species.weights`. */
@@ -257,7 +278,7 @@ export function generateFlowerField(
     const centerPosition = headPosition.clone().addScaledVector(worldFace, centerForward)
 
     centerMatrix.makeBasis(rightWorld, upWorld, worldFace)
-    centerMatrix.scale(new THREE.Vector3(centerRadius, centerRadius, centerRadius))
+    centerMatrix.scale(new THREE.Vector3(centerRadius, centerRadius, centerRadius * CENTER_DEPTH_SCALE))
     centerMatrix.setPosition(centerPosition)
 
     // Correlated with the petal archetype (config.ts's
