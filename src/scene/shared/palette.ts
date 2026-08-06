@@ -90,6 +90,19 @@ export interface ColorPalette {
   stem: string
   deepShade: string
   paleLight: string
+  /**
+   * Multiplies AtmosphericHaze's strength/depthFalloff/volumetric-strength
+   * together (see effects/AtmosphericHaze.tsx) — optional, defaults to 1
+   * (every existing palette's tuned haze, unchanged) when absent. An escape
+   * hatch for a palette whose reference is a tight, mostly-in-focus subject
+   * with little "far" in it at all (a macro shot), where the tool's default
+   * wide/deep aerial-perspective haze fades most of the midground/background
+   * towards `backgroundSecondary` before it reaches camera — optically
+   * correct, but it dilutes exactly the vivid colour such a reference expects
+   * across most of the frame. Global config (effects/config.ts) stays the
+   * shared default for every other palette; this only overrides it per-palette.
+   */
+  atmosphereScale?: number
 }
 
 export const PALETTES: readonly ColorPalette[] = [
@@ -185,6 +198,17 @@ export const PALETTES: readonly ColorPalette[] = [
     // is what actually holds the hue together under that.
     deepShade: '#562A10',
     paleLight: '#E5A46C',
+    // The reference is a tight macro shot with almost no "far" in it at
+    // all — this tool's default wide/deep aerial-perspective haze fades
+    // most of a normal render's midground/background towards
+    // `backgroundSecondary` well before camera, which (measured directly
+    // against a render) was diluting most of the frame's petals to roughly
+    // half their defined saturation despite their hue staying correctly
+    // orange — reading as "washed pastel", not the reference's vivid
+    // orange, everywhere but the sharpest foreground. Halving haze/
+    // volumetric strength and depth-falloff keeps far more of the field in
+    // that vivid band without touching any other palette's tuned default.
+    atmosphereScale: 0.5,
   },
   {
     name: 'Daisies',
