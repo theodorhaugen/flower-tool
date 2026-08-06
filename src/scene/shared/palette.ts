@@ -134,13 +134,21 @@ export const PALETTES: readonly ColorPalette[] = [
     // blue sky tint here fought the reference's all-green-and-orange
     // mood, which has no sky in it at all (a tight macro shot).
     backgroundSecondary: '#B5C5BA',
-    // Softened from a more saturated gold — still warm (real poppies are
-    // often shot in warm sunlight, and this is what lets the orange below
-    // bloom convincingly), but a less aggressively yellow light so it
-    // doesn't drag the green ground/grass towards yellow when multiplied
-    // over it, which was a real, measured contributor to "still too warm
-    // and yellowish" surviving every previous ground-albedo-only fix.
-    glow: '#E8D3B0',
+    // Reverted off an earlier, paler attempt at this (`#E8D3B0`) that
+    // broke something else: `glow` is also `PaletteGrade.tsx`'s
+    // `bloomTintColor`, additively tinting every bloomed highlight
+    // towards its own raw RGB — and that paler version's blue channel was
+    // *76%* of its red (232/176 vs red 232), nearly double the original's
+    // 42% ratio, from paling it towards white without watching what that
+    // does to the ratio between channels. Any real blue content in an
+    // additive tint pushes a bloomed orange highlight straight towards
+    // pink/salmon — confirmed directly: that was the actual source of
+    // "more colours than just orange" surviving the petal-anchor fix
+    // above, not the anchors themselves. This value keeps blue well
+    // under a third of red (76/240) — still warm, saturated gold — while
+    // no longer being *more* saturated than the ground fix actually
+    // needs headroom for.
+    glow: '#F0AC4C',
     // Already a genuine, cool, muted green (hue ≈128-152°) — matches the
     // reference's foliage directly, no change needed here.
     foliagePrimary: '#2D5232',
@@ -167,12 +175,16 @@ export const PALETTES: readonly ColorPalette[] = [
     // brown stem was the one remaining non-green, non-orange colour left
     // in what's meant to be a strictly two-tone palette.
     stem: '#304B30',
-    // Pushed saturated/light enough to stay recognisably orange rather
-    // than reading as plain dark brown / pale cream — see the class
-    // docstring above on why every petal-sampling role, not just the
-    // three primary anchors, needed this.
-    deepShade: '#412410',
-    paleLight: '#E6C9A8',
+    // Pushed a second time — the first pass (still hue-true orange, just
+    // lighter/darker) rendered fine up close but washed towards pink/cream
+    // once bloom and atmospheric haze got hold of it further from camera,
+    // the same "a moderate colour survives up close, not once the actual
+    // pipeline touches it" lesson Baby Blue Eyes'/Lupine's own petal
+    // anchors elsewhere in this registry already ran into. Higher
+    // saturation and `paleLight` pulled down out of near-white territory
+    // is what actually holds the hue together under that.
+    deepShade: '#562A10',
+    paleLight: '#E5A46C',
   },
   {
     name: 'Daisies',
