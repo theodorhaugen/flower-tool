@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { CAMERA_CONFIG } from '../camera/config'
+import { installFlowerToolDebugHook } from './debugHook'
 import { deriveGenerativeState, randomSeed, SEED_MAX } from './generative'
 import type { GenerativeState } from './generative'
 import { GenerativeContext } from './generativeContext'
@@ -61,6 +62,13 @@ function wrapSeed(seed: number): number {
  * specific render without the panel. The chosen seed is logged to the
  * console on load specifically so a render worth keeping can be noted
  * down and revisited later.
+ *
+ * This is also the one place holding every fold's Leva `set` function, so
+ * it's what installs `window.__flowerToolDebug` (shared/debugHook.ts) —
+ * a scriptable, DOM-independent equivalent of dragging each fold's
+ * sliders, built for automated testing/verification that shouldn't have
+ * to depend on Leva's own DOM structure (and won't have anything to grab
+ * onto at all once a custom UI replaces the rendered panel).
  */
 export function GenerativeProvider({ children, forceSeed, forcePaletteName }: GenerativeProviderProps) {
   // Resolved once, on mount — not re-derived on re-render, same reasoning
@@ -105,7 +113,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   // avoid over/under-shooting. `cameraMovementMultiplier` is now a fixed
   // baseline (see shared/generative.ts — always 1, no longer Leva-exposed)
   // so Blur Length alone controls the sweep/streak's whole strength.
-  const [cameraControls] = useControls(
+  const [cameraControls, setCameraFold] = useControls(
     'Camera',
     () => ({
       height: { value: base.camera.position[1], min: CAMERA_CONFIG.position[1] - 7, max: CAMERA_CONFIG.position[1] + 8, label: 'Height' },
@@ -142,7 +150,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   )
 
   // --- Lighting: mood knobs, not raw light colours/intensities ---
-  const [lightingControls] = useControls(
+  const [lightingControls, setLightingFold] = useControls(
     'Lighting',
     () => ({
       overcast: { value: 1, min: 0.4, max: 1.8, label: 'Overcast' },
@@ -153,7 +161,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   )
 
   // --- Flowers: how many, how big, how often the poppy accent shows up — not petal-level jitter ---
-  const [flowerControls] = useControls(
+  const [flowerControls, setFlowersFold] = useControls(
     'Flowers',
     () => ({
       density: { value: 1, min: 0.2, max: 1.6, label: 'Density' },
@@ -164,7 +172,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   )
 
   // --- Colour: which palette, hue shift, plus manual tone-editing controls — not the raw shader strengths ---
-  const [colourControls] = useControls(
+  const [colourControls, setColourFold] = useControls(
     'Colour',
     () => ({
       palette: { value: base.palette.name, options: PALETTE_NAMES, label: 'Palette' },
@@ -180,7 +188,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   )
 
   // --- Atmosphere: haze/softness/fog/wind "amount" — not each effect's internal shader knobs. Haze's own initial value is seed-derived (base.hazeAmount, see shared/generative.ts's `drama`), same pattern as Camera > Blur Length. ---
-  const [atmosphereControls] = useControls(
+  const [atmosphereControls, setAtmosphereFold] = useControls(
     'Atmosphere',
     () => ({
       haze: { value: base.hazeAmount, min: 0, max: 2.5, label: 'Haze' },
@@ -192,7 +200,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   )
 
   // --- Lens: the optical character (focus/blur/aperture/glow) — not rings/samples/meters-per-unit ---
-  const [lensControls] = useControls(
+  const [lensControls, setLensFold] = useControls(
     'Lens',
     () => ({
       focusDistance: { value: base.focusDistance, min: 5, max: 35, label: 'Focus Distance' },
@@ -205,7 +213,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   )
 
   // --- Film: emulsion grain — not exposed anywhere else since it's purely a "look", not a scene property. Grain Amount's own initial value is seed-derived (base.grainAmount, see shared/generative.ts's `drama`) — Grain Size stays flat, see that field's docstring for why. ---
-  const [filmControls] = useControls(
+  const [filmControls, setFilmFold] = useControls(
     'Film',
     () => ({
       grainAmount: { value: base.grainAmount, min: 0, max: 3, label: 'Grain Amount' },
@@ -224,7 +232,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   // reopens the exact bug that range was tightened to fix. Same reasoning
   // for Width, capped tighter than a literal 3x since generateGrass.ts's
   // scale also multiplies width by the *height* multiplier.
-  const [grassControls] = useControls(
+  const [grassControls, setGrassFold] = useControls(
     'Grass',
     () => ({
       density: { value: 1, min: 0.3, max: 3, label: 'Density' },
@@ -298,6 +306,29 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       `[flower-tool] seed=${base.seed} palette="${base.palette.name}" drama=${base.drama.toFixed(2)} — reproduce with ?seed=${base.seed}`,
     )
   }, [base])
+
+  // `state` is a fresh object every render — this ref is what lets
+  // `getState()` below hand back the *latest* one from an arbitrary,
+  // later point in time (a Playwright `page.evaluate` call has no idea
+  // when React last rendered) rather than a stale closure over whichever
+  // render happened to be current when the debug hook was installed.
+  const stateRef = useRef(state)
+  stateRef.current = state
+
+  useEffect(() => {
+    installFlowerToolDebugHook({
+      getState: () => stateRef.current,
+      setScene: (partial) => setScene(partial),
+      setCamera: (partial) => setCameraFold(partial),
+      setLighting: (partial) => setLightingFold(partial),
+      setFlowers: (partial) => setFlowersFold(partial),
+      setColour: (partial) => setColourFold(partial),
+      setAtmosphere: (partial) => setAtmosphereFold(partial),
+      setLens: (partial) => setLensFold(partial),
+      setFilm: (partial) => setFilmFold(partial),
+      setGrass: (partial) => setGrassFold(partial),
+    })
+  }, [setScene, setCameraFold, setLightingFold, setFlowersFold, setColourFold, setAtmosphereFold, setLensFold, setFilmFold, setGrassFold])
 
   return <GenerativeContext.Provider value={state}>{children}</GenerativeContext.Provider>
 }
