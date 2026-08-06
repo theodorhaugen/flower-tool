@@ -111,54 +111,68 @@ export const PALETTES: readonly ColorPalette[] = [
   },
   {
     name: 'Poppy petal',
-    // Ground/grass lean warm green rather than neutral — `background` is
-    // what actually dominates the visible bare-ground patches (see
-    // `deriveEnvironmentColors`'s `dry`, weighted 70% towards it), so this
-    // needs to read as warm ground on its own, not just as a sky tint. Its
-    // remaining 30% is `BASE_DIRT` (environment/paletteColors.ts's fixed
-    // warm-brown soil anchor) — that's what supplies "faint brown details
-    // across" the ground without needing a dedicated role for it.
-    background: '#D9CBA3',
-    backgroundSecondary: '#B9D6E0',
-    // Warm gold sunlight — bright and saturated on purpose (this tints the
-    // actual key light, see the class docstring's `glow` note), which is
-    // also what lets the poppy orange below bloom convincingly instead of
-    // just sitting there as flat colour.
-    glow: '#F6C568',
-    // Re-hued from a yellow-green olive (hue ≈75-79°) to a real forest
-    // green (hue ≈128-131°) — measured directly via HSL that this was the
-    // most off-hue foliage in the whole registry, rendering as khaki/yellow
-    // grass rather than green. Shares its target hue with the
-    // `GREEN_FOLIAGE_*` correction applied to Daisies/Potpourri's and
-    // Greenhouse bloom's own `foliageSecondary` below, so grass reads as
-    // one consistent green family across every palette that isn't
-    // deliberately blue/teal (Baby Blue Eyes, Lupine).
+    // Re-matched directly against a reference photo of an actual
+    // California poppy (a vivid true orange bloom against cool, muted
+    // green foliage) — the previous version had drifted on both ends:
+    // `background` (70% of the visible bare-ground patches, see
+    // `deriveEnvironmentColors`'s `dry`) was a warm tan, reading as
+    // sunbaked dirt rather than the reference's cool green, and the petal
+    // family's own extremes (`deepShade`/`paleLight` below) were pale/
+    // desaturated enough to blow out towards white/pink under bloom and
+    // haze rather than surviving as recognisably orange — exactly what
+    // was showing up as "flowers that aren't just orange" on screen.
+    //
+    // Pushed further than looks reasonable in isolation, same reasoning as
+    // Greenhouse bloom's own ground fix elsewhere in this registry:
+    // `dry`'s remaining 30% is `BASE_DIRT`/`glow`, both still warm, which
+    // dilutes a moderate green back towards neutral. Verified directly
+    // against that formula: this value survives the dilution at ~(96,141,
+    // 99), hue ≈115° — clearly green, not tan.
+    background: '#428054',
+    // Cool, pale green-grey rather than blue — this drives the horizon/
+    // fog/haze atmosphere (`deriveEnvironmentColors`'s `fogColor`), and a
+    // blue sky tint here fought the reference's all-green-and-orange
+    // mood, which has no sky in it at all (a tight macro shot).
+    backgroundSecondary: '#B5C5BA',
+    // Softened from a more saturated gold — still warm (real poppies are
+    // often shot in warm sunlight, and this is what lets the orange below
+    // bloom convincingly), but a less aggressively yellow light so it
+    // doesn't drag the green ground/grass towards yellow when multiplied
+    // over it, which was a real, measured contributor to "still too warm
+    // and yellowish" surviving every previous ground-albedo-only fix.
+    glow: '#E8D3B0',
+    // Already a genuine, cool, muted green (hue ≈128-152°) — matches the
+    // reference's foliage directly, no change needed here.
     foliagePrimary: '#2D5232',
     foliageSecondary: '#368144',
-    // All three petal anchors and `core` stay in one tight orange family —
-    // value/chroma varies (bright/mid/deep), hue doesn't. That's the actual
-    // mechanism behind "orange leads with clear contrast": a petal family
-    // spread across three different hues reads as *variety*, not a single
-    // dominant colour punching through a green field the way the brief
-    // wants.
-    petalPrimary: '#E8541A',
-    petalSecondary: '#F27C1E',
-    petalTertiary: '#C93F14',
-    core: '#D9430F',
+    // All five petal-sampling roles (Primary/Secondary/Tertiary below,
+    // plus `deepShade`/`paleLight` further down — see flowerField/
+    // palette.ts's `petalAnchors`, which folds every one of these into the
+    // same sampling pool at real weight) now sit in one tight true-orange
+    // hue band (23-36°) — only value/lightness varies. Previously only
+    // the three primary anchors were kept in-family; `deepShade`/
+    // `paleLight` were pale/dark enough to read as their own near-white/
+    // near-black colours once lit, which is exactly the "more colours
+    // than just orange" the reference photo doesn't have.
+    petalPrimary: '#F18A22',
+    petalSecondary: '#F0A242',
+    petalTertiary: '#D96112',
+    core: '#CB5E0B',
     // Leans orange rather than a neutral gold — this blends into the
     // flower centres' pollen warmth (materials.ts), so keeping it in-family
     // reinforces the centre reading as the same stark orange as the
     // petals, not a separate yellow dot.
-    accent: '#F2831A',
-    stem: '#4F4522',
-    // Tinted to the petal family's own orange rather than a neutral
-    // dark/cream — this is also the two-point grade's global shadow/
-    // highlight tint (effects/PaletteGrade.tsx), and the petal sampling's
-    // near-black/near-white extremes (flowerField/palette.ts's
-    // `petalAnchors`), so a neutral choice here would put a stray
-    // grey-green or plain cream flower into an otherwise orange-led field.
-    deepShade: '#33150A',
-    paleLight: '#FBE4C4',
+    accent: '#F0AF4C',
+    // Cool muted green, matching `background`/`foliagePrimary` — a warm
+    // brown stem was the one remaining non-green, non-orange colour left
+    // in what's meant to be a strictly two-tone palette.
+    stem: '#304B30',
+    // Pushed saturated/light enough to stay recognisably orange rather
+    // than reading as plain dark brown / pale cream — see the class
+    // docstring above on why every petal-sampling role, not just the
+    // three primary anchors, needed this.
+    deepShade: '#412410',
+    paleLight: '#E6C9A8',
   },
   {
     name: 'Daisies',
