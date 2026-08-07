@@ -146,11 +146,18 @@ export const PALETTES: readonly ColorPalette[] = [
     // the first pass (S≈0.32) still read as a fairly assertive green once
     // seen next to the now-corrected vivid petals. Hue nudged a few degrees
     // cooler in the same pass (137°→144°) rather than just desaturated in
-    // place, keeping `dry`'s own lightness roughly untouched (~0.44→0.45)
-    // so this doesn't compound with the haze pull-back below into an
-    // overall darker ground — only its saturation (~0.19→0.13 in that
-    // formula) actually moves.
-    background: '#507860',
+    // place.
+    //
+    // Lightness raised a second time (0.39→0.50) after measuring this
+    // palette's actual on-screen mean luminance (0.36) against every other
+    // palette's (0.41-0.57 across the same seed/framing) — this role is 70%
+    // of the visible ground (`deriveEnvironmentColors`'s `dry`) in a frame
+    // that's mostly ground/midground, so it alone accounts for most of the
+    // gap. Every other palette's own `background` sits at lightness
+    // 0.66-0.92; this was the one outlier left dark from chasing the
+    // original "too warm/sunbaked" complaint well past where that fix
+    // actually needed to go.
+    background: '#66997A',
     // Cool, pale green-grey rather than blue — this drives the horizon/
     // fog/haze atmosphere (`deriveEnvironmentColors`'s `fogColor`), and a
     // blue sky tint here fought the reference's all-green-and-orange
