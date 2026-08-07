@@ -26,7 +26,13 @@ interface SceneCanvasProps {
  * about it. `preserveDrawingBuffer` is for shared/SettleDriver.tsx's
  * capture step — without it, `gl.domElement.toDataURL()` can capture a
  * blank/cleared buffer since the browser is otherwise free to clear it
- * right after each frame.
+ * right after each frame. `alpha: false` locks the drawing buffer itself to
+ * fully opaque regardless of what any effect's shader does to its own
+ * `vec4.a` along the way — LensDistortion's edge-crop (effects/
+ * LensDistortion.tsx) multiplies its *whole* output colour, alpha included,
+ * by a 0/1 mask at the frame edge, which without this leaked real
+ * transparency into every exported PNG right at that border instead of the
+ * opaque black vignette it was meant to read as.
  *
  * Deliberately does *not* set `toneMapping`/`toneMappingExposure` here:
  * effects/PostProcessing.tsx's `<EffectComposer>` force-sets
@@ -61,6 +67,7 @@ export function SceneCanvas({ children, frameloop }: SceneCanvasProps) {
       frameloop={frameloop}
       gl={{
         preserveDrawingBuffer: true,
+        alpha: false,
       }}
       style={{ position: 'absolute', inset: 0 }}
     >

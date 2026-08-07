@@ -24,7 +24,7 @@ export function ExportControls() {
         const { imageUrl } = getCaptureState()
         if (!imageUrl) return
         const link = document.createElement('a')
-        link.download = `flower-field-seed-${seed}.png`
+        link.download = `flower-field-seed-${seed}.jpg`
         link.href = imageUrl
         link.click()
       }),

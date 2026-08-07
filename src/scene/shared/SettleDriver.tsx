@@ -70,6 +70,14 @@ const MAX_VIRTUAL_STEP_SECONDS = 1 / 20
  * included — has fully returned, so `toDataURL()` is guaranteed to read
  * the finished image rather than the one before it.
  *
+ * Encoded as JPEG, not PNG: GrainOverlay's whole point is real per-pixel
+ * film-grain noise laid over the final image, which is exactly the kind of
+ * content PNG's lossless deflate compresses worst — measured multi-MB
+ * exports for what's otherwise a fairly smooth photographic image. JPEG's
+ * DCT-based compression handles that noise far better; 0.92 quality is
+ * visually indistinguishable from the PNG on this pipeline's own output
+ * while running a fraction of the size.
+ *
  * Every tick during an active burst also calls `invalidate()` directly,
  * on top of relying on the `frameloop="always"` prop above — belt and
  * suspenders. React's state update from `beginCapture()` (which is what
@@ -121,7 +129,7 @@ export function SettleDriver() {
   useFrame((threeState, delta) => {
     if (captureNextRef.current) {
       captureNextRef.current = false
-      finishCapture(threeState.gl.domElement.toDataURL('image/png'))
+      finishCapture(threeState.gl.domElement.toDataURL('image/jpeg', 0.92))
       return
     }
 
