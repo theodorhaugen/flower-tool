@@ -511,6 +511,17 @@ export const PALETTES: readonly ColorPalette[] = [
     // elsewhere in this registry).
     deepShade: '#241A12',
     paleLight: '#FBF3E8',
+    // `petalTertiary` (the blue note) was measured reading at ~7-9%
+    // saturation on screen despite its raw diffuse-lit colour computing out
+    // to ~93% — isolated directly by re-rendering with haze/bloom/DoF blur
+    // knocked out one at a time: haze alone (`backgroundSecondary` above,
+    // deliberately warm tan for the horizon/fog) reproduces almost the
+    // entire loss on its own. Mixing "towards warm" is nearly a no-op for
+    // this palette's red/yellow majority but a hue-reversing wash for the
+    // one cool note, and blue is already the minority of the three petal
+    // hues, so it's the one that all but vanishes rather than just fading.
+    // Same fix/mechanism as Poppy petal's own `atmosphereScale` above.
+    atmosphereScale: 0.4,
   },
 ]
 
