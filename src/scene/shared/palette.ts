@@ -141,7 +141,16 @@ export const PALETTES: readonly ColorPalette[] = [
     // dilutes a moderate green back towards neutral. Verified directly
     // against that formula: this value survives the dilution at ~(96,141,
     // 99), hue ≈115° — clearly green, not tan.
-    background: '#428054',
+    // Pulled further towards grey than the vivid-orange-vs-green contrast
+    // alone would suggest — "muted cooler green" was the actual brief, and
+    // the first pass (S≈0.32) still read as a fairly assertive green once
+    // seen next to the now-corrected vivid petals. Hue nudged a few degrees
+    // cooler in the same pass (137°→144°) rather than just desaturated in
+    // place, keeping `dry`'s own lightness roughly untouched (~0.44→0.45)
+    // so this doesn't compound with the haze pull-back below into an
+    // overall darker ground — only its saturation (~0.19→0.13 in that
+    // formula) actually moves.
+    background: '#507860',
     // Cool, pale green-grey rather than blue — this drives the horizon/
     // fog/haze atmosphere (`deriveEnvironmentColors`'s `fogColor`), and a
     // blue sky tint here fought the reference's all-green-and-orange
@@ -205,10 +214,15 @@ export const PALETTES: readonly ColorPalette[] = [
     // against a render) was diluting most of the frame's petals to roughly
     // half their defined saturation despite their hue staying correctly
     // orange — reading as "washed pastel", not the reference's vivid
-    // orange, everywhere but the sharpest foreground. Halving haze/
-    // volumetric strength and depth-falloff keeps far more of the field in
-    // that vivid band without touching any other palette's tuned default.
-    atmosphereScale: 0.5,
+    // orange, everywhere but the sharpest foreground. Backed off from an
+    // initial 0.5: haze doesn't just dilute colour toward
+    // `backgroundSecondary`, it's also what *lightens* the frame towards
+    // that pale tint — halving it recovered saturation but read as
+    // uniformly darker across the board, since a wide/deep composition is
+    // mostly the midground/background haze would otherwise be lifting. 0.7
+    // trades a little of that saturation recovery back for keeping the
+    // frame's overall brightness closer to every other palette's.
+    atmosphereScale: 0.7,
   },
   {
     name: 'Daisies',
