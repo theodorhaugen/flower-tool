@@ -149,7 +149,6 @@ export function buildPetalMaterialVariants(
   const rng = createRng(seed + 5000)
   const materials: THREE.MeshPhysicalMaterial[] = []
   const glowColors = archetypeGlowColors(palette, PETAL_ARCHETYPE_MATERIAL_BASE.length)
-  const opacityScale = palette.petalOpacityScale ?? 1
 
   PETAL_ARCHETYPE_MATERIAL_BASE.forEach((base, archetypeIndex) => {
     for (let v = 0; v < FLOWER_FIELD_CONFIG.variantsPerArchetype; v++) {
@@ -158,18 +157,12 @@ export function buildPetalMaterialVariants(
         0.15,
         0.95,
       )
-      // Clamped short of fully opaque (0.97) even at an aggressive scale —
-      // 1.0 would erase the sheen/rim-light translucency read entirely
-      // (see this file's own docstring on why that's part of the "reads as
-      // subsurface scattering" look), not just reduce the background
-      // bleeding through it.
-      const opacity = Math.min(0.97, base.opacity * opacityScale)
 
       materials.push(
         new THREE.MeshPhysicalMaterial({
           ...sharedPetalProps,
           roughness,
-          opacity,
+          opacity: base.opacity,
           emissive: glowColors[archetypeIndex].emissive,
           emissiveIntensity: base.emissiveIntensity,
           sheenColor: glowColors[archetypeIndex].sheenColor,

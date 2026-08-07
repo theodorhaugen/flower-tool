@@ -103,21 +103,6 @@ export interface ColorPalette {
    * shared default for every other palette; this only overrides it per-palette.
    */
   atmosphereScale?: number
-  /**
-   * Multiplies every petal archetype's base `opacity` (see
-   * subjects/flowerField/materials.ts's `PETAL_ARCHETYPE_MATERIAL_BASE`,
-   * clamped there so translucency never fully disappears) — optional,
-   * defaults to 1 (every existing palette's tuned translucency, unchanged)
-   * when absent. Petals are alpha-blended, not physically transmissive (see
-   * `sharedPetalProps`'s own docstring), so with tens of thousands of
-   * overlapping instances each petal's visible colour is already a
-   * composite of its own pigment *and* whatever's optically behind it —
-   * other petals, grass, hazy sky — at that opacity's ratio, before haze/
-   * DoF/bloom get a turn at diluting it further. Same "tight macro
-   * reference expects one saturated hue to read as itself almost
-   * everywhere in frame" reasoning as `atmosphereScale` above.
-   */
-  petalOpacityScale?: number
 }
 
 export const PALETTES: readonly ColorPalette[] = [
@@ -224,15 +209,6 @@ export const PALETTES: readonly ColorPalette[] = [
     // volumetric strength and depth-falloff keeps far more of the field in
     // that vivid band without touching any other palette's tuned default.
     atmosphereScale: 0.5,
-    // Measured only a partial fix from atmosphereScale alone (roughly half
-    // the saturation loss recovered) — the rest is alpha-blended petals
-    // compositing over whatever's behind them at their tuned 0.7-0.85
-    // opacity, same dilution mechanism as haze but from translucency
-    // instead of distance. Pushed close to (not all the way to) fully
-    // opaque — this palette still wants *some* of the sheen/rim-light
-    // translucency read the material is built for, just less of the base
-    // pigment itself washed out by whatever's behind each petal.
-    petalOpacityScale: 1.2,
   },
   {
     name: 'Daisies',
