@@ -242,6 +242,63 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     [seed],
   )
 
+  // Every fold above passes `[seed]` as its `useControls` deps array,
+  // believing that resets each control back to that seed's own
+  // `base.xxx` value on reseed — it doesn't. Leva's `deps` only refreshes a
+  // control's *settings* (min/max/label/options) once its path already
+  // exists; verified directly against leva's own store implementation
+  // (`addData`'s "override" pass explicitly destructures `value` out of
+  // what it's willing to overwrite). In practice every one of these
+  // "seed-derived" values — blur strength/direction, haze, grain, focus
+  // distance, bloom, palette, poppy-accent probability, camera framing —
+  // stayed frozen at whatever the *first* seed on page load happened to
+  // roll, for the rest of the session, no matter how many times the seed
+  // changed afterwards; only the raw sub-seeds never routed through a Leva
+  // control (flower placement/species/colour, meadow layout, terrain,
+  // wind timing) actually varied. Explicitly pushing each fold back to its
+  // fresh defaults via its own `set` function — the same mechanism the
+  // debug hook's setters already use — is what actually resets them, the
+  // same "reset to the new seed's defaults, don't carry a manual tweak
+  // across an unrelated new composition" behaviour the folds above already
+  // claim to have.
+  useEffect(() => {
+    setCameraFold({
+      height: base.camera.position[1],
+      distance: base.camera.position[2],
+      pan: base.camera.target[0],
+      zoom: 1,
+      blurLength: base.motionBlurStrength,
+      blurDirection: THREE.MathUtils.radToDeg(base.motionBlurDirectionAngle),
+    })
+    setLightingFold({ overcast: 1, warmth: 1, shadowDepth: 1 })
+    setFlowersFold({ density: 1, scale: 1, poppyAccent: base.poppyAccentProbability })
+    setColourFold({
+      palette: base.palette.name,
+      hueShift: 0,
+      exposure: 1,
+      brightness: 0,
+      contrast: 1,
+      highlights: 0,
+      shadows: 0,
+      vibrance: 1,
+    })
+    setAtmosphereFold({ haze: base.hazeAmount, softness: 1, fog: 1, windStrength: base.wind.strength })
+    setLensFold({
+      focusDistance: base.focusDistance,
+      blurAmount: base.maxBlur,
+      aperture: base.fStop,
+      glowIntensity: base.bloomIntensity,
+      highlightBloom: base.highlightBloomIntensity,
+    })
+    setFilmFold({ grainAmount: base.grainAmount, grainSize: 1 })
+    setGrassFold({ density: 1, height: 1, width: 1 })
+    // Deliberately keyed on `seed` alone, not every `base.xxx`/setter this
+    // reads — matches every fold's own (currently-ineffective) `[seed]`
+    // deps array above, and firing this only on an actual reseed (not
+    // every unrelated re-render) is the whole point.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed])
+
   const state: GenerativeState = useMemo(() => {
     const palette = shiftPaletteHue(
       PALETTES.find((p) => p.name === colourControls.palette) ?? base.palette,
