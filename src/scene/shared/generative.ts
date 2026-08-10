@@ -536,6 +536,19 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   const dramaRng = createRng(seed + SEED_OFFSETS.drama)
   const drama = Math.min(0.85, (gaussianish(dramaRng) + 1) / 2)
 
+  // Squared, not used directly — `drama` itself is gaussian-ish around
+  // 0.5, so a *linear* interpolation from each axis's calm floor to its
+  // dramatic ceiling below put the *median* seed at roughly the midpoint
+  // of that range, not near the calm end. Measured directly against a
+  // render batch: that meant "moderate haze/blur/grain" was the typical
+  // result, not the exception, reading as consistently gloomier/muddier
+  // than intended rather than atmosphere reserved for genuinely dramatic
+  // seeds. Squaring skews the curve so low-and-mid drama stay close to
+  // the calm floor and only the upper tail actually climbs towards the
+  // ceiling — same seed distribution, same three ceilings below, a
+  // visibly calmer median.
+  const dramaCurve = drama * drama
+
   // Wide on purpose — 0.2 barely sweeps at all (the residual blur comes
   // almost entirely from HandheldDrift's tiny tremor and wind sway, soft
   // enough to still read the underlying flower shapes) while 1.7 sweeps
@@ -551,12 +564,12 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // different failure mode from a strong-but-legible streak. Direction is
   // a full circle, not just a left-right pan — see CAMERA_CONFIG.sweep's
   // docstring for why that used to always be almost-pure yaw. The centre of
-  // the range now comes from `drama` (see above) rather than rolling
-  // independently across the whole 0.2-1.7 span; the ±0.15 jitter on top
-  // keeps two similarly-dramatic seeds from landing on the exact same
-  // strength.
+  // the range comes from `dramaCurve` (see above) rather than rolling
+  // independently across the whole 0.2-1.7 span, or linearly off `drama`
+  // itself; the ±0.15 jitter on top keeps two similarly-dramatic seeds
+  // from landing on the exact same strength.
   const motionBlurRng = createRng(seed + SEED_OFFSETS.motionBlur)
-  const motionBlurCenter = 0.2 + (1.7 - 0.2) * drama
+  const motionBlurCenter = 0.2 + (1.7 - 0.2) * dramaCurve
   const motionBlurStrength = Math.min(1.7, Math.max(0.2, motionBlurCenter + range(motionBlurRng, -0.15, 0.15)))
   const motionBlurDirectionAngle = range(motionBlurRng, 0, Math.PI * 2)
 
@@ -569,12 +582,20 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // of how hard the camera swept. Leva's Atmosphere > Haze / Film > Grain
   // Amount sliders still seed their displayed value from this (see
   // GenerativeProvider.tsx) and can override it same as always.
+  //
+  // Floors lowered (haze 0.7→0.55, grain 0.7→0.6) and ceilings trimmed
+  // (haze 1.4→1.3, grain 1.3→1.2) alongside the same `dramaCurve` switch
+  // motionBlurStrength above got: haze in particular is the single
+  // heaviest-measured lever for washing colour/life out of a frame this
+  // registry has (see palette.ts's `atmosphereScale` fixes) — a linear
+  // centre that put the median seed *above* 1.0 (neutral) meant "hazier
+  // than the tuned baseline" was the typical render, not a dramatic one.
   const hazeRng = createRng(seed + SEED_OFFSETS.haze)
-  const hazeCenter = 0.7 + (1.4 - 0.7) * drama
+  const hazeCenter = 0.55 + (1.3 - 0.55) * dramaCurve
   const hazeAmount = Math.min(1.55, Math.max(0.55, hazeCenter + range(hazeRng, -0.1, 0.1)))
 
   const grainRng = createRng(seed + SEED_OFFSETS.grain)
-  const grainCenter = 0.7 + (1.3 - 0.7) * drama
+  const grainCenter = 0.6 + (1.2 - 0.6) * dramaCurve
   const grainAmount = Math.min(1.45, Math.max(0.55, grainCenter + range(grainRng, -0.08, 0.08)))
 
   return {
