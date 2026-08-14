@@ -523,6 +523,66 @@ export const PALETTES: readonly ColorPalette[] = [
     // Same fix/mechanism as Poppy petal's own `atmosphereScale` above.
     atmosphereScale: 0.4,
   },
+  {
+    name: 'Cotton rose',
+    // Matched loosely against a reference swatch: one soft pastel pink
+    // running against a spread of greens. This is a single-flower-hue
+    // palette (see Poppy petal/Lupine above for the same pattern) — every
+    // petal role, `core`, `accent`, `deepShade`, and `paleLight` stay in the
+    // one pink family, and `glow` is pink-toned too (not the warm gold/cream
+    // every other single-hue palette above uses): an off-family glow tints
+    // any backlit/translucent petal edge its own hue (`glow` is the actual
+    // light colour, see the class docstring), which read as stray white/
+    // yellow petals against the pink field rather than the intended
+    // "flowers, face and centre alike, are all one colour" look. Greens
+    // pulled back towards the registry's own established muted sage/forest
+    // tones (`foliageSecondary` reuses the exact `#368144` every other
+    // palette's medium green converges on) rather than the more saturated,
+    // cartoonish-reading green an isolated pick against the swatch alone
+    // landed on.
+    background: '#A0B98A',
+    backgroundSecondary: '#C7DCC2',
+    // Warm rose-pink light, not gold/cream — keeps the key light in the same
+    // family as the petals it's lighting instead of introducing a
+    // contrasting hue, and (since lighting is a multiply against albedo, see
+    // every other palette's petal-anchor comments on this) a pink light
+    // reinforces the petals' own pink rather than crushing their blue
+    // channel towards a duller peach/tan the way a gold light would.
+    glow: '#F2A8B4',
+    // Muted, slightly cool-leaning dark green (not a saturated true-green or
+    // teal) — same family every other palette's `foliagePrimary` sits in.
+    foliagePrimary: '#28433C',
+    // The registry's own house medium green, reused rather than reinvented —
+    // every other palette that needed a plain mid-green (Poppy petal,
+    // Daisies, Potpourri, Lupine's neighbours above) converged on this exact
+    // value.
+    foliageSecondary: '#368144',
+    // Pushed rosier/more saturated than the reference's own pale swatch —
+    // same reasoning as every other palette's petal anchors (see the class
+    // docstring): a hex this saturated is what actually survives the
+    // lighting/haze/bloom pipeline as pink rather than fading toward a
+    // washed-out blush on screen.
+    petalPrimary: '#F2568F',
+    petalSecondary: '#E8829C',
+    petalTertiary: '#F7A8BE',
+    // Same pink family as the petals, not a contrasting centre colour — the
+    // brief wants the whole bloom, face and centre alike, reading as one
+    // rose-pink flower.
+    core: '#DE6C8C',
+    accent: '#F7C2D2',
+    // Distinct from `foliagePrimary`/`foliageSecondary` so stems read as
+    // their own thing rather than reusing the grass greens outright.
+    stem: '#3A5C46',
+    // Tinted to the petal family's own rose rather than a neutral dark —
+    // this doubles as the petal family's near-black extreme
+    // (flowerField/palette.ts's `petalAnchors`), so a neutral choice here
+    // would put a stray grey bloom into an otherwise all-pink field.
+    deepShade: '#42192A',
+    // Clearly pink rather than near-white — this is also the petal family's
+    // near-white extreme (same `petalAnchors` mechanism), and the brief
+    // explicitly wants no white blooms in the field.
+    paleLight: '#F6C9D4',
+  },
 ]
 
 /** Exact-name lookup, used by shared/generative.ts to let a `?palette=` override win over the seed-picked one. */
