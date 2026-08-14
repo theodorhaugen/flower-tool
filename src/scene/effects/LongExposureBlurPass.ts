@@ -133,6 +133,20 @@ const COPY_FRAGMENT_SHADER = `
     // back without touching the actual directional smear this pass exists
     // to produce.
     color.rgb = contrastBoost(color.rgb, 1.0 + recoveryAmount * 0.5);
+    // \`contrastBoost\` is an unclamped pivot around 0.5 — at high enough
+    // \`recoveryAmount\` (near max Blur Length), any input under roughly 0.17
+    // comes out negative, not just dark. This pass renders into a floating-
+    // point intermediate target, not straight to the screen, so a negative
+    // value doesn't clip to black right here — it survives into every
+    // downstream pass (bloom, tone mapping, halation, grain, chromatic
+    // aberration) that assumes non-negative colour, and whatever those do
+    // with it only gets clamped to displayable range at the very end. That
+    // cascade is what was actually producing the reported "large solid-black
+    // patches" — clamping the low end back to 0 immediately, right where the
+    // boost can push past it, keeps the recovery's intended effect (a
+    // punchier, less washed-out image) without ever handing a negative
+    // colour to a pass that has no idea what to do with one.
+    color.rgb = max(color.rgb, 0.0);
     // Reboosting saturation on the *displayed* frame only (not the
     // accumulation buffer feeding this texture — see BLEND_FRAGMENT_SHADER)
     // recovers vividness thin, saturated detail otherwise loses under that
