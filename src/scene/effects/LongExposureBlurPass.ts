@@ -225,10 +225,22 @@ const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
  * physically correct" smear the comment above warns against — that's
  * measured in whole-frame terms, and this is scaled for small-feature
  * reach, not to redo the large-feature job the blend above already does.
+ *
+ * Raised again, from 1.1, alongside cutting `halfLifeSeconds` (effects/
+ * config.ts) hard: shrinking the temporal accumulation's memory window
+ * fixed the "blends genuinely different vantage points, erasing shape"
+ * failure mode, but on its own that also thins out the overall blur *look*
+ * this tool wants present on every render, never fully sharp. This term is
+ * what carries that look forward instead — it's a same-frame directional
+ * smear, so it can't erase shape the way blending distinct moments can,
+ * only stretch what's already there along the sweep's own direction. Net
+ * effect versus the old (0.7 half-life, 1.1 streak) pairing: still, or more,
+ * visibly blurred, but blurred *as* a flower rather than blurred *into*
+ * abstract noise.
  */
-const STREAK_STRENGTH = 1.1
+const STREAK_STRENGTH = 2.2
 /** Caps the within-frame streak to a sane fraction of the screen — a guard against a single unusually large virtual-time step (e.g. a slow real frame) producing an absurdly long smear rather than a subtle one. Raised alongside `STREAK_STRENGTH` so the cap isn't clipping the strengthened streak back down to the old, barely-visible length. */
-const MAX_STREAK_UV = 0.1
+const MAX_STREAK_UV = 0.2
 
 function clampedRotationAmplitude(movementMultiplier: number): number {
   return Math.min(BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier, MAX_ROTATION_AMPLITUDE_RAD)

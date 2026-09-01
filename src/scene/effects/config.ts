@@ -168,7 +168,33 @@ export const POST_PROCESSING_CONFIG = {
    * reading as motion and starts reading as a soft double-exposure ghost.
    */
   motionBlur: {
-    /** Nudged down from 0.9 — camera/config.ts's `sweep` docstring wants this well under `periodSeconds / 2` (1.2s) so the accumulation doesn't reach back into the swing's reversed half; 0.9 (75% of that) cut it closer than intended. */
-    halfLifeSeconds: 0.7,
+    /**
+     * Cut hard from 0.7 (itself nudged down from 0.9) — 0.7s means the
+     * accumulation's *effective* memory window (roughly 3-4 half-lives to
+     * fade to near-nothing) covers close to the entire 2.4s sweep period,
+     * blending frames from meaningfully different points in the swing
+     * together rather than just smearing one moment's content. Since the
+     * capture instant is always a sine zero-crossing (see camera/config.ts's
+     * `sweep` docstring) it's also always the sweep's *peak angular
+     * velocity* point — so even a "moderate" Blur Length was blending
+     * enough of the swept range to erase recognisable petal/centre shapes
+     * entirely, not just soften them, confirmed directly by isolating
+     * motion blur alone (Blur Length at its seed default, everything else
+     * unchanged): the same seed read as a fully abstract wash with it on
+     * and a sharp, clearly a flower with it forced to 0. Two smaller cuts
+     * (to 0.35, and to the base sweep amplitude) each barely moved that
+     * result — the blend window needed to shrink by much more than half
+     * before it stopped erasing shape. This cut is paired with
+     * `STREAK_STRENGTH`/`MAX_STREAK_UV` (LongExposureBlurPass.ts) both
+     * raised to compensate, so the *look* stays just as blurred — softer,
+     * even — while what's actually doing the blurring shifts from "blend
+     * several genuinely different vantage points together" (destroys
+     * shape) to "smear one moment's content along the sweep's direction"
+     * (keeps shape, streaks it). The tool's whole point is a soft, never
+     * game-graphic-sharp render — this isn't about making anything sharper,
+     * it's about making sure there's still a recognisable flower under
+     * the blur every time.
+     */
+    halfLifeSeconds: 0.18,
   },
 }
