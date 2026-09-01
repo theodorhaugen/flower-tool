@@ -74,7 +74,15 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
   // Volumetric softness: a handful of wide taps faded in by the same
   // depth mask, standing in for light scattering thickening with distance
   // rather than a uniform blur.
-  float volumetricAmount = volumetricStrength * depthMask;
+  // Clamped the same way \`hazeAmount\` below already is — currently safe in
+  // practice (volumetricStrength tops out around 0.55 given today's config
+  // and palette \`atmosphereScale\` values, both ≤1), but \`mix()\`'s own
+  // factor has no ceiling, and nothing downstream re-clamps a value this
+  // pass hands off past 1 the way LongExposureBlurPass's negative-value bug
+  // (fixed earlier) needed a guard for the opposite direction. A defensive
+  // clamp here costs nothing today and closes off that class of bug before
+  // a future config/palette change could reopen it.
+  float volumetricAmount = clamp(volumetricStrength * depthMask, 0.0, 1.0);
   if (volumetricAmount > 0.001) {
     vec2 r = volumetricRadius * texelSize;
     vec3 scattered = color;

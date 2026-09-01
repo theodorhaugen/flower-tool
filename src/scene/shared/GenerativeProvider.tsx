@@ -166,7 +166,16 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
     () => ({
       density: { value: 1, min: 0.2, max: 1.6, label: 'Density' },
       scale: { value: 1, min: 0.5, max: 1.8, label: 'Scale' },
-      poppyAccent: { value: base.poppyAccentProbability, min: 0, max: 0.6, label: 'Poppy Accent' },
+      // Capped well under 0.5 — this is a per-plant probability
+      // (generateFlowerField.ts's `rollIsPoppy`) that also forces the
+      // plant's species to a single poppy bloom, so above ~0.5 the "accent"
+      // stops being an accent and becomes the field's actual majority
+      // species, drowning out the active palette's own petal anchors and
+      // the umbel/spike structural variety this fold's Density/Scale are
+      // meant to be shaping. 0.35 still reaches "poppies everywhere" well
+      // past the tuned default (0.15) without crossing into "this is just
+      // a poppy field now."
+      poppyAccent: { value: base.poppyAccentProbability, min: 0, max: 0.35, label: 'Poppy Accent' },
     }),
     [seed],
   )
@@ -203,7 +212,18 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
   const [lensControls, setLensFold] = useControls(
     'Lens',
     () => ({
-      focusDistance: { value: base.focusDistance, min: 5, max: 35, label: 'Focus Distance' },
+      // Anchored to this seed's own composition (base.focusDistance), the
+      // same pattern Camera > Height/Distance/Pan already use, rather than
+      // a flat absolute 5-35 world-unit range: the actual in-focus band the
+      // thin-lens DOF math produces at this rig's aperture/focal-length is
+      // only ~1-3 world units wide (LensOpticsDepthOfFieldEffect.ts), so a
+      // range this much wider than that meant an entirely ordinary drag —
+      // not even an extreme one — could push every last thing in frame
+      // outside the sharp band at once, with nothing left in focus
+      // anywhere. Anchoring keeps the full useful "rack focus forward/back
+      // through this composition" travel while making it much harder to
+      // wander that far off the actual subject by accident.
+      focusDistance: { value: base.focusDistance, min: base.focusDistance - 7, max: base.focusDistance + 8, label: 'Focus Distance' },
       blurAmount: { value: base.maxBlur, min: 0.2, max: 3, label: 'Blur Amount' },
       aperture: { value: base.fStop, min: 0.5, max: 4, label: 'Aperture' },
       glowIntensity: { value: base.bloomIntensity, min: 0, max: 1, label: 'Glow Intensity' },

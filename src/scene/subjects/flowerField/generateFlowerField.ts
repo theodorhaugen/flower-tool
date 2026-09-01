@@ -75,7 +75,20 @@ function approximateBandArea(band: DepthBand, samples = 12): number {
   return Math.abs(area)
 }
 
-/** Splits flowerCount across bands proportionally to area × densityMultiplier, not a fixed share. */
+/**
+ * Guaranteed minimum flowers in any one band, regardless of how thin its
+ * area×densityMultiplier weight comes out — the foreground band's own small
+ * on-screen area combined with its deliberately low 0.22 multiplier (a few
+ * large hero blooms, not a dense carpet) already gives it well under 1% of
+ * total weight; at Leva's Flowers > Density floor (0.2, flowerCount≈920)
+ * that rounded down to roughly 5 flowers scattered across the whole
+ * foreground width/depth — no longer "a few intentional hero blooms," just
+ * a broken-looking near-empty band the depth-of-field composition relies on
+ * having *something* in.
+ */
+const MIN_BAND_COUNT = 15
+
+/** Splits flowerCount across bands proportionally to area × densityMultiplier, not a fixed share — then backfills any band that rounded below MIN_BAND_COUNT out of whichever band currently has the most, so a thin band's floor doesn't also thin out its neighbours. */
 function allocateBandCounts(depthBands: readonly DepthBand[], flowerCount: number): number[] {
   const weights = depthBands.map((band) => approximateBandArea(band) * band.densityMultiplier)
   const totalWeight = weights.reduce((sum, w) => sum + w, 0)
@@ -83,6 +96,16 @@ function allocateBandCounts(depthBands: readonly DepthBand[], flowerCount: numbe
   const counts = weights.map((weight) => Math.round((flowerCount * weight) / totalWeight))
   const shortfall = flowerCount - counts.reduce((sum, c) => sum + c, 0)
   counts[counts.length - 1] += shortfall // absorb rounding drift in the last (background) band
+
+  const floor = Math.min(MIN_BAND_COUNT, Math.floor(flowerCount / depthBands.length))
+  for (let i = 0; i < counts.length; i++) {
+    if (counts[i] >= floor) continue
+    const deficit = floor - counts[i]
+    const donorIndex = counts.reduce((maxIdx, c, idx) => (c > counts[maxIdx] ? idx : maxIdx), 0)
+    if (donorIndex === i) continue
+    counts[donorIndex] -= deficit
+    counts[i] = floor
+  }
 
   return counts
 }

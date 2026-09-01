@@ -42,8 +42,19 @@ function mix(a: string, b: string, t: number): string {
  * tint bleeds into the lights, and the key/fill directional lights'
  * intensity respectively — all 1 = as tuned above.
  */
+// `lightingShadowDepth` scales the two directional lights linearly with no
+// floor of its own — at its Leva minimum (0) both go to exactly 0,
+// collapsing this whole "broken-sun" design back into the flat, no-shadow
+// lighting the class docstring above describes fixing (hemisphere+ambient
+// alone light every surface uniformly regardless of orientation). 0 is a
+// perfectly reachable slider position, not a far corner, so this floors the
+// *effective* multiplier well below the tuned baseline (a soft, low-relief
+// look) without ever fully zeroing the directional cue out.
+const MIN_SHADOW_DEPTH = 0.15
+
 export function SceneLighting() {
   const { palette, lightingOvercast, lightingWarmth, lightingShadowDepth } = useGenerative()
+  const effectiveShadowDepth = Math.max(MIN_SHADOW_DEPTH, lightingShadowDepth)
 
   const colors = useMemo(() => {
     // Lightness-capped, not the raw palette value — see
@@ -63,8 +74,8 @@ export function SceneLighting() {
     <>
       <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={0.8 * lightingOvercast} />
       <ambientLight intensity={0.15 * lightingOvercast} />
-      <directionalLight position={[4, 6, 3]} intensity={2.6 * lightingShadowDepth} color={colors.key} />
-      <directionalLight position={[-3, 3, -4]} intensity={0.35 * lightingShadowDepth} color={colors.fill} />
+      <directionalLight position={[4, 6, 3]} intensity={2.6 * effectiveShadowDepth} color={colors.key} />
+      <directionalLight position={[-3, 3, -4]} intensity={0.35 * effectiveShadowDepth} color={colors.fill} />
     </>
   )
 }

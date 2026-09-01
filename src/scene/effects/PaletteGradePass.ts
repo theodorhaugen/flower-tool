@@ -101,7 +101,24 @@ const FRAGMENT_SHADER = `
     float minChannel = min(color.r, min(color.g, color.b));
     float currentSaturation = clamp((maxChannel - minChannel) / max(maxChannel, 1e-4), 0.0, 1.0);
     vec3 gray = vec3(relLuminance(color));
-    float vibranceAmount = vibrance * (1.0 - currentSaturation);
+    // Capped at 1.5 (mix() extrapolating up to 2.5x past gray) — GLSL's
+    // mix() has no ceiling of its own for a factor past 1.0, so on an
+    // already near-desaturated pixel (currentSaturation near 0, e.g. a
+    // bright highlight that Exposure/Contrast already pushed hard) an
+    // uncapped \`vibrance\` (Leva's Vibrance slider × this pass's own base
+    // multiplier, up to 3.0 combined) extrapolates *away* from grey by
+    // 3-4x rather than the intended "recover a little vividness" — since
+    // this runs pre-tonemap in unbounded HDR space, that overshoot isn't a
+    // clean bright pixel, it's one channel (whichever started furthest
+    // from grey) running far ahead of the others, which the later ACES
+    // tonemap then compresses unevenly into a visible hue skew (measured:
+    // a magenta/red cast on already-blown highlights) rather than a
+    // punchier version of the same colour. The \`max(..., 0.0)\` right below
+    // still catches the *opposite* overshoot (a raw channel spread past
+    // 1.0 driving this negative — see the comment above \`currentSaturation\`
+    // for why that's normalised, not the true failure mode this guards);
+    // this caps the other end of the same extrapolation.
+    float vibranceAmount = min(vibrance * (1.0 - currentSaturation), 1.5);
     color = max(mix(gray, color, 1.0 + vibranceAmount), 0.0);
 
     float luminance = relLuminance(color);

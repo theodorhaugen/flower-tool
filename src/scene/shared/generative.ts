@@ -2,7 +2,7 @@ import { CAMERA_CONFIG } from '../camera/config'
 import { POST_PROCESSING_CONFIG } from '../effects/config'
 import { frustumWidthHalfAt } from './frustum'
 import type { MeadowLayoutConfig } from './meadowLayout'
-import { sampleMeadowClusterField } from './meadowLayout'
+import { sampleMeadowDensity } from './meadowLayout'
 import { createMeadowLayout } from './meadowLayoutConfig'
 import type { ColorPalette } from './palette'
 import { findPaletteByName, PALETTES } from './palette'
@@ -35,11 +35,11 @@ const CLUSTER_SEARCH_RADIUS: OffsetRange = [-9, 9]
 
 /**
  * Sample-point offsets `sampleClusterAreaDensity` averages over, world
- * units. A single-point `sampleMeadowClusterField` read is dominated by
- * whichever of its two blended noise layers happens to spike right at that
- * exact coordinate — `detailFrequency`0.22 is high enough to swing a point
- * from "gap" to "looks dense" over just a couple of world units, even inside
- * a broad region the *low*-frequency `clusterFrequency`0.05 layer (the one
+ * units. A single-point read is dominated by whichever of the cluster
+ * field's two blended noise layers happens to spike right at that exact
+ * coordinate — `detailFrequency`0.22 is high enough to swing a point from
+ * "gap" to "looks dense" over just a couple of world units, even inside a
+ * broad region the *low*-frequency `clusterFrequency`0.05 layer (the one
  * that actually corresponds to "a cluster of flowers is here", not fine
  * texture within one) says is genuinely sparse. Verified directly: seeds
  * 1111 and 1814 both had a lucky single-point spike pass the density search,
@@ -56,10 +56,28 @@ const CLUSTER_AREA_SAMPLE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [0, -3],
 ]
 
+/**
+ * Reads `sampleMeadowDensity` (the path-carved density flower/grass
+ * placement actually samples — shared/meadowLayout.ts), not the raw
+ * `sampleMeadowClusterField` this used to read. The cluster field alone has
+ * no idea a dirt path (`MeadowLayoutConfig.paths`) cuts through this exact
+ * spot — measured directly across 5000 seeds: 17% had the search rate a
+ * candidate as comfortably dense (≥0.3) purely on the cluster field, while
+ * the real, path-aware density there sat under 0.15 (some cases under 0.02,
+ * against the meadow's own 0.03 gap floor), because the candidate happened
+ * to sit on or near one of the two wandering paths (`minDensity` 0.08/0.14,
+ * and the two can compound where they cross to under 1.2% of peak). The
+ * search would then confidently aim the camera at what was actually a bare
+ * dirt track — a real, seed-reachable "camera pointed mostly at empty
+ * ground" render, not a rare edge case. Reading the same density function
+ * placement itself uses is what makes "the search says this spot is good"
+ * and "this spot actually has flowers on it" the same claim.
+ */
 function sampleClusterAreaDensity(x: number, z: number, layout: MeadowLayoutConfig): number {
   let sum = 0
   for (const [dx, dz] of CLUSTER_AREA_SAMPLE_OFFSETS) {
-    sum += sampleMeadowClusterField(x + dx, z + dz, layout)
+    const worldZ = z + dz
+    sum += sampleMeadowDensity(x + dx, worldZ, frustumWidthHalfAt(worldZ), layout)
   }
   return sum / CLUSTER_AREA_SAMPLE_OFFSETS.length
 }
