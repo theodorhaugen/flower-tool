@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { CAMERA_CONFIG } from '../camera/config'
 import { installFlowerToolDebugHook } from './debugHook'
-import { deriveGenerativeState, randomSeed, SEED_MAX } from './generative'
+import { deriveGenerativeState, randomSeed, SEED_MAX, ZOOM_MAX, ZOOM_MIN } from './generative'
 import type { GenerativeState } from './generative'
 import { GenerativeContext } from './generativeContext'
 import { PALETTES, shiftPaletteHue } from './palette'
@@ -37,6 +37,16 @@ function readUrlParams(): { seedParam: string | null; paletteParam: string | nul
  */
 function wrapSeed(seed: number): number {
   return ((seed % (SEED_MAX + 1)) + (SEED_MAX + 1)) % (SEED_MAX + 1)
+}
+
+/** Raw `ZOOM_MIN`-`ZOOM_MAX` divisor -> the 0-1 fraction the Zoom slider displays/drags. */
+function normalizeZoom(zoom: number): number {
+  return (zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)
+}
+
+/** Inverse of `normalizeZoom` — slider's 0-1 fraction -> the raw divisor `fov` is actually computed from. */
+function denormalizeZoom(fraction: number): number {
+  return ZOOM_MIN + fraction * (ZOOM_MAX - ZOOM_MIN)
 }
 
 /**
@@ -123,14 +133,23 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       // view (MainCamera.tsx), not a dolly (Distance above moves the
       // camera itself, changing perspective/parallax along with framing;
       // this changes only the framing/compression, the way swapping lenses
-      // does). Inverted from the raw FOV value (fov = base / zoom) rather
-      // than exposing degrees directly, so — unlike Height/Distance/Pan
-      // above, which are raw physical values — dragging this slider right
-      // reads as "more zoomed in" the way every camera zoom control does,
-      // matching this app's own "1 = as tuned" multiplier convention
-      // (Blur Amount, Aperture, etc.) instead of a raw, non-intuitive FOV
+      // does). Inverted from the raw FOV value (fov = base / zoom) so
+      // dragging this slider right reads as "more zoomed in" the way every
+      // camera zoom control does, rather than a raw, non-intuitive FOV
       // number where smaller is actually more zoomed in.
-      zoom: { value: 1, min: 0.6, max: 2.2, label: 'Zoom' },
+      //
+      // Dragged/displayed as a 0-1 fraction of the usable band
+      // (`ZOOM_MIN`-`ZOOM_MAX`, generative.ts — see `normalizeZoom`/
+      // `denormalizeZoom` above) rather than that raw 1.5-2.0 divisor
+      // directly: a 0.5-wide raw span reads as an oddly cramped slider,
+      // where 0-1 matches this app's own "how much" convention (Blur
+      // Amount, Aperture, etc.) — and, unlike those, this range really is
+      // the *entire* usable band rather than a soft "1 = as tuned" middle,
+      // so 0-1 fits it exactly with nothing left over. Seed-derived
+      // starting point (`base.zoom`) rather than a flat default — same
+      // reasoning as Blur Length/Haze/Grain above; `zoom`'s own docstring
+      // covers why that seed draw used to be silently ignored.
+      zoom: { value: normalizeZoom(base.zoom), min: 0, max: 1, label: 'Zoom' },
       // A direct value (like `focusDistance`/`maxBlur` in the Lens fold
       // below), not a multiplier on top of the seed's own pick — dragging
       // this slider replaces which "how blurred" this render is, the same
@@ -286,7 +305,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       height: base.camera.position[1],
       distance: base.camera.position[2],
       pan: base.camera.target[0],
-      zoom: 1,
+      zoom: normalizeZoom(base.zoom),
       blurLength: base.motionBlurStrength,
       blurDirection: THREE.MathUtils.radToDeg(base.motionBlurDirectionAngle),
     })
@@ -340,7 +359,8 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       wind: { ...base.wind, strength: atmosphereControls.windStrength },
       motionBlurStrength: cameraControls.blurLength,
       motionBlurDirectionAngle: THREE.MathUtils.degToRad(cameraControls.blurDirection),
-      fov: CAMERA_CONFIG.fov / cameraControls.zoom,
+      fov: CAMERA_CONFIG.fov / denormalizeZoom(cameraControls.zoom),
+      zoom: denormalizeZoom(cameraControls.zoom),
       lightingOvercast: lightingControls.overcast,
       lightingWarmth: lightingControls.warmth,
       lightingShadowDepth: lightingControls.shadowDepth,

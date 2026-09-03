@@ -158,7 +158,23 @@ const SEED_OFFSETS = {
   drama: 1_000_000,
   haze: 1_100_000,
   grain: 1_200_000,
+  zoom: 1_300_000,
 } as const
+
+/**
+ * Camera fold "Zoom"'s usable band, as a raw `CAMERA_CONFIG.fov` divisor
+ * (see `zoom`'s own docstring below). Tightened from Leva's old 0.6-2.2
+ * slider bound — which was doing double duty as both the *only* clamp and
+ * the full creative range — after a visual sweep found only this narrower
+ * band actually read as a lens zoom: below ~1.5 the framing barely changed
+ * from the untouched default, and above ~2.0 it crushed into an
+ * unrecognisably tight, flat-looking crop. Exported so
+ * GenerativeProvider.tsx's Leva control can map its displayed 0-1 slider
+ * onto the same band `zoom` below is actually drawn from, instead of the
+ * two ranges silently drifting apart.
+ */
+export const ZOOM_MIN = 1.5
+export const ZOOM_MAX = 2.0
 
 export interface GenerativeCamera {
   position: readonly [number, number, number]
@@ -399,8 +415,19 @@ export interface GenerativeState {
   grassHeight: number
   /** Grass fold "Width" — multiplies each blade's width independently of height. 1 = as tuned. */
   grassWidth: number
-  /** Camera fold "Zoom" — overrides CAMERA_CONFIG.fov (degrees). Narrower = more zoomed in/telephoto-compressed, wider = more zoomed out. As tuned. */
+  /** Camera fold "Zoom" — overrides CAMERA_CONFIG.fov (degrees). Narrower = more zoomed in/telephoto-compressed, wider = more zoomed out. Always the result of dividing CAMERA_CONFIG.fov by `zoom` below (GenerativeProvider.tsx recomputes it from the live Leva control the same way); not itself independently seed-derived. */
   fov: number
+  /**
+   * Camera fold "Zoom" — the raw divisor `fov` above is computed from
+   * (bigger = narrower FOV = more zoomed in), bounded to `ZOOM_MIN`-
+   * `ZOOM_MAX`. Seed-derived rather than a flat default — used to sit at
+   * an always-1 constant regardless of seed (the same flat-default bug
+   * `hazeAmount`/`grainAmount` above were fixed for), so every render used
+   * the exact same framing tightness until a designer dragged the slider.
+   * GenerativeProvider.tsx's Leva control shows this remapped to a 0-1
+   * fraction of the band, not the raw divisor directly.
+   */
+  zoom: number
 }
 
 export interface DeriveGenerativeStateOptions {
@@ -633,6 +660,14 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   const grainCenter = 0.6 + (1.2 - 0.6) * dramaCurve
   const grainAmount = Math.min(1.45, Math.max(0.55, grainCenter + range(grainRng, -0.08, 0.08)))
 
+  // Independent of `cameraRng`/`dramaCurve` — deliberately just a flat draw
+  // across the whole band, not coupled to `drama` the way motion blur/haze/
+  // grain are. A dramatic, heavily-swept render doesn't need to also be a
+  // tight crop (or a wide one) for its own sake; zoom is a framing choice,
+  // not an intensity axis.
+  const zoomRng = createRng(seed + SEED_OFFSETS.zoom)
+  const zoom = range(zoomRng, ZOOM_MIN, ZOOM_MAX)
+
   return {
     seed,
     palette,
@@ -680,7 +715,8 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     grassDensity: 1,
     grassHeight: 1,
     grassWidth: 1,
-    fov: CAMERA_CONFIG.fov,
+    fov: CAMERA_CONFIG.fov / zoom,
+    zoom,
   }
 }
 
