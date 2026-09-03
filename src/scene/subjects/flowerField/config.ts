@@ -166,21 +166,29 @@ export const FLOWER_FIELD_CONFIG = {
    * of. Every band plants flowers on the shared terrain height (see
    * generateFlowerField.ts) rather than at an independent random altitude.
    *
-   * `stemHeightFactorRange`'s lower bounds were raised (was 0.5/0.4/0.3) —
-   * grass grows 0.35-0.8 world units tall (see environment/config.ts), and
-   * a stem shorter than that (which the old ranges' low end regularly
-   * produced, especially combined with a small `scaleRange` roll) means the
-   * bloom sits *below* the surrounding grass tops, not above it, so grass
-   * legitimately — not as a depth-sort bug — grows in front of the flower
-   * it should be framing. Raised enough that most blooms now clear typical
-   * grass height instead of most sitting below it.
+   * `stemHeightFactorRange`'s lower bounds were raised once already (was
+   * 0.5/0.4/0.3) — grass now grows 0.25-0.55 world units tall (environment/
+   * config.ts's `heightRange`, itself shortened at the same time), and a
+   * stem shorter than that means the bloom sits *below* the surrounding
+   * grass tops, not above it, so grass legitimately — not as a depth-sort
+   * bug — grows in front of the flower it should be framing.
+   *
+   * `densityMultiplier` rebalanced (was 0.22/1/1.5) after reports of scenes
+   * reading as "almost pure grass": the background band's high weight meant
+   * it dominated total flower *count*, but at its own scale/blur those
+   * flowers barely register — they're the least visually impactful band by
+   * design, not the ones that should be numerically dominant. Weight
+   * shifted towards foreground/midground, the two bands large and sharp
+   * enough to actually read as "there are flowers here" at a glance;
+   * background stays the majority-by-weight (it's still meant to be a busy
+   * haze, not empty) but no longer swamps the other two the way 1.5 did.
    */
   depthBands: [
     {
       name: 'foreground',
       zMax: zAtDepthFraction(0),
       zMin: zAtDepthFraction(0.13),
-      densityMultiplier: 0.22,
+      densityMultiplier: 0.45,
       scaleRange: [0.55, 1.05] as const,
       petalCountRange: [6, 13] as const,
       stemHeightFactorRange: [0.85, 1.35] as const,
@@ -189,16 +197,21 @@ export const FLOWER_FIELD_CONFIG = {
       name: 'midground',
       zMax: zAtDepthFraction(0.13),
       zMin: zAtDepthFraction(0.55),
-      densityMultiplier: 1,
+      densityMultiplier: 1.4,
       scaleRange: [0.3, 0.75] as const,
       petalCountRange: [5, 12] as const,
-      stemHeightFactorRange: [0.75, 1.25] as const,
+      // Low end raised (was 0.75) — at this band's own low-end scale roll,
+      // 0.75 could still land the stem shorter than grass's own max height
+      // (0.55), the exact occlusion `stemHeightFactorRange`'s own docstring
+      // above describes; 0.95 keeps that combination clearing it more
+      // reliably.
+      stemHeightFactorRange: [0.95, 1.4] as const,
     },
     {
       name: 'background',
       zMax: zAtDepthFraction(0.55),
       zMin: zAtDepthFraction(1),
-      densityMultiplier: 1.5,
+      densityMultiplier: 0.9,
       scaleRange: [0.12, 0.35] as const,
       petalCountRange: [4, 8] as const,
       stemHeightFactorRange: [0.5, 0.9] as const,

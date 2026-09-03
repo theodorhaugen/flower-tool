@@ -16,8 +16,22 @@ import { createRng, gaussianish, range } from './random'
  * every draw still has to consume `cameraRng` deterministically for a given
  * seed to stay reproducible, and an unbounded loop would too if a seed's
  * meadow genuinely has no dense spot within the search radius at all.
+ *
+ * Raised from 20 — even after fixing the search to read the real,
+ * path-aware density (see `sampleClusterAreaDensity` below) rather than
+ * the raw cluster field, 20 draws spread thinly enough over the search
+ * radius that most seeds never actually landed on a genuinely dense spot,
+ * just whichever mediocre candidate happened to score best: measured
+ * directly across 5000 seeds, 69% never reached `CLUSTER_AIM_DENSITY_MIN`
+ * even once, and 7% settled for something under 0.2 — sparse enough to
+ * read as "mostly grass" once diluted across depth bands and blur, the
+ * actual "too few flowers in frame" report this was raised to fix. This
+ * step is pure noise-field math with no rendering involved, so more draws
+ * cost essentially nothing; 150 (measured on the same 5000 seeds) cuts the
+ * under-0.2 tail to 1.1% with clearly diminishing returns past this point
+ * (300 draws only reaches 0.9%).
  */
-const CLUSTER_AIM_RETRY_ATTEMPTS = 20
+const CLUSTER_AIM_RETRY_ATTEMPTS = 150
 /** "Good enough" meadow cluster density (see `sampleMeadowClusterField`'s [0, 1] range) to stop retrying at — comfortably above the meadow's own gap floor (0.03) without demanding the absolute peak. */
 const CLUSTER_AIM_DENSITY_MIN = 0.35
 /**
@@ -27,11 +41,14 @@ const CLUSTER_AIM_DENSITY_MIN = 0.35
  * reaching *past* a preset's narrow window into a neighbouring cluster
  * when that window itself sits inside one contiguous low-density region.
  * `clusterFrequency` 0.05 (meadowLayoutConfig.ts) puts clusters roughly 20
- * units apart; ±9 comfortably reaches the nearest one in most cases without
- * searching so far the shot stops being a plausible jitter around the
- * original composition.
+ * units apart; widened from ±9 to ±13 alongside the retry-count raise
+ * above (same measurement) — ±9 already comfortably *reaches* the nearest
+ * cluster in most cases, but ±13 gives the higher retry count more real
+ * area to actually search rather than resampling the same ±9 window that
+ * much more densely, without searching so far the shot stops being a
+ * plausible jitter around the original composition.
  */
-const CLUSTER_SEARCH_RADIUS: OffsetRange = [-9, 9]
+const CLUSTER_SEARCH_RADIUS: OffsetRange = [-13, 13]
 
 /**
  * Sample-point offsets `sampleClusterAreaDensity` averages over, world

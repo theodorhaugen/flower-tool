@@ -397,10 +397,16 @@ export const PALETTES: readonly ColorPalette[] = [
     // foliagePrimary/Secondary heavily enough into the grass/vegetation mix
     // that a blue anchor reads as blue grass rather than getting pulled
     // back to green by the mix's own fixed green base.
-    background: '#B9D9E8',
-    backgroundSecondary: '#8FC3DE',
-    foliagePrimary: '#6FA8C4',
-    foliageSecondary: '#4E8FAE',
+    //
+    // Hue rotated +25° (all four, saturation/lightness untouched) — the
+    // original hue (≈199-200° on all four) sits right on the cyan/teal
+    // side of blue, reading as a green-tinted blue rather than a clean one.
+    // +25° lands at ≈224-226°, past cyan without running all the way to
+    // violet — still unmistakably "blue," just without the green cast.
+    background: '#B9C5E8',
+    backgroundSecondary: '#8FA2DE',
+    foliagePrimary: '#6F85C4',
+    foliageSecondary: '#4E67AE',
     // Warm gold sunlight glinting off a blue field — and shares its hue
     // with the petals below, so bloom/glow around a flower and the flower's
     // own colour read as one warm-on-blue idea rather than two unrelated
@@ -474,10 +480,17 @@ export const PALETTES: readonly ColorPalette[] = [
     // other palette's `glow` (the class docstring's note on why this role
     // specifically can't just be a pale neutral).
     glow: '#F0C9A0',
-    // `foliagePrimary` was already a genuine forest green (hue ≈137°) —
-    // left as-is. `foliageSecondary` was yellow-green (hue ≈95°), re-hued
-    // the same way as Poppy petal's/Daisies' own corrections above.
-    foliagePrimary: '#26432E',
+    // Lightness raised 20.6% → 29% (hue/saturation, both already a genuine
+    // forest green at ≈137°, left as-is) — this doubles as the shadow-side
+    // ground-bounce/fill-light tint (`foliageShadowTint`, class docstring
+    // above), and combined with this palette's own low `atmosphereScale`
+    // below (little haze lifting shadow/distant areas), low-drama seeds in
+    // particular were reading as 30-40% of the frame under luminance 30 —
+    // measured directly across a few seeds, not a one-off. The reference's
+    // "deep green" mood is still there at 29%, just no longer dark enough
+    // to read as solid black once combined with everything else already
+    // pulling the frame's shadow side down.
+    foliagePrimary: '#365E41',
     foliageSecondary: '#368144',
     // Re-read against the reference a second time: the dominant bloom
     // colours are actually a *saturated* yellow and red, not the muted
@@ -521,7 +534,17 @@ export const PALETTES: readonly ColorPalette[] = [
     // one cool note, and blue is already the minority of the three petal
     // hues, so it's the one that all but vanishes rather than just fading.
     // Same fix/mechanism as Poppy petal's own `atmosphereScale` above.
-    atmosphereScale: 0.4,
+    // Raised slightly, 0.4 → 0.55 — 0.4 was tuned purely against the petal-
+    // saturation loss this comment describes, without weighing the other
+    // side: this palette's own `hazeAmount` is itself seed-derived (low at
+    // calm/low-drama seeds), so multiplying an already-low value by 0.4
+    // left low-drama renders with barely any atmospheric lift at all,
+    // compounding with `foliagePrimary`'s own darkness (just raised above)
+    // into large, oppressively dark areas. 0.55 still cuts haze well below
+    // every other palette's default (1) — the blue-petal fix above still
+    // holds — while giving calm seeds enough lift to stop reading as mostly
+    // black.
+    atmosphereScale: 0.55,
   },
   {
     name: 'Cotton rose',
