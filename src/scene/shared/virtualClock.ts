@@ -21,24 +21,10 @@
  */
 export interface VirtualClockState {
   time: number
-  /**
-   * The virtual time SettleDriver.tsx last (re)started a burst from — set
-   * alongside `time` every time it resets it (fresh seed/parameter change,
-   * or a reroll). LongExposureBlurPass.ts reads this on a burst's very
-   * first frame (its own `lastVirtualTime` still holds the *previous*
-   * burst's leftover value at that point, which is meaningless as a
-   * streak reference) so that first frame can still estimate a real
-   * within-frame streak — `time - burstStartTime` is that frame's actual
-   * virtual-time step, exactly analogous to `elapsed` on every later frame
-   * — instead of being a hard, unstreaked cut. Doesn't affect temporal
-   * decay/history, which is correctly still reset to zero on that frame;
-   * this only feeds the *separate* within-frame streak estimate.
-   */
-  burstStartTime: number
   invalidate: (() => void) | null
 }
 
-export const virtualClock: VirtualClockState = { time: 0, burstStartTime: 0, invalidate: null }
+export const virtualClock: VirtualClockState = { time: 0, invalidate: null }
 
 /** Consumed by SettleDriver.tsx's `useFrame` — sits here rather than as component state since the request can arrive from outside the React tree (the Leva button). */
 export const settleRequests = { pendingReroll: false }

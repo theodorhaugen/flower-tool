@@ -184,40 +184,27 @@ export interface LongExposureBlurPassOptions {
    * many real frames a given virtual-time step happened to take.
    */
   halfLifeSeconds?: number
-  /** The per-seed/Leva-overridable `motionBlurStrength` (see shared/generative.ts, Leva's Camera > Blur Length) — the same value CameraSweep.tsx scales its sweep amplitude by, so this pass's own yaw/pitch-delta estimate (used for the within-frame streak, see `render()`) tracks whatever the sweep is actually doing. 1 = as tuned. */
+  /** The per-seed/Leva-overridable `motionBlurStrength` (see shared/generative.ts, Leva's Camera > Blur Length) — used only for `recoveryAmount` (the contrast/saturation recovery in COPY_FRAGMENT_SHADER), *not* for the within-frame streak below (see `render()`'s docstring for why that's read from the real camera instead). 1 = as tuned. */
   movementMultiplier?: number
-  /** Per-seed `motionBlurDirectionAngle` (see shared/generative.ts) — same angle CameraSweep.tsx blends its yaw/pitch weights by, so this pass estimates a streak in the same direction the camera is actually sweeping instead of always assuming a horizontal pan. Radians, 0 = pure yaw. */
-  directionAngle?: number
   /**
-   * The active render's actual vertical field of view, degrees (the
-   * generative state's `fov` — CAMERA_CONFIG.fov by default, Leva's
-   * Camera > Zoom-overridable — see MainCamera.tsx). Used only to convert
-   * the yaw/pitch delta estimate below into a UV fraction (`render()`) — a
-   * narrower FOV (more zoomed in) means the same angular delta covers a
-   * *larger* fraction of the frame, so this has to track whatever
-   * MainCamera.tsx is actually using, not a fixed constant, or the streak
-   * would desync from the zoom level the moment it's no longer the default.
+   * The actual scene camera (MainCamera.tsx) — read live each frame to
+   * compute the within-frame streak directly from its real transform
+   * rather than re-deriving CameraSweep's own sweep formula (see
+   * `render()`'s docstring for why). Optional only so a pass can exist
+   * before the camera is available for one tick; the streak is simply 0
+   * until it's set.
    */
-  fov?: number
+  camera?: THREE.Camera
 }
 
 const DEFAULT_HALF_LIFE_SECONDS = 0.12
 
-// Mirrors CameraSweep.tsx's own constants — that component is the dominant
-// source of the sweep this pass is estimating, so the estimate has to use
-// the exact same amplitude/frequency it does, not an independent guess.
-// Roll isn't modelled (fixed and small — a texture wobble, not the sweep's
-// main direction) but yaw *and* pitch both are now, weighted by
-// `directionAngle` the same way CameraSweep.tsx weights its own rotateX/Y,
-// since that angle is no longer fixed to "always yaw" — see
-// camera/config.ts's `sweep` docstring.
+// Used only for `recoveryAmount` below (how strong *this render's* Blur
+// Length is, as a fraction of its own ceiling) — no longer for estimating
+// the streak itself (see `render()`'s docstring for why that moved to
+// reading the real camera transform instead).
 const BASE_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg)
-// Same backstop CameraSweep.tsx clamps its actual sweep to — see
-// camera/config.ts's `maxRotationAmplitudeDeg` docstring for why. Keeping
-// this estimate un-clamped while the real sweep is clamped would desync
-// the two right at the extreme end, so it's applied here too.
 const MAX_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.maxRotationAmplitudeDeg)
-const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
 /**
  * The full per-frame yaw delta is the physically "correct" streak length —
  * a real continuous exposure would smear *everything* by exactly that much
@@ -259,48 +246,33 @@ const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
 const STREAK_STRENGTH = 2.2
 /**
  * Caps the within-frame streak to a sane fraction of the screen — a guard
- * against a single unusually large virtual-time step (e.g. a slow real
- * frame) producing an absurdly long smear rather than a subtle one. Raised
- * alongside `STREAK_STRENGTH` so the cap isn't clipping the strengthened
- * streak back down to the old, barely-visible length.
+ * against a single unusually large real-world step (a slow/stalled frame,
+ * or a burst-restart transition — see `render()`) producing an absurdly
+ * long smear rather than a subtle one.
  *
- * Raised again, 0.2 → 0.4, after tracing a persistent diagonal banding
- * artifact (visible across the whole frame on heavily-blurred renders, at
- * any real frame rate slow enough to hit `MAX_VIRTUAL_STEP_SECONDS`,
- * SettleDriver.tsx) back to *this* clamp, not the tap count (STREAK_TAPS
- * above was doubled first to chase the same symptom and made no visible
- * difference — the smear's own internal sampling was already fine; it was
- * too *short*, not too coarse). `render()`'s `blurStepU`/`blurStepV`
- * convert a physical angular step into a UV fraction by dividing by FOV
- * (narrower FOV = same angle covers more of the frame = bigger UV
- * fraction) — Camera > Zoom (generative.ts's `ZOOM_MIN`-`ZOOM_MAX`) now
- * defaults *every* render to noticeably narrower than
- * `CAMERA_CONFIG.fov`(22°) used to be fixed at, which this cap was
- * originally sized against. At the narrowest zoom, worst-case Blur Length,
- * and a slow (capped) real frame, the *unclamped* value comes out well
- * over double the old 0.2 — meaning this clamp was routinely chopping the
- * smear down to barely half its own tuned (`STREAK_STRENGTH`-scaled)
- * length, right at the moment the temporal accumulation below most needs
- * it to fully bridge the gap between coarse accumulated frames. 0.4 covers
- * that worst case with real margin to spare, while still catching the
- * truly pathological case (a multi-second stall) this guard exists for.
+ * Raised in steps (0.1 → 0.2 → 0.4) chasing a persistent diagonal banding
+ * artifact that turned out to have nothing to do with this clamp at all —
+ * see `render()`'s docstring for how the streak's own source was rewritten
+ * from a formula-based estimate to reading the real camera transform,
+ * which is what actually fixed it. Left at 0.4 since it's still a
+ * reasonable outer bound for the *now-accurate* per-frame delta.
  */
 const MAX_STREAK_UV = 0.4
+/**
+ * Effectively "at infinity" for the reference point `render()` reprojects
+ * to estimate the streak — see its docstring. Large enough that any
+ * *translation* between frames (HandheldDrift's position tremor, or a
+ * user's orbit/dolly) contributes a negligible parallax shift to that
+ * point (offset/distance, vanishing as distance grows), leaving only
+ * *rotation* — matching this pass's original, deliberately narrower scope
+ * (a translation-driven parallax smear was never part of the tuned look,
+ * and introducing one now, however small, isn't a change to make
+ * incidentally while fixing an unrelated bug).
+ */
+const STREAK_REFERENCE_DISTANCE = 100_000
 
 function clampedRotationAmplitude(movementMultiplier: number): number {
   return Math.min(BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier, MAX_ROTATION_AMPLITUDE_RAD)
-}
-
-function yawAt(virtualTime: number, movementMultiplier: number, directionAngle: number): number {
-  return clampedRotationAmplitude(movementMultiplier) * Math.cos(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY)
-}
-
-// Same phase as yawAt (see CameraSweep.tsx's docstring on rotateX/Y for why
-// pitch no longer carries its own +0.6 offset) — both this estimate and the
-// real sweep need to trace the same straight line for the streak to match
-// what the camera is actually doing.
-function pitchAt(virtualTime: number, movementMultiplier: number, directionAngle: number): number {
-  return clampedRotationAmplitude(movementMultiplier) * Math.sin(directionAngle) * Math.sin(virtualTime * ANGULAR_FREQUENCY)
 }
 
 /**
@@ -345,6 +317,29 @@ function pitchAt(virtualTime: number, movementMultiplier: number, directionAngle
  *   seed/look's streak into the new one.
  * - Positive elapsed time is the normal case (mid-settle-burst): the usual
  *   exponential half-life decay, exactly as before.
+ *
+ * The within-frame streak (`render()`'s `blurStepU`/`blurStepV`, fed to
+ * BLEND_FRAGMENT_SHADER's `streakedSample`) used to be estimated by
+ * re-deriving CameraSweep.tsx's own sine-sweep formula independently inside
+ * this class — duplicated amplitude/frequency/direction constants, kept
+ * manually in sync. That missed HandheldDrift's tremor entirely (a
+ * *second*, independent rotation source layered on top by a different
+ * component, on different axes/frequencies) and any user orbit: the streak
+ * smeared along the sweep's own direction only, while the actual rendered
+ * frame-to-frame motion also included whatever those other sources did.
+ * Diagnosed directly — disabling HandheldDrift on a render showing a
+ * diagonal *crosshatch* (two intersecting sets of streaks, not one) left
+ * only a single clean direction behind, confirming the second direction
+ * was HandheldDrift's own uncompensated contribution.
+ *
+ * Now reads the real camera's transform each frame instead: reprojects one
+ * fixed reference point (`STREAK_REFERENCE_DISTANCE` along the *previous*
+ * frame's forward axis) through both the previous and current frame's
+ * view-projection matrices, and takes the resulting screen-space UV delta.
+ * This is exactly what a real exposure integrates over — it doesn't care
+ * *which* component moved the camera or by what formula, so CameraSweep,
+ * HandheldDrift, a user orbit, and anything added later are all captured
+ * automatically and always in sync with what was actually rendered.
  */
 export class LongExposureBlurPass extends Pass {
   private accumulated: THREE.WebGLRenderTarget
@@ -352,25 +347,27 @@ export class LongExposureBlurPass extends Pass {
   private readonly blendMaterial: THREE.ShaderMaterial
   private readonly copyMaterial: THREE.ShaderMaterial
   private halfLifeSeconds: number
-  private readonly movementMultiplier: number
-  private readonly directionAngle: number
-  private readonly verticalFovRad: number
+  private sceneCamera: THREE.Camera | null
   private lastVirtualTime = 0
-  /** Tracked from `setSize()` purely to convert the yaw/pitch estimate below into a UV displacement — see `render()`. */
-  private aspect = 1
+  /** Set once a previous frame's camera transform has actually been captured — guards the very first render (nothing to diff against yet) and a fresh burst restart (see `render()`). */
+  private hasPreviousCameraState = false
+  private readonly previousWorldMatrix = new THREE.Matrix4()
+  private readonly previousViewMatrix = new THREE.Matrix4()
+  private readonly previousProjectionMatrix = new THREE.Matrix4()
+  // Scratch objects, reused every frame — `render()` runs once per real
+  // frame for the whole settle burst (up to a few hundred), so avoiding a
+  // fresh Vector3 allocation each time is cheap insurance against GC churn.
+  private readonly scratchPosition = new THREE.Vector3()
+  private readonly scratchForward = new THREE.Vector3()
+  private readonly scratchReferencePoint = new THREE.Vector3()
+  private readonly scratchNdcOld = new THREE.Vector3()
+  private readonly scratchNdcNew = new THREE.Vector3()
 
-  constructor({
-    halfLifeSeconds = DEFAULT_HALF_LIFE_SECONDS,
-    movementMultiplier = 1,
-    directionAngle = 0,
-    fov = CAMERA_CONFIG.fov,
-  }: LongExposureBlurPassOptions = {}) {
+  constructor({ halfLifeSeconds = DEFAULT_HALF_LIFE_SECONDS, movementMultiplier = 1, camera }: LongExposureBlurPassOptions = {}) {
     super('LongExposureBlurPass')
 
     this.halfLifeSeconds = halfLifeSeconds
-    this.movementMultiplier = movementMultiplier
-    this.directionAngle = directionAngle
-    this.verticalFovRad = THREE.MathUtils.degToRad(fov)
+    this.sceneCamera = camera ?? null
 
     const targetOptions = { type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false }
     this.accumulated = new THREE.WebGLRenderTarget(1, 1, targetOptions)
@@ -422,7 +419,15 @@ export class LongExposureBlurPass extends Pass {
   setSize(width: number, height: number): void {
     this.accumulated.setSize(width, height)
     this.composited.setSize(width, height)
-    this.aspect = height > 0 ? width / height : 1
+  }
+
+  /** Snapshots the live scene camera's current transform as the reference the *next* frame's streak diffs against — see `render()`. No-op if no camera has been set yet. */
+  private captureCameraState(): void {
+    if (!this.sceneCamera) return
+    this.previousWorldMatrix.copy(this.sceneCamera.matrixWorld)
+    this.previousViewMatrix.copy(this.sceneCamera.matrixWorldInverse)
+    this.previousProjectionMatrix.copy(this.sceneCamera.projectionMatrix)
+    this.hasPreviousCameraState = true
   }
 
   render(
@@ -432,8 +437,7 @@ export class LongExposureBlurPass extends Pass {
   ): void {
     if (!inputBuffer) return
 
-    const previousVirtualTime = this.lastVirtualTime
-    const elapsed = virtualClock.time - previousVirtualTime
+    const elapsed = virtualClock.time - this.lastVirtualTime
     this.lastVirtualTime = virtualClock.time
 
     if (elapsed === 0) {
@@ -443,6 +447,12 @@ export class LongExposureBlurPass extends Pass {
       // it to (this render's fixed blur-strength recovery, not a per-frame
       // motion signal) — nothing moved *this frame*, but that doesn't change
       // how much this render's own accumulation has washed the image out.
+      //
+      // The camera itself can still move here (a user dragging to orbit the
+      // settled view) even though nothing is blurred for it — captured
+      // below so the *next* real motion diffs against where the camera
+      // actually is now, not a stale pre-orbit reference.
+      this.captureCameraState()
       this.copyMaterial.uniforms.tDiffuse.value = inputBuffer.texture
       this.fullscreenMaterial = this.copyMaterial
       renderer.setRenderTarget(this.renderToScreen ? null : outputBuffer)
@@ -456,43 +466,36 @@ export class LongExposureBlurPass extends Pass {
     // docstring). elapsed > 0 is the normal mid-burst case.
     const decay = elapsed > 0 ? THREE.MathUtils.clamp(Math.pow(0.5, elapsed / this.halfLifeSeconds), 0, 1) : 0
 
-    // Estimates how far the camera's own sweep panned/tilted *during this
-    // one rendered frame* (not the whole burst) and converts that yaw/pitch
-    // delta into a screen-space UV distance, so the blend shader can
-    // pre-streak the incoming frame along it before folding it into the
-    // accumulated history — see BLEND_FRAGMENT_SHADER's docstring for why
-    // that's what keeps thin geometry from diluting into invisibility under
-    // the temporal accumulation below. A small-angle tan()-based mapping
-    // from radians to UV fraction of the relevant FOV axis; clamped since a
-    // single unusually large virtual-time step (a slow real frame) shouldn't
-    // produce a runaway streak.
+    // Reprojects one fixed reference point — along the *previous* frame's
+    // forward axis, far enough away that translation contributes nothing
+    // (see `STREAK_REFERENCE_DISTANCE`) — through both the previous and
+    // current frame's view-projection matrices, and reads off the
+    // resulting screen-space UV delta. That's exactly what a real exposure
+    // integrates over, and it doesn't care which component moved the
+    // camera or by what formula — see the class docstring for why this
+    // replaced a CameraSweep-only yaw/pitch estimate.
     //
-    // On a fresh-burst hard cut (elapsed < 0), `previousVirtualTime` is
-    // leftover from the *previous* settle and meaningless as a streak
-    // reference — but that doesn't mean this frame has no streak at all.
-    // `virtualClock.burstStartTime` (set by SettleDriver.tsx whenever it
-    // (re)starts a burst) is the actual virtual time this frame's own
-    // step began from, so `virtualClock.time - burstStartTime` is this
-    // frame's real elapsed virtual time within the new burst, exactly like
-    // `elapsed` on every later frame — just computed against a different
-    // reference point than `lastVirtualTime` tracks. Without this, the
-    // burst's very first frame was a hard, unstreaked cut on top of having
-    // zero accumulated history, so it read as fully tack-sharp; the
-    // temporal accumulation below only ever dilutes that sharp frame's
-    // *weight* towards zero (a matter of degree, never fully to zero by
-    // capture time), which is disproportionately visible specifically on
-    // thin/high-contrast geometry — a grass blade, a petal rim, a flower
-    // centre's disc — as a faint but genuinely sharp double-image ghost,
-    // even once its blended weight is down in the single digits. Giving
-    // this frame a real streak of its own, same as every other frame gets,
-    // fixes the actual cause instead of just shrinking its residual.
-    const previousForStreak = elapsed > 0 ? previousVirtualTime : virtualClock.burstStartTime
-    const deltaYaw = yawAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - yawAt(previousForStreak, this.movementMultiplier, this.directionAngle)
-    const deltaPitch =
-      pitchAt(virtualClock.time, this.movementMultiplier, this.directionAngle) - pitchAt(previousForStreak, this.movementMultiplier, this.directionAngle)
-    const horizontalFovRad = 2 * Math.atan(Math.tan(this.verticalFovRad / 2) * this.aspect)
-    const blurStepU = THREE.MathUtils.clamp((deltaYaw * STREAK_STRENGTH) / horizontalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
-    const blurStepV = THREE.MathUtils.clamp((deltaPitch * STREAK_STRENGTH) / this.verticalFovRad, -MAX_STREAK_UV, MAX_STREAK_UV)
+    // Skipped (left at 0) on a fresh-burst hard cut (elapsed < 0): the
+    // stored "previous" transform is wherever the *last* settle burst
+    // happened to end, an arbitrary jump to this new burst's own starting
+    // pose that isn't a real exposure step to streak across. Also skipped
+    // if there's no camera yet, or no previous transform captured yet (the
+    // very first render this pass instance ever does).
+    let blurStepU = 0
+    let blurStepV = 0
+    if (elapsed > 0 && this.sceneCamera && this.hasPreviousCameraState) {
+      const camera = this.sceneCamera
+      const oldPosition = this.scratchPosition.setFromMatrixPosition(this.previousWorldMatrix)
+      const oldForward = this.scratchForward.set(0, 0, -1).transformDirection(this.previousWorldMatrix)
+      const referencePoint = this.scratchReferencePoint.copy(oldPosition).addScaledVector(oldForward, STREAK_REFERENCE_DISTANCE)
+
+      const ndcOld = this.scratchNdcOld.copy(referencePoint).applyMatrix4(this.previousViewMatrix).applyMatrix4(this.previousProjectionMatrix)
+      const ndcNew = this.scratchNdcNew.copy(referencePoint).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix)
+
+      blurStepU = THREE.MathUtils.clamp(((ndcNew.x - ndcOld.x) * 0.5) * STREAK_STRENGTH, -MAX_STREAK_UV, MAX_STREAK_UV)
+      blurStepV = THREE.MathUtils.clamp(((ndcNew.y - ndcOld.y) * 0.5) * STREAK_STRENGTH, -MAX_STREAK_UV, MAX_STREAK_UV)
+    }
+    this.captureCameraState()
 
     this.blendMaterial.uniforms.decay.value = decay
     this.blendMaterial.uniforms.tOld.value = this.accumulated.texture

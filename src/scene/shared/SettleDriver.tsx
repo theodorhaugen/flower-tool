@@ -136,7 +136,6 @@ export function SettleDriver() {
 
   useEffect(() => {
     virtualClock.time = 0
-    virtualClock.burstStartTime = 0
     remainingRef.current = SETTLE_VIRTUAL_SECONDS
     captureNextRef.current = false
     beginCapture()
@@ -169,7 +168,6 @@ export function SettleDriver() {
       // purpose — without reintroducing the framing bug.
       const periods = Math.floor(Math.random() * 400)
       virtualClock.time = periods * CAMERA_CONFIG.sweep.periodSeconds
-      virtualClock.burstStartTime = virtualClock.time
       remainingRef.current = SETTLE_VIRTUAL_SECONDS
       captureNextRef.current = false
       beginCapture()
