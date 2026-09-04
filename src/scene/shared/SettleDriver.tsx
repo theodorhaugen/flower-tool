@@ -19,12 +19,32 @@ const SETTLE_VIRTUAL_SECONDS = CAMERA_CONFIG.sweep.periodSeconds
 /**
  * Hard cap on how much virtual time a single real frame's `delta` is
  * allowed to advance the burst by — see the `useFrame` callback below for
- * why this exists at all. `1/20`s is comfortably smaller than
- * `effects/config.ts`'s `motionBlur.halfLifeSeconds` (0.7s), so even a
- * frame capped at this step still contributes a normal, small decay
- * increment rather than a single huge jump.
+ * why this exists at all.
+ *
+ * Tightened, 1/20 → 1/60: this cap doubles as the *granularity* of
+ * LongExposureBlurPass's temporal accumulation whenever real rendering runs
+ * slower than it (see that class's docstring on `elapsed`) — each real
+ * frame contributes one accumulated "layer" at whatever position the
+ * camera's sweep has reached, so a coarser cap means a bigger jump between
+ * adjacent layers. Traced a persistent diagonal banding artifact (visible
+ * on heavily-blurred renders, worse since Camera > Zoom started defaulting
+ * every render to a narrower FOV than the fixed 22° this whole pipeline was
+ * originally tuned against — see LongExposureBlurPass.ts's `MAX_STREAK_UV`
+ * docstring) to exactly this: at the old 1/20 cap, the worst-case jump
+ * between layers came out over 20% of the frame width — no amount of
+ * within-frame streak smearing (raised twice chasing this same symptom,
+ * see LongExposureBlurPass.ts's `STREAK_TAPS`/`MAX_STREAK_UV`) fully hid a
+ * gap that wide. 1/60 — an ordinary 60fps-equivalent floor — cuts that
+ * worst case to roughly a third.
+ *
+ * This only costs anything on hardware/scenes that can't already sustain
+ * 60fps through this pipeline's full post-processing stack: on faster
+ * hardware `delta` never exceeds the cap, so it never engages and settle
+ * time is unaffected. Below 60fps, the burst takes proportionally longer
+ * (more real frames needed to cover the same fixed virtual duration) in
+ * exchange for the finer, smoother accumulation.
  */
-const MAX_VIRTUAL_STEP_SECONDS = 1 / 20
+const MAX_VIRTUAL_STEP_SECONDS = 1 / 60
 
 /**
  * Drives `virtualClock.time` (shared/virtualClock.ts) through a short,
