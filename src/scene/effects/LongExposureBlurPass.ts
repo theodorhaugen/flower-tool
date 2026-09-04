@@ -23,9 +23,19 @@ const VERTEX_SHADER = `
 // tap count doubles the *gap* between adjacent samples too, which is
 // exactly the aliasing case this comment already warned about: a visible
 // repeating diagonal banding across the whole frame, at the widened step's
-// coarser interval. Scaled up to match (roughly doubled) so the worst-case
-// spacing between taps lands back where it was before that widening.
-const STREAK_TAPS = 40
+// coarser interval.
+//
+// Raised again, 40 → 64: doubling to 40 (matching the streak-length
+// doubling exactly) reduced the banding but measurably didn't clear it —
+// still visible, just fainter, on a real capture at max Blur Length. What's
+// being aliased against isn't a single clean frequency (a texture tile, a
+// grid), so there's no exact tap count that zeroes it out the way matching
+// the *ratio* did for the first widening; it needs genuine oversampling
+// margin instead. This loop runs once per pixel on the GPU each frame — a
+// few dozen extra `texture2D` taps is negligible on real hardware, so
+// erring high here costs real render time only in this sandbox's
+// swiftshader software path, not in production.
+const STREAK_TAPS = 64
 
 const BLEND_FRAGMENT_SHADER = `
   uniform sampler2D tOld;
@@ -247,8 +257,35 @@ const ANGULAR_FREQUENCY = (Math.PI * 2) / CAMERA_CONFIG.sweep.periodSeconds
  * abstract noise.
  */
 const STREAK_STRENGTH = 2.2
-/** Caps the within-frame streak to a sane fraction of the screen — a guard against a single unusually large virtual-time step (e.g. a slow real frame) producing an absurdly long smear rather than a subtle one. Raised alongside `STREAK_STRENGTH` so the cap isn't clipping the strengthened streak back down to the old, barely-visible length. */
-const MAX_STREAK_UV = 0.2
+/**
+ * Caps the within-frame streak to a sane fraction of the screen — a guard
+ * against a single unusually large virtual-time step (e.g. a slow real
+ * frame) producing an absurdly long smear rather than a subtle one. Raised
+ * alongside `STREAK_STRENGTH` so the cap isn't clipping the strengthened
+ * streak back down to the old, barely-visible length.
+ *
+ * Raised again, 0.2 → 0.4, after tracing a persistent diagonal banding
+ * artifact (visible across the whole frame on heavily-blurred renders, at
+ * any real frame rate slow enough to hit `MAX_VIRTUAL_STEP_SECONDS`,
+ * SettleDriver.tsx) back to *this* clamp, not the tap count (STREAK_TAPS
+ * above was doubled first to chase the same symptom and made no visible
+ * difference — the smear's own internal sampling was already fine; it was
+ * too *short*, not too coarse). `render()`'s `blurStepU`/`blurStepV`
+ * convert a physical angular step into a UV fraction by dividing by FOV
+ * (narrower FOV = same angle covers more of the frame = bigger UV
+ * fraction) — Camera > Zoom (generative.ts's `ZOOM_MIN`-`ZOOM_MAX`) now
+ * defaults *every* render to noticeably narrower than
+ * `CAMERA_CONFIG.fov`(22°) used to be fixed at, which this cap was
+ * originally sized against. At the narrowest zoom, worst-case Blur Length,
+ * and a slow (capped) real frame, the *unclamped* value comes out well
+ * over double the old 0.2 — meaning this clamp was routinely chopping the
+ * smear down to barely half its own tuned (`STREAK_STRENGTH`-scaled)
+ * length, right at the moment the temporal accumulation below most needs
+ * it to fully bridge the gap between coarse accumulated frames. 0.4 covers
+ * that worst case with real margin to spare, while still catching the
+ * truly pathological case (a multi-second stall) this guard exists for.
+ */
+const MAX_STREAK_UV = 0.4
 
 function clampedRotationAmplitude(movementMultiplier: number): number {
   return Math.min(BASE_ROTATION_AMPLITUDE_RAD * movementMultiplier, MAX_ROTATION_AMPLITUDE_RAD)
