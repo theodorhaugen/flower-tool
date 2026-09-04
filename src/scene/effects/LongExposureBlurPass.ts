@@ -17,7 +17,15 @@ const VERTEX_SHADER = `
 // on the scene's own fine periodic detail (grass jitter, film-grain-scale
 // noise) at a coarse, evenly-spaced interval, aliasing into a comb/moiré
 // banding pattern instead of a smooth streak.
-const STREAK_TAPS = 20
+//
+// Raised from 20 alongside STREAK_STRENGTH/MAX_STREAK_UV below (1.1→2.2,
+// 0.1→0.2) — doubling the streak's own max length without also widening the
+// tap count doubles the *gap* between adjacent samples too, which is
+// exactly the aliasing case this comment already warned about: a visible
+// repeating diagonal banding across the whole frame, at the widened step's
+// coarser interval. Scaled up to match (roughly doubled) so the worst-case
+// spacing between taps lands back where it was before that widening.
+const STREAK_TAPS = 40
 
 const BLEND_FRAGMENT_SHADER = `
   uniform sampler2D tOld;
