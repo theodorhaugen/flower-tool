@@ -1,19 +1,31 @@
 import { PerspectiveCamera } from '@react-three/drei'
+import { useGenerative } from '../shared/generativeContext'
+import { CAMERA_CONFIG } from './config'
 
 /**
  * Default scene camera. Kept as an explicit, named component (rather than
- * relying on the Canvas's implicit default camera) so future work — e.g.
- * depth-of-field tuned to a specific focal length — has a single place to
- * adjust fov/near/far.
+ * relying on the Canvas's implicit default camera) so lens tuning has a
+ * single place to live — see camera/config.ts. Position comes from the
+ * active render's generative state (a jitter around `CAMERA_CONFIG.position`
+ * — see shared/generative.ts) rather than the static config value directly,
+ * so every seed gets a genuinely different vantage point. `fov` is likewise
+ * the generative state's value (Leva's Camera > Zoom, `CAMERA_CONFIG.fov` by
+ * default) rather than the static config directly, for the same reason.
+ * `makeDefault` registers this as R3F's `state.camera` — effects/
+ * LongExposureBlur.tsx reads that same reference live each frame, so its
+ * own within-frame streak estimate always reflects whatever this camera is
+ * actually doing, fov included, with nothing to keep manually in sync.
  */
 export function MainCamera() {
+  const { camera, fov } = useGenerative()
+
   return (
     <PerspectiveCamera
       makeDefault
-      fov={35}
-      near={0.1}
-      far={100}
-      position={[0, 0, 6]}
+      fov={fov}
+      near={CAMERA_CONFIG.near}
+      far={CAMERA_CONFIG.far}
+      position={camera.position}
     />
   )
 }

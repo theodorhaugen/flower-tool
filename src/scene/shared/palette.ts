@@ -1,0 +1,683 @@
+import * as THREE from 'three'
+
+/**
+ * A named, cohesive colour family for one whole render — the single source
+ * every colourful thing in the scene (flowers, grass/vegetation, sky/haze,
+ * lighting, bloom) draws from, instead of each system inventing its own
+ * hardcoded hex values independently. That's what "cohesive" actually
+ * means here: swap the palette and the *entire* image's mood changes
+ * together, because everything is derived from the same semantic roles
+ * rather than unrelated tuning knobs that happen to look okay side by side.
+ *
+ * Which palette a render belongs to is picked in shared/generative.ts, as
+ * one of many things derived from that render's single generative seed —
+ * this file only defines what a palette *is* and the registry to pick
+ * from. Every field is a single hex anchor, not a literal "paint this
+ * exact colour" instruction — every consumer mixes these anchors into lit,
+ * per-instance-jittered PBR materials (see subjects/flowerField/materials.ts,
+ * environment/paletteColors.ts) rather than applying them as flat colour, so
+ * the palette sets the *mood* while lighting/shading still does the actual
+ * rendering work.
+ *
+ * - `background`/`backgroundSecondary`: the sky/horizon/fog gradient — sky
+ *   top and the horizon/fog/ground-haze blend respectively (see
+ *   environment/paletteColors.ts, Horizon.tsx, Fog.tsx, AtmosphericHaze.tsx).
+ * - `glow`: the colour of light itself — sunlit grass tips, the key light,
+ *   flower translucency glow, and the literal colour of the post-processing
+ *   bloom (see lighting/SceneLighting.tsx, subjects/flowerField/materials.ts,
+ *   effects/PaletteGradePass.ts). Since it tints the scene's actual light
+ *   colour (SceneLighting.tsx mixes it straight into the key/fill lights),
+ *   it needs real lightness/saturation regardless of how dark-and-moody the
+ *   rest of a palette runs — a `glow` that's too dim or too pale dims or
+ *   flattens the whole render's *real* illumination, not just its own
+ *   swatch. Every palette below sources it from whichever of its own roles
+ *   is both bright and colourful enough for that job (usually `core`, since
+ *   that role tends to be the photo's own warmest/most saturated mid-tone —
+ *   see each palette's own comments for exceptions).
+ * - `foliagePrimary`/`foliageSecondary`: the meadow's own greenery — grass,
+ *   wild vegetation, and (lightness-capped via `foliageShadowTint` below,
+ *   doing double duty as "the colour of shadow") ground-bounce/fill-light
+ *   tint (see environment/paletteColors.ts, lighting/SceneLighting.tsx).
+ * - `petalPrimary`/`petalSecondary`/`petalTertiary`: the flower "family"
+ *   this render draws from — petal colours are sampled from these three
+ *   anchors (see subjects/flowerField/palette.ts).
+ * - `core`: flower centre/stamen colour anchor.
+ * - `accent`: a small, sparing highlight for detail elements — mixed into
+ *   the flower centres' pollen warmth here, but the natural home for any
+ *   future tiny-detail colour (dust, veining).
+ * - `stem`: stem/branch colour family, kept distinct from `foliagePrimary`/
+ *   `foliageSecondary` so stems can read as their own thing rather than
+ *   simply reusing the grass palette.
+ * - `deepShade`/`paleLight`: dedicated dark and near-white anchors, each
+ *   tinted to the palette's own hue family rather than flat black/white —
+ *   every existing role clusters in the middle of the lightness range
+ *   (petalPrimary/Secondary/Tertiary rarely span past roughly 0.5-0.7
+ *   lightness; `foliagePrimary` is dark on most palettes but is the light
+ *   mint `Sunlit pastel` needs `foliageShadowTint` to use as shadow at all;
+ *   `glow` is colourful-and-light, not genuinely near-white, on every
+ *   palette but `Sunlit pastel`). Without a real anchor at each extreme,
+ *   nothing in a render — petal colour variety, the post-process two-point
+ *   grade's shadow/highlight tint (effects/PaletteGrade.tsx) — can actually
+ *   reach a wide lightness range regardless of how strongly those consumers
+ *   push towards "dark"/"light". These fill that gap directly.
+ *
+ * The 5 palettes below `Sunlit pastel` are designed role-first rather than
+ * matched against a reference photo: each one starts from a short plain-
+ * language brief (what the ground/grass should feel like, what colour the
+ * flowers lead with) and every hex is picked for the specific job its role
+ * actually does downstream (see `deriveEnvironmentColors`,
+ * flowerField/palette.ts, materials.ts) rather than for how it looks as an
+ * isolated swatch — `background` is picked knowing it dominates the visible
+ * *ground* far more than the sky, `glow` knowing it has to stay genuinely
+ * bright/colourful because it's the actual key-light tint, and so on. That
+ * sidesteps the mismatch hand-picking hex against a photo kept running
+ * into: this renderer's lighting multiply + grade/bloom/haze pipeline sits
+ * between a palette's raw hex and the final pixel, so a hex chosen to *look
+ * like* the target on its own rarely survives that pipeline unchanged.
+ */
+export interface ColorPalette {
+  name: string
+  background: string
+  backgroundSecondary: string
+  glow: string
+  foliagePrimary: string
+  foliageSecondary: string
+  petalPrimary: string
+  petalSecondary: string
+  petalTertiary: string
+  core: string
+  accent: string
+  stem: string
+  deepShade: string
+  paleLight: string
+  /**
+   * Multiplies AtmosphericHaze's strength/depthFalloff/volumetric-strength
+   * together (see effects/AtmosphericHaze.tsx) — optional, defaults to 1
+   * (every existing palette's tuned haze, unchanged) when absent. An escape
+   * hatch for a palette whose reference is a tight, mostly-in-focus subject
+   * with little "far" in it at all (a macro shot), where the tool's default
+   * wide/deep aerial-perspective haze fades most of the midground/background
+   * towards `backgroundSecondary` before it reaches camera — optically
+   * correct, but it dilutes exactly the vivid colour such a reference expects
+   * across most of the frame. Global config (effects/config.ts) stays the
+   * shared default for every other palette; this only overrides it per-palette.
+   */
+  atmosphereScale?: number
+}
+
+export const PALETTES: readonly ColorPalette[] = [
+  {
+    name: 'Sunlit pastel',
+    background: '#F5ECE1',
+    backgroundSecondary: '#BFDCD2',
+    glow: '#FBF6EE',
+    foliagePrimary: '#BFDCD2',
+    foliageSecondary: '#9FC3B8',
+    petalPrimary: '#F3C23C',
+    petalSecondary: '#E8752B',
+    petalTertiary: '#D8503F',
+    core: '#DC6B22',
+    accent: '#FBF6EE',
+    stem: '#C7896E',
+    deepShade: '#2B1E12',
+    paleLight: '#F5F9F8',
+  },
+  {
+    name: 'Poppy petal',
+    // Re-matched directly against a reference photo of an actual
+    // California poppy (a vivid true orange bloom against cool, muted
+    // green foliage) — the previous version had drifted on both ends:
+    // `background` (70% of the visible bare-ground patches, see
+    // `deriveEnvironmentColors`'s `dry`) was a warm tan, reading as
+    // sunbaked dirt rather than the reference's cool green, and the petal
+    // family's own extremes (`deepShade`/`paleLight` below) were pale/
+    // desaturated enough to blow out towards white/pink under bloom and
+    // haze rather than surviving as recognisably orange — exactly what
+    // was showing up as "flowers that aren't just orange" on screen.
+    //
+    // Pushed further than looks reasonable in isolation, same reasoning as
+    // Greenhouse bloom's own ground fix elsewhere in this registry:
+    // `dry`'s remaining 30% is `BASE_DIRT`/`glow`, both still warm, which
+    // dilutes a moderate green back towards neutral. Verified directly
+    // against that formula: this value survives the dilution at ~(96,141,
+    // 99), hue ≈115° — clearly green, not tan.
+    // Pulled further towards grey than the vivid-orange-vs-green contrast
+    // alone would suggest — "muted cooler green" was the actual brief, and
+    // the first pass (S≈0.32) still read as a fairly assertive green once
+    // seen next to the now-corrected vivid petals. Hue nudged a few degrees
+    // cooler in the same pass (137°→144°) rather than just desaturated in
+    // place.
+    //
+    // Lightness raised a second time (0.39→0.50) after measuring this
+    // palette's actual on-screen mean luminance (0.36) against every other
+    // palette's (0.41-0.57 across the same seed/framing) — this role is 70%
+    // of the visible ground (`deriveEnvironmentColors`'s `dry`) in a frame
+    // that's mostly ground/midground, so it alone accounts for most of the
+    // gap. Every other palette's own `background` sits at lightness
+    // 0.66-0.92; this was the one outlier left dark from chasing the
+    // original "too warm/sunbaked" complaint well past where that fix
+    // actually needed to go.
+    background: '#66997A',
+    // Cool, pale green-grey rather than blue — this drives the horizon/
+    // fog/haze atmosphere (`deriveEnvironmentColors`'s `fogColor`), and a
+    // blue sky tint here fought the reference's all-green-and-orange
+    // mood, which has no sky in it at all (a tight macro shot).
+    backgroundSecondary: '#B5C5BA',
+    // Reverted off an earlier, paler attempt at this (`#E8D3B0`) that
+    // broke something else: `glow` is also `PaletteGrade.tsx`'s
+    // `bloomTintColor`, additively tinting every bloomed highlight
+    // towards its own raw RGB — and that paler version's blue channel was
+    // *76%* of its red (232/176 vs red 232), nearly double the original's
+    // 42% ratio, from paling it towards white without watching what that
+    // does to the ratio between channels. Any real blue content in an
+    // additive tint pushes a bloomed orange highlight straight towards
+    // pink/salmon — confirmed directly: that was the actual source of
+    // "more colours than just orange" surviving the petal-anchor fix
+    // above, not the anchors themselves. This value keeps blue well
+    // under a third of red (76/240) — still warm, saturated gold — while
+    // no longer being *more* saturated than the ground fix actually
+    // needs headroom for.
+    glow: '#F0AC4C',
+    // Already a genuine, cool, muted green (hue ≈128-152°) — matches the
+    // reference's foliage directly, no change needed here.
+    foliagePrimary: '#2D5232',
+    foliageSecondary: '#368144',
+    // All five petal-sampling roles (Primary/Secondary/Tertiary below,
+    // plus `deepShade`/`paleLight` further down — see flowerField/
+    // palette.ts's `petalAnchors`, which folds every one of these into the
+    // same sampling pool at real weight) now sit in one tight true-orange
+    // hue band (23-36°) — only value/lightness varies. Previously only
+    // the three primary anchors were kept in-family; `deepShade`/
+    // `paleLight` were pale/dark enough to read as their own near-white/
+    // near-black colours once lit, which is exactly the "more colours
+    // than just orange" the reference photo doesn't have.
+    petalPrimary: '#F18A22',
+    petalSecondary: '#F0A242',
+    petalTertiary: '#D96112',
+    core: '#CB5E0B',
+    // Leans orange rather than a neutral gold — this blends into the
+    // flower centres' pollen warmth (materials.ts), so keeping it in-family
+    // reinforces the centre reading as the same stark orange as the
+    // petals, not a separate yellow dot.
+    accent: '#F0AF4C',
+    // Cool muted green, matching `background`/`foliagePrimary` — a warm
+    // brown stem was the one remaining non-green, non-orange colour left
+    // in what's meant to be a strictly two-tone palette.
+    stem: '#304B30',
+    // Pushed a second time — the first pass (still hue-true orange, just
+    // lighter/darker) rendered fine up close but washed towards pink/cream
+    // once bloom and atmospheric haze got hold of it further from camera,
+    // the same "a moderate colour survives up close, not once the actual
+    // pipeline touches it" lesson Baby Blue Eyes'/Lupine's own petal
+    // anchors elsewhere in this registry already ran into. Higher
+    // saturation and `paleLight` pulled down out of near-white territory
+    // is what actually holds the hue together under that.
+    deepShade: '#562A10',
+    paleLight: '#E5A46C',
+    // The reference is a tight macro shot with almost no "far" in it at
+    // all — this tool's default wide/deep aerial-perspective haze fades
+    // most of a normal render's midground/background towards
+    // `backgroundSecondary` well before camera, which (measured directly
+    // against a render) was diluting most of the frame's petals to roughly
+    // half their defined saturation despite their hue staying correctly
+    // orange — reading as "washed pastel", not the reference's vivid
+    // orange, everywhere but the sharpest foreground. Backed off from an
+    // initial 0.5: haze doesn't just dilute colour toward
+    // `backgroundSecondary`, it's also what *lightens* the frame towards
+    // that pale tint — halving it recovered saturation but read as
+    // uniformly darker across the board, since a wide/deep composition is
+    // mostly the midground/background haze would otherwise be lifting. 0.7
+    // trades a little of that saturation recovery back for keeping the
+    // frame's overall brightness closer to every other palette's.
+    atmosphereScale: 0.7,
+  },
+  {
+    name: 'Daisies',
+    // Cooler-leaning than Poppy petal's ground on purpose — a calm, slightly
+    // overcast-feeling green rather than a sunbaked one.
+    //
+    // Darkened from an earlier '#D7E0D2' (lightness 0.85) — `background` is
+    // 70% of the actual visible bare-ground patches
+    // (environment/paletteColors.ts's `dry`), and at that lightness the
+    // *base* ground colour computed out to luminance 0.78 before any
+    // lighting/haze/bloom ever touched it. Confirmed via a controlled
+    // before/after render on the same seed that this alone barely moves the
+    // actual on-screen result (~1.5% luminance change) despite the formula
+    // itself dropping a real 15% — this role isn't what's actually washing
+    // the ground out. Still worth keeping darker (real, if minor, headroom),
+    // paired with the `backgroundSecondary` fix below that addresses the
+    // dominant cause.
+    background: '#A3BB95',
+    // Darkened from an earlier '#C7D9DE' (lightness 0.83) — this is what
+    // AtmosphericHaze.tsx's screen-space haze and environment/
+    // paletteColors.ts's `fogColor`/horizon fog both read (`background`
+    // above is the *sky top* and dry-ground albedo, a separate role from
+    // the actual air/haze colour). At 0.83 lightness, both of those veil
+    // the midground in something already close to white before any of
+    // their own strength/depth falloff is applied, which is what was
+    // actually reading as "very light areas in the ground" — a haze/fog
+    // wash sitting in front of the ground, not the ground's own colour.
+    // This role turned out to have far more leverage on the final image
+    // than `background` above — fog, screen-space haze, and volumetric
+    // scatter all compound on it — confirmed the hard way: an initial pass
+    // to lightness 0.48 (matching `background`'s own cut) measured an
+    // *overall frame* luminance drop of 58-75%, nowhere near the moderate
+    // "less washed out" this was going for. This is the corrected, much
+    // gentler cut. Same cool-blue "overcast" family throughout.
+    backgroundSecondary: '#A5C2CA',
+    // Grass gets its "bright yellow accent" for free from this: every
+    // grass-blade swatch in `deriveEnvironmentColors` mixes a little
+    // `glow` into an otherwise-green base, so a vivid yellow `glow` shows
+    // up as scattered warm flecks across mostly-green grass rather than
+    // needing a colour role of its own.
+    glow: '#F2C230',
+    // `foliagePrimary` was already a genuine forest green (hue ≈131°) —
+    // left as-is. `foliageSecondary` was yellow-green (hue ≈100°),
+    // re-hued to match Poppy petal's own correction above so grass reads
+    // as one consistent green family across the registry.
+    foliagePrimary: '#3C5240',
+    foliageSecondary: '#368144',
+    // Crisp white/cream, not flat identical hex — enough spread for the
+    // per-instance jitter (flowerField/palette.ts) to still read as
+    // texture rather than a single flat white cutout.
+    petalPrimary: '#F7F6EE',
+    petalSecondary: '#FBFAF3',
+    petalTertiary: '#F2F0E4',
+    // Strong yellow centre — shares its hue with `glow` above so the
+    // centre-anchor blend towards `glow` (flowerField/palette.ts's
+    // `centerAnchors`) deepens/enriches the same yellow instead of pulling
+    // it towards an unrelated colour.
+    core: '#E8A800',
+    accent: '#F5D24A',
+    stem: '#2E4023',
+    // Deliberately near-neutral, not hue-tinted like the other new
+    // palettes' `deepShade` — this is also the petal family's near-black
+    // extreme (flowerField/palette.ts's `petalAnchors`, folded into petal
+    // sampling at real weight), and the petals here are meant to be *only*
+    // white — a saturated brown here would put a visibly off-hue flower
+    // into an otherwise all-white field. Low enough saturation to read as
+    // "white in deep shadow," not a competing colour.
+    deepShade: '#171512',
+    paleLight: '#FCFBF6',
+  },
+  {
+    name: 'Potpourri',
+    // Ground/grass copied from Daisies exactly — same field, deliberately
+    // diverse flowers planted in it. `background`/`backgroundSecondary`
+    // synced with Daisies' own ground/haze fix (they'd drifted out of
+    // sync — this palette was still on the pre-fix washed-out values).
+    background: '#A3BB95',
+    backgroundSecondary: '#A5C2CA',
+    glow: '#F2C230',
+    // `foliageSecondary` re-hued the same way as Daisies' own — see that
+    // palette's comment.
+    foliagePrimary: '#3C5240',
+    foliageSecondary: '#368144',
+    // Bright yellow, hot pink, crisp white — three genuinely different
+    // hues rather than one family's value range, so the sampled field
+    // actually reads as a mixed bouquet instead of one dominant colour with
+    // stray accents. Yellow pushed to max saturation (was already fairly
+    // saturated, still reported as reading muted) — same fix as
+    // `petalSecondary`'s magenta below, just less severe since yellow
+    // survives the warm-light multiply far better than magenta does.
+    petalPrimary: '#FFCB0F',
+    // Pushed to near-maximum saturation — measured directly that a more
+    // moderate magenta lost roughly half its saturation by the time it hit
+    // the screen (checked pixel-for-pixel against the raw sampled colour).
+    // The warm yellow `glow` above is what does it: lighting is a multiply
+    // against albedo, and yellow light has almost no blue component to
+    // multiply against, so anything on the blue/magenta side of the wheel
+    // gets its blue channel crushed towards red/orange — a punchier magenta
+    // going in is what survives as an actually-visible hot pink coming out.
+    petalSecondary: '#FF1492',
+    petalTertiary: '#F7F5EC',
+    // A warm gold-orange centre reads as believable pollen against all
+    // three petal hues at once, where a colour pulled from any single one
+    // of them would clash with the other two.
+    core: '#EFA51C',
+    accent: '#F2D24A',
+    stem: '#2E4023',
+    // Warm neutral rather than the ground's cool green — with three
+    // different petal hues there's no single family to tint towards, so
+    // this stays close to black with just enough warmth to sit comfortably
+    // behind yellow/pink/white rather than reading as a leftover green.
+    deepShade: '#1C130F',
+    paleLight: '#FCFBF6',
+  },
+  {
+    name: 'Baby Blue Eyes',
+    // Revised from an earlier "mix of cool/warm green" ground towards a
+    // consistently cold, almost-teal one instead — that's the specific
+    // correction this got. `background` (dominates the visible bare-ground
+    // patches — see `deriveEnvironmentColors`'s `dry`) and both greenery
+    // roles all lean the same cold blue-green direction now rather than
+    // splitting warm/cool between them.
+    background: '#BDD1CF',
+    backgroundSecondary: '#BFE0EC',
+    // Warm cream sunlight — deliberately warm despite the cool flowers/
+    // ground, the complementary warm-light/cool-everything-else contrast is
+    // what makes the blue actually pop rather than just sitting there as
+    // another cool tone.
+    glow: '#F5E7B8',
+    foliagePrimary: '#194341',
+    foliageSecondary: '#2B6464',
+    // Pushed to near-maximum saturation, then pushed again after measuring
+    // the actual rendered pixels: the key light's colour (`glow`) is a
+    // multiply against albedo, and even this warm cream has nowhere near as
+    // much blue as these petals do, so the blue channel loses proportionally
+    // more than red/green do — same effect as Potpourri's `petalSecondary`
+    // above, just milder here since this `glow` at least has *some* blue
+    // (unlike Potpourri's pure yellow one). Confirmed directly: the previous
+    // value's peak on-screen saturation was roughly half its source value.
+    petalPrimary: '#1FADFF',
+    petalSecondary: '#007FE0',
+    petalTertiary: '#74D0FB',
+    // Stark white centre.
+    core: '#F7F8F5',
+    // A small warm-gold fleck in the centres' pollen warmth — real pale
+    // flowers still show a warm throat/pollen note even with a white face.
+    accent: '#F0C168',
+    stem: '#1E4846',
+    deepShade: '#0E1A18',
+    // Light blue rather than near-white — this is also the petal family's
+    // near-white extreme (flowerField/palette.ts's `petalAnchors`, folded
+    // into petal sampling at real weight), and every petal here is meant to
+    // be blue, full stop; a nearly-white `paleLight` was exactly what put a
+    // stray white bloom into an all-blue field (on top of the poppy-accent
+    // one, see `poppyAccentProbability` above). `core` stays the actual
+    // stark white — that's the flower *centre*, a different role.
+    paleLight: '#B8D9EA',
+  },
+  {
+    name: 'Lupine',
+    // Ground and grass both lean into the "waterlike light blue" the brief
+    // asks for — this is the same mechanism a light, off-green
+    // foliagePrimary/Secondary already needed elsewhere in this registry
+    // (see Baby Blue Eyes above): `deriveEnvironmentColors` weights
+    // foliagePrimary/Secondary heavily enough into the grass/vegetation mix
+    // that a blue anchor reads as blue grass rather than getting pulled
+    // back to green by the mix's own fixed green base.
+    //
+    // Hue rotated +25° (all four, saturation/lightness untouched) — the
+    // original hue (≈199-200° on all four) sits right on the cyan/teal
+    // side of blue, reading as a green-tinted blue rather than a clean one.
+    // +25° lands at ≈224-226°, past cyan without running all the way to
+    // violet — still unmistakably "blue," just without the green cast.
+    background: '#B9C5E8',
+    backgroundSecondary: '#8FA2DE',
+    foliagePrimary: '#6F85C4',
+    foliageSecondary: '#4E67AE',
+    // Warm gold sunlight glinting off a blue field — and shares its hue
+    // with the petals below, so bloom/glow around a flower and the flower's
+    // own colour read as one warm-on-blue idea rather than two unrelated
+    // colours.
+    glow: '#F5D77A',
+    // Maxed to 100% source saturation, all three anchors kept in the same
+    // narrow yellow hue band (only value/lightness varies) — "bright bright
+    // yellow, and only yellow" was explicit, so there's no room here for
+    // the family to drift towards gold/orange the way a wider hue spread
+    // would read as variety instead of one dominant colour.
+    petalPrimary: '#FFD11A',
+    petalSecondary: '#F5B800',
+    petalTertiary: '#FFE45C',
+    // Same maxed-saturation treatment as the petals — a softer gold centre
+    // would read as a second, less-saturated colour against them.
+    core: '#FFC300',
+    accent: '#F5D24A',
+    // Blue-green rather than plain garden-green — ties the stems into the
+    // water theme instead of reading as a mismatched normal plant.
+    stem: '#3E6B5E',
+    // Dark gold-brown, tinted to the yellow petal family — not the ground's
+    // blue, same reasoning as Daisies'/Poppy petal's own `deepShade` above.
+    // Pushed more saturated than a plain neutral dark/pale would be, same
+    // "only yellow" reasoning as the petals themselves — these two are the
+    // petal family's near-black/near-white extremes too (flowerField/
+    // palette.ts's `petalAnchors`), so a washed-out version of either would
+    // put an off-family flower into the field the same way it would if
+    // petalPrimary/Secondary/Tertiary themselves were muted. Lightness
+    // floor raised (was near-black, l≈0.1) — verified directly that yellow
+    // that dark reads as plain brown to the eye regardless of hue, putting
+    // "off-colour" flowers back into an otherwise "only yellow" field just
+    // through shading rather than through an actual wrong hue.
+    deepShade: '#6B5106',
+    paleLight: '#F9ECB8',
+  },
+  {
+    name: 'Greenhouse bloom',
+    // Matched directly against a reference render rather than a plain-
+    // language brief — a warm, high-key still life: deep green up top, a
+    // blown-out warm-white highlight through the middle, saturated yellow
+    // and red blooms, one cool blue breaking the warmth as its own real
+    // colour rather than a background tint, small muted brown-grey flecks.
+    // Every anchor nudged a little lighter than the reference's own
+    // measured tone (as asked) — consistent with every other palette in
+    // this registry, a hex picked to *match* a reference on its own tends
+    // to render dimmer than intended once the lighting-multiply/grade/haze
+    // pipeline is done with it (see the class docstring above).
+    // Cooled towards the same blue family as `petalTertiary`, not the
+    // warm cream this started with — `background` is 70% of the actual
+    // visible dry-ground patches (`deriveEnvironmentColors`'s `dry`), so a
+    // warm value here reads as a genuinely *hot* ground, not just a warm
+    // mood. Ties the ground into the palette's one cool note rather than
+    // leaving it only on the petals. Pushed a second time — the first,
+    // lightly-desaturated pass computed a `dry` result close to neutral
+    // grey (192, 193, 185, barely any hue at all) rather than something
+    // actually readable as blue: the remaining 30% of that mix is
+    // BASE_DIRT/`glow`, both warm, and diluted a soft blue back towards
+    // neutral. This is saturated enough to survive that dilution and land
+    // the computed ground colour clearly in the blue family (verified
+    // directly: ~134, 173, 192, hue ≈ 200°) instead of just cooler-than-
+    // before.
+    background: '#78B6E2',
+    // Stays warm — unlike `background` above, this drives the horizon/fog
+    // atmosphere actually visible in a tight macro framing (see
+    // `deriveEnvironmentColors`), not the ground: a saturated blue here
+    // dominated the whole visible backdrop instead of staying the small
+    // accent it is in the reference (see the petal-colour fix's own
+    // commit). Cooling the ground didn't need to touch this.
+    backgroundSecondary: '#EAD9BC',
+    // Warm peachy light — bright and colourful on purpose, same as every
+    // other palette's `glow` (the class docstring's note on why this role
+    // specifically can't just be a pale neutral).
+    glow: '#F0C9A0',
+    // Lightness raised 20.6% → 29% (hue/saturation, both already a genuine
+    // forest green at ≈137°, left as-is) — this doubles as the shadow-side
+    // ground-bounce/fill-light tint (`foliageShadowTint`, class docstring
+    // above), and combined with this palette's own low `atmosphereScale`
+    // below (little haze lifting shadow/distant areas), low-drama seeds in
+    // particular were reading as 30-40% of the frame under luminance 30 —
+    // measured directly across a few seeds, not a one-off. The reference's
+    // "deep green" mood is still there at 29%, just no longer dark enough
+    // to read as solid black once combined with everything else already
+    // pulling the frame's shadow side down.
+    foliagePrimary: '#365E41',
+    foliageSecondary: '#368144',
+    // Re-read against the reference a second time: the dominant bloom
+    // colours are actually a *saturated* yellow and red, not the muted
+    // coral/terracotta this started with, and the cool blue note is a real
+    // third petal colour, not just a background/accent detail — corrected
+    // on both counts below. Blue needed pushing much further than seemed
+    // reasonable in isolation, and even that first pass wasn't enough:
+    // this palette's `glow` is warm, and a warm key light multiplying over
+    // a blue petal crushes its blue channel on the way through (the exact
+    // mechanism Baby Blue Eyes/Lupine's own petal anchors elsewhere in
+    // this registry already had to correct for) — pixel-sampling the
+    // actual render found the first, more moderate blue topping out at
+    // ~30% saturation on screen, barely distinguishable from neutral
+    // despite the source hex reading as a clear teal-blue on its own.
+    petalPrimary: '#F5C518',
+    petalSecondary: '#E0331C',
+    petalTertiary: '#06A1EF',
+    // The reference's small muted brown-grey flecks (visible against the
+    // bright highlight) — a real, grounded "centre" tone rather than
+    // something invented for the role.
+    core: '#6B5F56',
+    // Warm gold pollen note — distinct from the petals' own yellow/red/blue
+    // so the centres still read as their own thing.
+    accent: '#E8A93A',
+    stem: '#4A4A32',
+    // Warm neutral rather than tinted to any one petal hue — yellow, red,
+    // and blue don't share a family to tint towards the way a single-hue
+    // petal set would, so this just stays close to black with enough
+    // warmth to sit behind all three without reading as a fourth, off-key
+    // colour (same reasoning Potpourri's own mixed-hue `deepShade` uses
+    // elsewhere in this registry).
+    deepShade: '#241A12',
+    paleLight: '#FBF3E8',
+    // `petalTertiary` (the blue note) was measured reading at ~7-9%
+    // saturation on screen despite its raw diffuse-lit colour computing out
+    // to ~93% — isolated directly by re-rendering with haze/bloom/DoF blur
+    // knocked out one at a time: haze alone (`backgroundSecondary` above,
+    // deliberately warm tan for the horizon/fog) reproduces almost the
+    // entire loss on its own. Mixing "towards warm" is nearly a no-op for
+    // this palette's red/yellow majority but a hue-reversing wash for the
+    // one cool note, and blue is already the minority of the three petal
+    // hues, so it's the one that all but vanishes rather than just fading.
+    // Same fix/mechanism as Poppy petal's own `atmosphereScale` above.
+    // Raised slightly, 0.4 → 0.55 — 0.4 was tuned purely against the petal-
+    // saturation loss this comment describes, without weighing the other
+    // side: this palette's own `hazeAmount` is itself seed-derived (low at
+    // calm/low-drama seeds), so multiplying an already-low value by 0.4
+    // left low-drama renders with barely any atmospheric lift at all,
+    // compounding with `foliagePrimary`'s own darkness (just raised above)
+    // into large, oppressively dark areas. 0.55 still cuts haze well below
+    // every other palette's default (1) — the blue-petal fix above still
+    // holds — while giving calm seeds enough lift to stop reading as mostly
+    // black.
+    atmosphereScale: 0.55,
+  },
+  {
+    name: 'Cotton rose',
+    // Matched loosely against a reference swatch: one soft pastel pink
+    // running against a spread of greens. This is a single-flower-hue
+    // palette (see Poppy petal/Lupine above for the same pattern) — every
+    // petal role, `core`, `accent`, `deepShade`, and `paleLight` stay in the
+    // one pink family, and `glow` is pink-toned too (not the warm gold/cream
+    // every other single-hue palette above uses): an off-family glow tints
+    // any backlit/translucent petal edge its own hue (`glow` is the actual
+    // light colour, see the class docstring), which read as stray white/
+    // yellow petals against the pink field rather than the intended
+    // "flowers, face and centre alike, are all one colour" look. Greens
+    // pulled back towards the registry's own established muted sage/forest
+    // tones (`foliageSecondary` reuses the exact `#368144` every other
+    // palette's medium green converges on) rather than the more saturated,
+    // cartoonish-reading green an isolated pick against the swatch alone
+    // landed on.
+    background: '#A0B98A',
+    backgroundSecondary: '#C7DCC2',
+    // Warm rose-pink light, not gold/cream — keeps the key light in the same
+    // family as the petals it's lighting instead of introducing a
+    // contrasting hue, and (since lighting is a multiply against albedo, see
+    // every other palette's petal-anchor comments on this) a pink light
+    // reinforces the petals' own pink rather than crushing their blue
+    // channel towards a duller peach/tan the way a gold light would.
+    glow: '#F2A8B4',
+    // Muted, slightly cool-leaning dark green (not a saturated true-green or
+    // teal) — same family every other palette's `foliagePrimary` sits in.
+    foliagePrimary: '#28433C',
+    // The registry's own house medium green, reused rather than reinvented —
+    // every other palette that needed a plain mid-green (Poppy petal,
+    // Daisies, Potpourri, Lupine's neighbours above) converged on this exact
+    // value.
+    foliageSecondary: '#368144',
+    // Pushed rosier/more saturated than the reference's own pale swatch —
+    // same reasoning as every other palette's petal anchors (see the class
+    // docstring): a hex this saturated is what actually survives the
+    // lighting/haze/bloom pipeline as pink rather than fading toward a
+    // washed-out blush on screen.
+    petalPrimary: '#F2568F',
+    petalSecondary: '#E8829C',
+    petalTertiary: '#F7A8BE',
+    // Same pink family as the petals, not a contrasting centre colour — the
+    // brief wants the whole bloom, face and centre alike, reading as one
+    // rose-pink flower.
+    core: '#DE6C8C',
+    accent: '#F7C2D2',
+    // Distinct from `foliagePrimary`/`foliageSecondary` so stems read as
+    // their own thing rather than reusing the grass greens outright.
+    stem: '#3A5C46',
+    // Tinted to the petal family's own rose rather than a neutral dark —
+    // this doubles as the petal family's near-black extreme
+    // (flowerField/palette.ts's `petalAnchors`), so a neutral choice here
+    // would put a stray grey bloom into an otherwise all-pink field.
+    deepShade: '#42192A',
+    // Clearly pink rather than near-white — this is also the petal family's
+    // near-white extreme (same `petalAnchors` mechanism), and the brief
+    // explicitly wants no white blooms in the field.
+    paleLight: '#F6C9D4',
+  },
+]
+
+/** Exact-name lookup, used by shared/generative.ts to let a `?palette=` override win over the seed-picked one. */
+export function findPaletteByName(name: string): ColorPalette | undefined {
+  return PALETTES.find((p) => p.name === name)
+}
+
+const HUE_SHIFTED_FIELDS = [
+  'background',
+  'backgroundSecondary',
+  'glow',
+  'foliagePrimary',
+  'foliageSecondary',
+  'petalPrimary',
+  'petalSecondary',
+  'petalTertiary',
+  'core',
+  'accent',
+  'stem',
+  'deepShade',
+  'paleLight',
+] as const
+
+/**
+ * Rotates every colour in a palette by the same hue amount and returns a
+ * new palette — used by the Leva panel's Colour > Hue Shift control
+ * (shared/GenerativeProvider.tsx) so a designer can nudge a whole render's
+ * mood along the colour wheel without breaking the palette's internal
+ * relationships (every role shifts together, so they stay as cohesive as
+ * the original).
+ */
+export function shiftPaletteHue(palette: ColorPalette, degrees: number): ColorPalette {
+  if (degrees === 0) return palette
+
+  const shiftHex = (hex: string): string => {
+    const color = new THREE.Color(hex)
+    const hsl = { h: 0, s: 0, l: 0 }
+    color.getHSL(hsl)
+    const h = ((hsl.h + degrees / 360) % 1 + 1) % 1
+    return `#${color.setHSL(h, hsl.s, hsl.l).getHexString()}`
+  }
+
+  const shifted = { ...palette }
+  for (const field of HUE_SHIFTED_FIELDS) {
+    shifted[field] = shiftHex(palette[field])
+  }
+  return shifted
+}
+
+/** Lightness ceiling for `foliageShadowTint` below — see that function's docstring. */
+const MAX_SHADOW_TINT_LIGHTNESS = 0.32
+
+/**
+ * `foliagePrimary`, darkened if needed so it's guaranteed usable as a
+ * shading/shadow tint regardless of how light the active palette's own
+ * `foliagePrimary` happens to be. Every palette's `foliagePrimary` is meant
+ * to double as "the colour of shadow" (see the class docstring above), which
+ * assumes it's dark — true for most of the registry, but `Sunlit pastel`'s
+ * is a deliberately light mint (`#BFDCD2`, matching its "soft dreamy
+ * bokeh" mood as a foliage/background tone). Using that raw value anywhere
+ * shading is computed from it would invert the effect it's meant to
+ * produce — e.g. environment/paletteColors.ts's shaded ground reading
+ * *lighter* than lit ground, or PaletteGradePass's shadow lift actually
+ * lifting true black towards a pale colour instead of darkening it. This
+ * caps lightness the same way flowerField/palette.ts's `MAX_PETAL_LIGHTNESS`
+ * caps petal anchors — the palette's raw hex is still what everything else
+ * (grass/vegetation tinting, where lightness doesn't matter) reads.
+ */
+export function foliageShadowTint(palette: ColorPalette): string {
+  const color = new THREE.Color(palette.foliagePrimary)
+  const hsl = { h: 0, s: 0, l: 0 }
+  color.getHSL(hsl)
+  if (hsl.l <= MAX_SHADOW_TINT_LIGHTNESS) return palette.foliagePrimary
+  return `#${color.setHSL(hsl.h, hsl.s, MAX_SHADOW_TINT_LIGHTNESS).getHexString()}`
+}
