@@ -128,11 +128,13 @@ export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPalet
   // fix, not a hue or saturation one; the palette's own colour still comes
   // through, just lifted, matching real aerial perspective on a bright day.
   //
-  // Kept modest — an initial 0.4 stacked with SceneLighting.tsx's own
-  // brightening and a since-reverted highlightBloom threshold drop washed
-  // whole renders to near-solid white (measured directly). Isolated from
-  // those other two, this alone is a much smaller lever.
-  const fogColor = mix(palette.backgroundSecondary, '#ffffff', 0.15)
+  // An initial 0.4 stacked with SceneLighting.tsx's own brightening and a
+  // since-reverted highlightBloom threshold drop washed whole renders to
+  // near-solid white (measured directly) — that interaction, not this
+  // lever alone, is what ran away (see SceneLighting.tsx's own comment).
+  // With the threshold back at its original value, raised further again
+  // (0.15 → 0.25) in isolation.
+  const fogColor = mix(palette.backgroundSecondary, '#ffffff', 0.25)
 
   const horizon = {
     skyColor: mix(palette.background, '#ffffff', 0.3),

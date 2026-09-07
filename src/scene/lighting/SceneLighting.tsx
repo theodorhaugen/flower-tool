@@ -37,11 +37,15 @@ function mix(a: string, b: string, t: number): string {
  * the key light (2.6) — this keeps real directional falloff, just lifts
  * where it falls from.
  *
- * Kept deliberately modest — a first attempt at +58% (1.2/0.3), stacked
- * with a since-reverted highlightBloom threshold drop and a since-reduced
- * haze/fog brightening (see their own comments), washed whole renders to
- * near-solid white. This alone, isolated from those other two, is a much
- * smaller lever.
+ * A first attempt at +58% (1.2/0.3) overshot badly — but stacked at the
+ * same time with a highlightBloom threshold drop (effects/config.ts) and a
+ * much bigger haze/fog brightening (paletteColors.ts) than either carries
+ * today, both since reverted/reduced. That combination, not this lever
+ * alone, is what washed whole renders to near-solid white — bloom's own
+ * glow spreads from and blends *between* every pixel that crosses
+ * threshold, so it was the interaction that ran away, not the floor by
+ * itself. With the threshold back at its original value, raised further
+ * again (0.95/0.19 → 1.1/0.24, ~42% over the original 0.95) in isolation.
  *
  * Colours are tinted by the active render's palette — `glow` (the colour of
  * light itself) warms the sky/key light, a lightness-capped `foliagePrimary`
@@ -89,8 +93,8 @@ export function SceneLighting() {
 
   return (
     <>
-      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={0.95 * lightingOvercast} />
-      <ambientLight intensity={0.19 * lightingOvercast} />
+      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={1.1 * lightingOvercast} />
+      <ambientLight intensity={0.24 * lightingOvercast} />
       <directionalLight position={[4, 6, 3]} intensity={2.6 * effectiveShadowDepth} color={colors.key} />
       <directionalLight position={[-3, 3, -4]} intensity={0.35 * effectiveShadowDepth} color={colors.fill} />
     </>
