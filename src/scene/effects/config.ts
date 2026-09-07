@@ -30,17 +30,20 @@ export const POST_PROCESSING_CONFIG = {
    * only its starting default.
    */
   /**
-   * `luminanceThreshold` lowered from 0.82 — with the lighting rig's own
-   * floor raised (see SceneLighting.tsx), that threshold only ever caught
-   * the single brightest few pixels, reading as isolated hotspots rather
-   * than the broad, mostly-blown-out highlight character sun-drenched ICM
-   * reference photography actually has. 0.7 lets meaningfully more of a
-   * brightly-lit petal/haze cross into "blooming hard," not just its
-   * absolute peak.
+   * Left at the original 0.82 — lowering this at the same time as raising
+   * the lighting floor (SceneLighting.tsx) and brightening haze
+   * (paletteColors.ts's `fogColor`) turned out to compound, not add:
+   * bloom's own glow spreads from and blends *between* every pixel that
+   * crosses threshold, so once enough of the frame qualified at once the
+   * three changes together didn't just brighten the image, they washed
+   * whole renders to near-solid white (measured directly). Reverted so
+   * only the lighting floor and haze tint carry the brightening — see
+   * their own comments — while this stays the actual "which pixels are a
+   * genuine blown highlight" gate.
    */
   highlightBloom: {
     intensity: 0.55,
-    luminanceThreshold: 0.7,
+    luminanceThreshold: 0.82,
     luminanceSmoothing: 0.12,
   },
 

@@ -119,15 +119,20 @@ export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPalet
     mix(BASE_GREEN_LUSH, palette.stem, 0.65),
   ]
 
-  // Mixed much further towards white than before (0.05 → 0.4) — at 0.05
-  // this was effectively just `backgroundSecondary` itself, a muted
-  // mid-tone colour on most palettes (see shared/palette.ts). Screen-space
-  // haze (AtmosphericHaze.tsx) reads this same colour, so a muted mid-tone
-  // haze tint was greying/flattening the scene it washed over rather than
+  // Mixed further towards white than before (0.05 → 0.15) — at 0.05 this
+  // was effectively just `backgroundSecondary` itself, a muted mid-tone
+  // colour on most palettes (see shared/palette.ts). Screen-space haze
+  // (AtmosphericHaze.tsx) reads this same colour, so a muted mid-tone haze
+  // tint was greying/flattening the scene it washed over rather than
   // reading as a bright, sunlit atmosphere — this is a luminance/whiteness
   // fix, not a hue or saturation one; the palette's own colour still comes
   // through, just lifted, matching real aerial perspective on a bright day.
-  const fogColor = mix(palette.backgroundSecondary, '#ffffff', 0.4)
+  //
+  // Kept modest — an initial 0.4 stacked with SceneLighting.tsx's own
+  // brightening and a since-reverted highlightBloom threshold drop washed
+  // whole renders to near-solid white (measured directly). Isolated from
+  // those other two, this alone is a much smaller lever.
+  const fogColor = mix(palette.backgroundSecondary, '#ffffff', 0.15)
 
   const horizon = {
     skyColor: mix(palette.background, '#ffffff', 0.3),

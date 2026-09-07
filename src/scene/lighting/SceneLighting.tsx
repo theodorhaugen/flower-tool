@@ -26,7 +26,7 @@ function mix(a: string, b: string, t: number): string {
  * deep-shadow/bright-highlight character calls for; the grade pass now only
  * needs to add a mild punch on top of a genuinely wide-range input.
  *
- * Floor raised again since (0.8/0.15 → 1.2/0.3, ~58% higher): the "flat
+ * Floor raised again since (0.8/0.15 → 0.95/0.19, ~21% higher): the "flat
  * exposure" fix above was correct on its own terms — a real, wide dynamic
  * range now exists per-pixel — but ICM's heavy motion blur *averages* that
  * per-pixel lit/shadowed pattern across the whole camera sweep, which
@@ -36,6 +36,12 @@ function mix(a: string, b: string, t: number): string {
  * that's too dark overall, not just low-contrast. Still comfortably under
  * the key light (2.6) — this keeps real directional falloff, just lifts
  * where it falls from.
+ *
+ * Kept deliberately modest — a first attempt at +58% (1.2/0.3), stacked
+ * with a since-reverted highlightBloom threshold drop and a since-reduced
+ * haze/fog brightening (see their own comments), washed whole renders to
+ * near-solid white. This alone, isolated from those other two, is a much
+ * smaller lever.
  *
  * Colours are tinted by the active render's palette — `glow` (the colour of
  * light itself) warms the sky/key light, a lightness-capped `foliagePrimary`
@@ -83,8 +89,8 @@ export function SceneLighting() {
 
   return (
     <>
-      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={1.2 * lightingOvercast} />
-      <ambientLight intensity={0.3 * lightingOvercast} />
+      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={0.95 * lightingOvercast} />
+      <ambientLight intensity={0.19 * lightingOvercast} />
       <directionalLight position={[4, 6, 3]} intensity={2.6 * effectiveShadowDepth} color={colors.key} />
       <directionalLight position={[-3, 3, -4]} intensity={0.35 * effectiveShadowDepth} color={colors.fill} />
     </>
