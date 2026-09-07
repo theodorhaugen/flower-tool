@@ -139,23 +139,21 @@ export const POST_PROCESSING_CONFIG = {
   },
 
   /**
-   * Slight barrel bow, not a fisheye — the gentle edge curvature a real
-   * lens (especially at macro focal lengths) shows.
-   *
-   * Both axes matched at 0.002 — was `[0.006, 0.002]`, a genuinely
-   * asymmetric (3x) distortion strength per axis a real lens's radially
-   * symmetric barrel/pincushion distortion never has. LensDistortionEffect
-   * hard-zeroes (pure black, no blend — see its own shader's `mask()`) any
-   * pixel whose remapped UV lands outside the frame, so that asymmetry
-   * translated directly into an uneven black cutoff — worse on whichever
-   * axis carried the larger value, and on this tool's 4:5 portrait crop
-   * (narrower than tall) that was the *horizontal* edges, the shorter
-   * dimension getting the stronger pull. Matched to the smaller of the two
-   * original values rather than an average, keeping the border at least as
-   * subtle as it already was on the axis that wasn't the problem.
+   * Zeroed — was a slight barrel bow (`[0.006, 0.002]`, then `[0.002,
+   * 0.002]` once made symmetric — see git history), the gentle edge
+   * curvature a real lens shows. LensDistortionEffect samples the already-
+   * rendered frame and hard-zeroes (pure black, no blend — see its own
+   * shader's `mask()`) any pixel whose remapped UV lands outside it, so
+   * *any* nonzero distortion means some real content at the edge gets
+   * pulled inward with nothing behind it to reveal but black — there's no
+   * way to keep even a subtle bow without that cutoff unless the scene is
+   * rendered at a wider FOV than the final crop (an over-scan buffer this
+   * pipeline doesn't have). Zero distortion means `mainUv` leaves every UV
+   * unchanged, so `mask()` never fails and this black border is gone
+   * entirely, at the cost of the lens-bow character itself.
    */
   lensDistortion: {
-    distortion: [0.002, 0.002] as const,
+    distortion: [0, 0] as const,
     principalPoint: [0, 0] as const,
     focalLength: [1, 1] as const,
     skew: 0,

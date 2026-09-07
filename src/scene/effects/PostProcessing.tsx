@@ -94,16 +94,25 @@ const BLOOM_ZOOM_COMPENSATION = 0.3
  *   decaying history of recent frames — driven by the scene's own existing
  *   camera drift, not a synthetic per-object velocity streak. Listed
  *   *before* LensDistortion (next), not after — LensDistortionEffect's own
- *   shader hard-zeroes any pixel whose distorted UV lands outside [0, 1],
- *   which is a real (if normally subtle) edge vignette, but this pass's
- *   within-frame streak samples up to ~10% of the frame along the pan
- *   direction (see LongExposureBlurPass.ts's `MAX_STREAK_UV`): with
- *   distortion running first, a strong sweep dragged that black edge
- *   visibly inward every time, turning a thin lens vignette into a wide
- *   dark band specifically on blurred renders. Blurring first means
- *   LensDistortion's own edge-blackening is the last thing applied to
- *   those pixels, so there's nothing left downstream to smear it with.
- * - LensDistortion: a slight barrel bow, not a fisheye.
+ *   shader hard-zeroes any pixel whose distorted UV lands outside [0, 1].
+ *   With nonzero distortion that's a real (if normally subtle) edge
+ *   vignette, and this pass's within-frame streak samples up to ~10% of
+ *   the frame along the pan direction (see LongExposureBlurPass.ts's
+ *   `MAX_STREAK_UV`): with distortion running first, a strong sweep
+ *   dragged that black edge visibly inward every time, turning a thin
+ *   lens vignette into a wide dark band specifically on blurred renders.
+ *   Blurring first means LensDistortion's own edge-blackening is the last
+ *   thing applied to those pixels, so there's nothing left downstream to
+ *   smear it with — this ordering only matters if distortion is ever
+ *   nonzero again (see the next bullet), but costs nothing to keep now.
+ * - LensDistortion: zeroed (effects/config.ts) — any nonzero barrel bow
+ *   pulls real edge content inward with nothing rendered behind it to
+ *   reveal, which read as a black border (uneven at that, before a first
+ *   fix made both axes' distortion equal — see git history) rather than a
+ *   subtle lens character. Left wired up, not removed, so a proper fix
+ *   (rendering at a wider FOV than the final crop, so distortion always
+ *   has real content to pull from) can reintroduce it later without
+ *   re-deriving this pass's placement in the chain.
  * - GrainOverlay: last, on top of the fully-formed image — a real
  *   photographed grain plate laid over the frame with a standard Overlay
  *   blend and a highlight falloff (dense in shadows/midtones, thinning
