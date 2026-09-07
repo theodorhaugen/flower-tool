@@ -121,6 +121,19 @@ export const PALETTES: readonly ColorPalette[] = [
     stem: '#C7896E',
     deepShade: '#2B1E12',
     paleLight: '#F5F9F8',
+    // This palette is deliberately the registry's own "genuinely near-white"
+    // extreme (see the class docstring above) — by design it starts with
+    // the least headroom of any palette before its own haze/fog colour
+    // (already close to white) blows out. SceneLighting.tsx's/
+    // paletteColors.ts's exposure brightening (raised for every palette, to
+    // fix an overall-too-dark/moody complaint) measurably pushed this one
+    // specifically into a large solid-white sky/haze patch where other
+    // palettes read as a clean brightness improvement. Dampening just this
+    // palette's own haze/volumetric strength is the same fix Greenhouse
+    // bloom got in the opposite direction (raised `atmosphereScale` there
+    // for under-exposure) — a per-palette compensation, not a rollback of
+    // the brightening that's working correctly everywhere else.
+    atmosphereScale: 0.6,
   },
   {
     name: 'Poppy petal',
