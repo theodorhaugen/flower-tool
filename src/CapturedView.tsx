@@ -44,7 +44,11 @@ export function CapturedView({ children }: CapturedViewProps) {
       style={{
         position: 'absolute',
         inset: 0,
-        background: '#0a0908',
+        // White, not the near-black it used to be — a render's own
+        // brightness/exposure is much easier to judge against a neutral
+        // surround than next to black, which makes everything next to it
+        // read relatively brighter than it actually is.
+        background: '#ffffff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

@@ -29,9 +29,18 @@ export const POST_PROCESSING_CONFIG = {
    * shared/generative.ts's `highlightBloomIntensity`), the value below is
    * only its starting default.
    */
+  /**
+   * `luminanceThreshold` lowered from 0.82 — with the lighting rig's own
+   * floor raised (see SceneLighting.tsx), that threshold only ever caught
+   * the single brightest few pixels, reading as isolated hotspots rather
+   * than the broad, mostly-blown-out highlight character sun-drenched ICM
+   * reference photography actually has. 0.7 lets meaningfully more of a
+   * brightly-lit petal/haze cross into "blooming hard," not just its
+   * absolute peak.
+   */
   highlightBloom: {
     intensity: 0.55,
-    luminanceThreshold: 0.82,
+    luminanceThreshold: 0.7,
     luminanceSmoothing: 0.12,
   },
 
@@ -49,7 +58,7 @@ export const POST_PROCESSING_CONFIG = {
    * that respects edges, rather than a flat full-frame blur.
    */
   atmosphere: {
-    /** `haze.color` isn't set here — it's the active palette's `hazeTint` (see PostProcessing.tsx), so it matches environment/Fog.tsx's fog colour instead of drifting from it. */
+    /** `haze.color` isn't set here — it's the same `fogColor` environment/Fog.tsx uses (see environment/paletteColors.ts, read via AtmosphericHaze.tsx), so this screen-space haze reads as the same air as the scene fog instead of two independently-tinted atmospheres. */
     haze: {
       frequency: 1.8,
       driftSpeed: 0.02,

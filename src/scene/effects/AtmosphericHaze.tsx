@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { useEnvironmentPaletteColors } from '../environment/paletteColors'
 import { useGenerative } from '../shared/generativeContext'
 import { POST_PROCESSING_CONFIG } from './config'
 import { AtmosphericHazeEffect } from './AtmosphericHazeEffect'
@@ -8,10 +9,11 @@ import { AtmosphericHazeEffect } from './AtmosphericHazeEffect'
  * (colour) and effects/config.ts's `atmosphere` block (structural tuning),
  * same pattern as LensOpticsDepthOfField.tsx. `hazeAmount` (Leva's
  * Atmosphere > Haze) scales the haze/volumetric strength together — 1 = as
- * tuned. Reads `backgroundSecondary`, not `background` — that's the same
- * role environment/paletteColors.ts derives `fogColor`/the horizon's own
- * fog blend from, so this screen-space haze reads as the same air as the
- * scene fog instead of two independently-tinted atmospheres.
+ * tuned. Reads `fogColor` (environment/paletteColors.ts's derived,
+ * whitened `backgroundSecondary` — see its own docstring), not the raw
+ * palette value directly, so this screen-space haze reads as the same air
+ * as the scene fog instead of two independently-tinted atmospheres, and
+ * inherits that colour's brightness fix rather than needing its own.
  *
  * `palette.atmosphereScale` (optional, defaults to 1) additionally scales
  * strength/depthFalloff/volumetric-strength together — see its docstring in
@@ -19,13 +21,14 @@ import { AtmosphericHazeEffect } from './AtmosphericHazeEffect'
  */
 export function AtmosphericHaze() {
   const { palette, hazeAmount } = useGenerative()
+  const { fogColor } = useEnvironmentPaletteColors()
   const { haze, volumetric } = POST_PROCESSING_CONFIG.atmosphere
   const atmosphereScale = palette.atmosphereScale ?? 1
 
   const effect = useMemo(
     () =>
       new AtmosphericHazeEffect({
-        color: palette.backgroundSecondary,
+        color: fogColor,
         frequency: haze.frequency,
         driftSpeed: haze.driftSpeed,
         hazeStrength: haze.strength * hazeAmount * atmosphereScale,
@@ -33,7 +36,7 @@ export function AtmosphericHaze() {
         volumetricStrength: volumetric.strength * hazeAmount * atmosphereScale,
         volumetricRadius: volumetric.radius,
       }),
-    [palette, haze, volumetric, hazeAmount, atmosphereScale],
+    [fogColor, haze, volumetric, hazeAmount, atmosphereScale],
   )
 
   useEffect(() => {

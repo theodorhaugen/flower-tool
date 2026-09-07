@@ -26,6 +26,17 @@ function mix(a: string, b: string, t: number): string {
  * deep-shadow/bright-highlight character calls for; the grade pass now only
  * needs to add a mild punch on top of a genuinely wide-range input.
  *
+ * Floor raised again since (0.8/0.15 → 1.2/0.3, ~58% higher): the "flat
+ * exposure" fix above was correct on its own terms — a real, wide dynamic
+ * range now exists per-pixel — but ICM's heavy motion blur *averages* that
+ * per-pixel lit/shadowed pattern across the whole camera sweep, which
+ * softens the crisp highlight/shadow separation a sharp photo would keep
+ * and pulls the *perceived* result back down towards the floor's own level.
+ * A floor tuned for a sharp reference read as a diffuse blur reference
+ * that's too dark overall, not just low-contrast. Still comfortably under
+ * the key light (2.6) — this keeps real directional falloff, just lifts
+ * where it falls from.
+ *
  * Colours are tinted by the active render's palette — `glow` (the colour of
  * light itself) warms the sky/key light, a lightness-capped `foliagePrimary`
  * (see shared/palette.ts's `foliageShadowTint` — the meadow's own greenery,
@@ -72,8 +83,8 @@ export function SceneLighting() {
 
   return (
     <>
-      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={0.8 * lightingOvercast} />
-      <ambientLight intensity={0.15 * lightingOvercast} />
+      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={1.2 * lightingOvercast} />
+      <ambientLight intensity={0.3 * lightingOvercast} />
       <directionalLight position={[4, 6, 3]} intensity={2.6 * effectiveShadowDepth} color={colors.key} />
       <directionalLight position={[-3, 3, -4]} intensity={0.35 * effectiveShadowDepth} color={colors.fill} />
     </>
