@@ -617,6 +617,55 @@ export const PALETTES: readonly ColorPalette[] = [
     // explicitly wants no white blooms in the field.
     paleLight: '#F6C9D4',
   },
+  {
+    name: 'Sunflower field',
+    // Matched against the reference moodboard's own dominant look: warm
+    // gold/orange sunflower-style blooms against a genuinely vivid blue
+    // sky/atmosphere — a pairing none of the registry's other palettes
+    // have. Greenhouse bloom is the only other one with real saturated
+    // blue, but its blue sits in `background` (the ground) with a *warm*
+    // `backgroundSecondary` (see that palette's own comment) — the exact
+    // opposite of this brief, which wants the visible backdrop/atmosphere
+    // reading blue, not the ground.
+    //
+    // Warm golden-tan, not blue — `background` is 70% of the actual
+    // visible dry-ground patches (`deriveEnvironmentColors`'s `dry`), and a
+    // sunflower field's own dirt/dry-grass ground is warm, not blue; the
+    // sky note belongs in `backgroundSecondary` below instead (see
+    // Greenhouse bloom's own comment on this exact ground/backdrop split).
+    background: '#C9A45C',
+    // The actual visible sky/haze/horizon colour in a tight macro framing
+    // (`deriveEnvironmentColors`, AtmosphericHaze.tsx) — this is the role
+    // that reads as "blue sky bleeding through the blur" in the reference,
+    // not `background` above.
+    backgroundSecondary: '#5FA8D9',
+    // Warm gold sunlight — reinforces the petals' own yellow/orange rather
+    // than fighting it (lighting is a multiply against albedo, see every
+    // other palette's petal-anchor comments), and reads as direct sun
+    // against the cool sky note.
+    glow: '#FDC847',
+    foliagePrimary: '#3F5C32',
+    foliageSecondary: '#5C7F3E',
+    // Three genuinely different steps of the same warm family (pale gold →
+    // deep orange) rather than one flat hue — reads as a real sunflower's
+    // own petal gradient instead of a single flat colour.
+    petalPrimary: '#F7C721',
+    petalSecondary: '#F2A123',
+    petalTertiary: '#E8752B',
+    // Dark warm brown, not neutral black — a real sunflower's centre disc
+    // reads as deep brown; true black here would read as a hole/shadow
+    // rather than the flower's own texture.
+    core: '#4A2E14',
+    accent: '#FDC847',
+    stem: '#5C7F3E',
+    // Warm dark brown (matches `core`), not neutral or cool-tinted — this
+    // doubles as the petal family's near-black extreme
+    // (flowerField/palette.ts's `petalAnchors`), and a cool/neutral dark
+    // here would put a stray off-family bloom into an otherwise warm-gold
+    // field.
+    deepShade: '#3D2410',
+    paleLight: '#FCEFC7',
+  },
 ]
 
 /** Exact-name lookup, used by shared/generative.ts to let a `?palette=` override win over the seed-picked one. */
