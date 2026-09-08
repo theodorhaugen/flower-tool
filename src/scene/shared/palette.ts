@@ -703,42 +703,48 @@ export const PALETTES: readonly ColorPalette[] = [
     // against a cyan albedo pulls hardest on exactly the blue channel that
     // makes it read as cyan at all (same crush documented on Baby Blue
     // Eyes/Lupine/Greenhouse bloom's blue and Cotton rose's own pink).
-    glow: '#5FD0DE',
+    // Softened towards white along with the rest of this family below — the
+    // first pass read as a "hot"/saturated cyan rather than the pale,
+    // gentle tone intended.
+    glow: '#97E0EA',
     // Leaned warmer (more olive/yellow-green) than Cotton rose's own cooler,
     // teal-leaning greens — the brief asks for the opposite lean from the
     // warm-accent palettes below, so the petals' cool cyan sits against a
     // warmer green rather than two cool families competing.
     foliagePrimary: '#3A4228',
     foliageSecondary: '#5C8135',
-    // Pushed well past the reference "soft cyan" pastel's own pale
-    // saturation — same reasoning as every other palette's petal anchors
-    // (class docstring): a hue this pale fades further under the lighting/
-    // haze/bloom pipeline, and would read as barely-differentiated from
-    // `background`'s own sage green (`#A0B98A`) once it did. Kept the hue
-    // itself further round the wheel towards blue (rather than teal, which
-    // would sit closer to the sage/mint `background`/`backgroundSecondary`
-    // already in the registry) specifically so the petals stay clearly
-    // separated from the ground/backdrop rather than blending into it.
-    petalPrimary: '#3FC6D6',
-    petalSecondary: '#6ED9E3',
-    petalTertiary: '#A6E9EE',
+    // First pass pushed well past the reference "soft cyan" pastel's own
+    // pale saturation, on the same reasoning as every other palette's petal
+    // anchors (class docstring): a hue this pale fades further under the
+    // lighting/haze/bloom pipeline, and would read as barely-differentiated
+    // from `background`'s own sage green (`#A0B98A`) once it did. That read
+    // as too saturated/"hot" rather than pale on screen, so every role here
+    // (bar `deepShade`) was mixed a further ~20-35% towards white — hue kept
+    // further round the wheel towards blue (rather than teal, which would
+    // sit closer to the sage/mint `background`/`backgroundSecondary`
+    // already in the registry) so the petals stay clearly separated from
+    // the ground/backdrop despite the lighter, softer value.
+    petalPrimary: '#82DAE4',
+    petalSecondary: '#A1E6ED',
+    petalTertiary: '#B8EDF1',
     // Same cyan family as the petals, not a contrasting centre colour —
     // matches Cotton rose's own "whole bloom reads as one colour" brief.
-    core: '#1B6B78',
-    accent: '#C7F2F5',
+    core: '#6B9FA7',
+    accent: '#DBF7F9',
     // Distinct from the (now warmer) foliage tones so stems still read as
     // their own thing rather than reusing the leaf colour outright.
     stem: '#4A5C3A',
     // Tinted to the petal family's own cyan rather than a neutral dark —
     // doubles as the petal family's near-black extreme
-    // (flowerField/palette.ts's `petalAnchors`).
+    // (flowerField/palette.ts's `petalAnchors`). Left dark deliberately,
+    // same exemption as the other warm-accent palettes' own `deepShade`.
     deepShade: '#0F333B',
     // Clearly cyan rather than near-white — same reasoning as Cotton rose's
     // own `paleLight`, and the same lesson learned from Daisies' white-petal
     // wash (a near-neutral pale anchor gets absorbed into whatever nearby
     // colour has actual chroma once motion blur averages it in; a real,
     // if light, cyan tint survives that averaging instead of vanishing).
-    paleLight: '#CDF0F2',
+    paleLight: '#D7F3F5',
   },
   {
     name: 'Amber meadow',
