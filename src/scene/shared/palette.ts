@@ -288,12 +288,26 @@ export const PALETTES: readonly ColorPalette[] = [
     // as one consistent green family across the registry.
     foliagePrimary: '#3C5240',
     foliageSecondary: '#368144',
-    // Crisp white/cream, not flat identical hex — enough spread for the
-    // per-instance jitter (flowerField/palette.ts) to still read as
-    // texture rather than a single flat white cutout.
-    petalPrimary: '#F7F6EE',
-    petalSecondary: '#FBFAF3',
-    petalTertiary: '#F2F0E4',
+    // Cool blue-white, not the warm cream this started as — motion blur is
+    // an averaging operation, and a genuinely neutral/warm white has no
+    // hue of its own to survive that average with: blended against this
+    // palette's green ground and yellow centres/glow, it just lightens
+    // whatever *does* have hue rather than reading as its own white
+    // presence, so heavily-blurred renders read as a plain yellow-green
+    // wash with no visible flowers at all (confirmed directly — the
+    // flowers are genuinely there at full density, they just don't
+    // survive the blur visually). A cool tint pulls towards blue-violet,
+    // roughly the *complement* of the green/yellow wash, so a blend
+    // between them settles towards a muted, slightly cooled neutral
+    // instead of fully losing to the wash's own hue — still reads as
+    // white/pale, not as "blue flowers," since the shift is small (these
+    // are ~95% lightness either way), but it's now a real, if subtle,
+    // RGB-channel push rather than zero. Kept the same spread between the
+    // three anchors as before for the same per-instance jitter/texture
+    // reason.
+    petalPrimary: '#EEF2FA',
+    petalSecondary: '#F5F8FC',
+    petalTertiary: '#E5EAF2',
     // Strong yellow centre — shares its hue with `glow` above so the
     // centre-anchor blend towards `glow` (flowerField/palette.ts's
     // `centerAnchors`) deepens/enriches the same yellow instead of pulling
@@ -309,7 +323,11 @@ export const PALETTES: readonly ColorPalette[] = [
     // into an otherwise all-white field. Low enough saturation to read as
     // "white in deep shadow," not a competing colour.
     deepShade: '#171512',
-    paleLight: '#FCFBF6',
+    // Cooled to match the petal anchors' own fix above — this is the same
+    // petal family's near-white extreme (flowerField/palette.ts's
+    // `petalAnchors`), so it needs the same real-but-subtle blue-violet
+    // push to survive blending, not just the three main petal anchors.
+    paleLight: '#F7FAFD',
   },
   {
     name: 'Potpourri',
