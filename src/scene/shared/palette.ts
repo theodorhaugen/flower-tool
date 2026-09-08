@@ -749,7 +749,9 @@ export const PALETTES: readonly ColorPalette[] = [
     backgroundSecondary: '#C7DCC2',
     // Warm amber light, matching the petal family — reinforces rather than
     // fights the petals' own gold (lighting is a multiply against albedo).
-    glow: '#F0B23E',
+    // Lightened along with the rest of this family below — the first pass's
+    // hexes read as too dark/muddy on screen once through the pipeline.
+    glow: '#F5C978',
     // Leaned cooler (more teal/blue-green) than Cotton rose's own greens —
     // the brief asks warm accents get a cooler green lean, so the petals'
     // warm gold sits against a cooler, more separated green family.
@@ -759,26 +761,30 @@ export const PALETTES: readonly ColorPalette[] = [
     // cyan, this hue is already in the same family as the light doing the
     // multiplying), so no extra saturation push beyond a normal anchor
     // choice was needed the way Cotton rose's pink or Turquoise bloom's
-    // cyan required.
-    petalPrimary: '#F2B23A',
-    petalSecondary: '#F5C864',
-    petalTertiary: '#F8DA8F',
+    // cyan required. Lightened a further step past the first pass (mixed
+    // ~30% towards white) once a verification render showed the whole
+    // family reading darker/muddier on screen than intended.
+    petalPrimary: '#F6C975',
+    petalSecondary: '#F8D993',
+    petalTertiary: '#F9E0A0',
     // Same amber family as the petals, not a contrasting centre colour —
     // matches Cotton rose's own "whole bloom reads as one colour" brief.
-    core: '#B87A1E',
-    accent: '#FCE7B8',
+    core: '#CDA262',
+    accent: '#FCEBC3',
     // Distinct from the (now cooler) foliage tones so stems still read as
     // their own thing rather than reusing the leaf colour outright.
     stem: '#2E5C52',
     // Tinted to the petal family's own amber rather than a neutral dark —
     // doubles as the petal family's near-black extreme
-    // (flowerField/palette.ts's `petalAnchors`).
+    // (flowerField/palette.ts's `petalAnchors`). Left dark deliberately —
+    // this is the one role in the family meant to stay near-black, so it's
+    // exempt from the lightness pass above.
     deepShade: '#3D2A0E',
     // Clearly gold-tinted rather than near-white — same lesson as Turquoise
     // bloom's own `paleLight` above (a near-neutral pale anchor gets
     // absorbed into whatever nearby colour has actual chroma once motion
     // blur averages it in).
-    paleLight: '#FBEFCB',
+    paleLight: '#FCF3D8',
   },
   {
     name: 'Peach blossom',
@@ -789,37 +795,42 @@ export const PALETTES: readonly ColorPalette[] = [
     background: '#A0B98A',
     backgroundSecondary: '#C7DCC2',
     // Warm peach light, matching the petal family — reinforces rather than
-    // fights the petals' own hue.
-    glow: '#F5B49C',
+    // fights the petals' own hue. Lightened with the rest of this family
+    // below — see `petalPrimary`'s comment.
+    glow: '#F8CBBA',
     // Leaned cooler (more teal/blue-green), same direction as every other
     // warm-accent palette here — see Amber meadow's own comment above.
     foliagePrimary: '#1E4640',
     foliageSecondary: '#2E7D5E',
     // The `#FFDAC6` reference itself is a pale, fairly desaturated pastel —
-    // used as-is only for `petalTertiary` (the palest of the three petal
-    // roles), with `petalPrimary`/`petalSecondary` pushed rosier/more
-    // saturated ahead of it. Same reasoning as every other palette's petal
-    // anchors (class docstring, and directly the lesson from Daisies' own
+    // `petalTertiary` (the palest of the three petal roles) stays close to
+    // it, with `petalPrimary`/`petalSecondary` pushed rosier/more saturated
+    // ahead of it. Same reasoning as every other palette's petal anchors
+    // (class docstring, and directly the lesson from Daisies' own
     // white-petal wash): a hex this pale is what fades into a wash under
     // the lighting/haze/bloom pipeline, not what actually survives as
-    // "peach" on screen.
-    petalPrimary: '#F5A97E',
-    petalSecondary: '#FFC7A8',
-    petalTertiary: '#FFDAC6',
+    // "peach" on screen. A verification render showed the whole family
+    // reading darker/muddier than intended even accounting for that, so
+    // every role here (bar `deepShade`) was mixed a further ~15-30% towards
+    // white on top of the original anchor choice.
+    petalPrimary: '#F8C3A5',
+    petalSecondary: '#FFD8C2',
+    petalTertiary: '#FFE0CF',
     // Same peach family as the petals, not a contrasting centre colour —
     // matches Cotton rose's own "whole bloom reads as one colour" brief.
-    core: '#C97A4A',
-    accent: '#FFE3D1',
+    core: '#D9A280',
+    accent: '#FFE7D8',
     // Distinct from the (now cooler) foliage tones so stems still read as
     // their own thing rather than reusing the leaf colour outright.
     stem: '#2E5C52',
     // Tinted to the petal family's own peach rather than a neutral dark —
     // doubles as the petal family's near-black extreme
-    // (flowerField/palette.ts's `petalAnchors`).
+    // (flowerField/palette.ts's `petalAnchors`). Left dark deliberately,
+    // same exemption as Amber meadow's own `deepShade`.
     deepShade: '#3D2013',
     // Clearly peach-tinted rather than near-white — same lesson as Turquoise
     // bloom's own `paleLight` above.
-    paleLight: '#FFE9DC',
+    paleLight: '#FFECE1',
   },
   {
     name: 'Tangerine blaze',
@@ -832,35 +843,39 @@ export const PALETTES: readonly ColorPalette[] = [
     // Warm tangerine light, matching the petal family — kept a shade
     // lighter/less saturated than `petalPrimary` itself so it still reads
     // as light hitting the petals rather than a second, equally-saturated
-    // paint layer on top of them.
-    glow: '#E8703A',
+    // paint layer on top of them. Lightened with the rest of this family
+    // below — see `petalPrimary`'s comment.
+    glow: '#EF9B75',
     // Leaned cooler (more teal/blue-green), same direction as every other
     // warm-accent palette here — see Amber meadow's own comment above.
     foliagePrimary: '#1E4640',
     foliageSecondary: '#2E7D5E',
-    // The `#CA3C25` reference is already dark/saturated enough to survive
-    // the pipeline largely as-is (unlike Peach blossom's much paler
-    // reference above) — used directly as `petalPrimary`, with
-    // `petalSecondary`/`petalTertiary` stepping up through lighter, more
-    // orange tones of the same family rather than needing any further
-    // saturation push.
-    petalPrimary: '#CA3C25',
-    petalSecondary: '#E0632F',
-    petalTertiary: '#EF9160',
+    // The `#CA3C25` reference is dark/saturated enough that it was first
+    // used directly as `petalPrimary`, with `petalSecondary`/`petalTertiary`
+    // stepping up through lighter, more orange tones of the same family. A
+    // verification render showed the whole family reading darker/muddier
+    // than intended even so, so every role here (bar `deepShade`) was mixed
+    // a further ~15-30% towards white on top of that first pass, same fix
+    // as Amber meadow/Peach blossom above — `petalPrimary` no longer sits
+    // exactly on the `#CA3C25` reference as a result, but keeps its hue.
+    petalPrimary: '#DA7766',
+    petalSecondary: '#E9926D',
+    petalTertiary: '#F1A278',
     // Same tangerine family as the petals, not a contrasting centre colour —
     // matches Cotton rose's own "whole bloom reads as one colour" brief.
-    core: '#7A2414',
-    accent: '#F5B98E',
+    core: '#A2665B',
+    accent: '#F7C49F',
     // Distinct from the (now cooler) foliage tones so stems still read as
     // their own thing rather than reusing the leaf colour outright.
     stem: '#2E5C52',
     // Tinted to the petal family's own burnt orange rather than a neutral
     // dark — doubles as the petal family's near-black extreme
-    // (flowerField/palette.ts's `petalAnchors`).
+    // (flowerField/palette.ts's `petalAnchors`). Left dark deliberately,
+    // same exemption as Amber meadow's own `deepShade`.
     deepShade: '#2E1109',
     // Clearly tangerine-tinted rather than near-white — same lesson as
     // Turquoise bloom's own `paleLight` above.
-    paleLight: '#F6D9C6',
+    paleLight: '#F7DFCF',
   },
 ]
 
