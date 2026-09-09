@@ -243,7 +243,15 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       // through this composition" travel while making it much harder to
       // wander that far off the actual subject by accident.
       focusDistance: { value: base.focusDistance, min: base.focusDistance - 7, max: base.focusDistance + 8, label: 'Focus Distance' },
-      blurAmount: { value: base.maxBlur, min: 0.2, max: 3, label: 'Blur Amount' },
+      // Max raised 3 → 4.5 — more headroom to push out-of-focus background
+      // clutter into softer bokeh on compositions that otherwise read as
+      // busy, past what the tuned default (`base.maxBlur`, 1.4) needed.
+      // Ring/sample count (`CAMERA_CONFIG.dof.rings`/`samples`, fixed at 4/3)
+      // stays flat regardless of this value — the same ~30 samples spread
+      // over an even wider disc — so pushing right to the new top of the
+      // range is more likely than before to show faint bokeh-ring banding
+      // on isolated bright highlights rather than perfectly smooth blur.
+      blurAmount: { value: base.maxBlur, min: 0.2, max: 4.5, label: 'Blur Amount' },
       aperture: { value: base.fStop, min: 0.5, max: 4, label: 'Aperture' },
       glowIntensity: { value: base.bloomIntensity, min: 0, max: 1, label: 'Glow Intensity' },
       highlightBloom: { value: base.highlightBloomIntensity, min: 0, max: 1.5, label: 'Highlight Bloom' },
