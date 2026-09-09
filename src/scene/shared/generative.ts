@@ -305,30 +305,45 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     // it's a deliberately distinctive occasional variant, not a replacement
     // for the normal meadow-filling shots.
     //
-    // `focusDistance` set short (5, vs. every other preset's 11-15) —
-    // this composition's whole point is one bloom close enough to the lens
-    // to dominate the frame, not a mid-distance cluster.
+    // `focusDistance` set short (vs. every other preset's 11-15) — this
+    // composition's whole point is one bloom close enough to the lens to
+    // dominate the frame, not a mid-distance cluster.
     //
-    // Position Y raised one step from the first pass, -9.5/-8.5 (absolute
-    // ~-0.1 to 0.9, essentially at true ground level) → -8/-7 (absolute
-    // ~1.4 to 2.4) — deliberately kept clear of the literal ground/canopy
-    // rather than sitting inside it, while staying notably lower than
-    // `worm's-eye` (absolute ~3.4-5.4) so this still reads as "clears the
-    // meadow, near/just above the canopy" rather than converging on that
-    // preset. Pending a live-render check on the actual framing/legibility
-    // this produces.
+    // Reworked after a live render came back as a near-featureless pale
+    // wash — no bloom silhouette at all, not even a legible sky/ground
+    // split. Root cause: the first pass kept `positionOffset`'s Z close to
+    // the camera's normal front-of-meadow spot (absolute ~1-3) while
+    // `targetOffset`'s Z stayed near every other preset's own aimed-at-the-
+    // meadow value (absolute ~-10 to -12, from `targetZ`/`clusterCenterZ`
+    // below) — a real ~13-unit horizontal gap between camera and target.
+    // Combined with `targetOffset`'s Y being raised ~12 units above the
+    // camera, that's only a ~30° pitch above horizontal, not the steep
+    // "looking straight up" this preset needs — and `focusDistance`'s 5
+    // units *along that shallow ray* landed in empty air well above the
+    // meadow's own content, nowhere near an actual flower, so nothing in
+    // frame ever had anything to resolve sharp against.
+    //
+    // Fixed by moving `positionOffset`'s own Z deep into the same range
+    // `targetOffset`'s Z already sits in (both land the camera and the
+    // look-at point at roughly the same Z, right at the aimed meadow
+    // cluster) — with the horizontal gap now small, `targetOffset`'s Y
+    // still pulls the look direction to a genuinely steep ~70-80° pitch
+    // instead of ~30°, and a short `focusDistance` has a real chance of
+    // landing on the near flower content the camera is now sitting right
+    // beside rather than an empty patch of sky. Still pending a live-render
+    // check that this framing/legibility actually holds.
     weight: 0.5,
     positionOffset: [
       [-1.5, 1.5],
-      [-8, -7],
-      [-2, 0],
+      [-9.5, -8.5],
+      [-13, -11],
     ],
     targetOffset: [
       [-1, 1],
-      [10, 14],
-      [-3, -1],
+      [8, 12],
+      [-1, 1],
     ],
-    focusDistance: 5,
+    focusDistance: 3.5,
   },
 ]
 
