@@ -389,19 +389,24 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       palette,
       camera: selectedShotPreset
         ? selectedShotPreset.aimAtNearFlower
-          ? // Same canonical (non-jittered) framing shared/generative.ts's
-            // own `aimAtNearFlower` branch draws, built around `base`'s
-            // already-computed real flower position instead of
-            // `CAMERA_CONFIG`'s fixed base — see `CameraShotPreset.
-            // aimAtNearFlower`'s own comment for why this preset can't use
-            // the generic offset-around-a-fixed-point approach below.
-            // Height anchors to `skyBloomGroundY` (plus a small clearance),
-            // not `skyBloomAim[1]` minus a fixed offset — see that field's
-            // own comment (shared/generative.ts) for why the fixed-offset
-            // version put the camera underground.
+          ? // Same canonical (non-jittered, midpoint-of-range) framing
+            // shared/generative.ts's own `aimAtNearFlower` branch draws,
+            // built around `base`'s already-computed real flower position
+            // instead of `CAMERA_CONFIG`'s fixed base — see
+            // `CameraShotPreset.aimAtNearFlower`'s own comment for why this
+            // preset can't use the generic offset-around-a-fixed-point
+            // approach below. Offset a fixed 1.1 units sideways (midpoint
+            // of that branch's own 0.9-1.3 standoff range) rather than
+            // sitting right beside the aim point — see the camera-position
+            // comment there for why standing that close to the very flower
+            // being aimed at reads as a near-field blur, not a bloom
+            // against sky. Height uses `skyBloomGroundY` sampled at the aim
+            // point (this override can't resample terrain at the offset
+            // point the way that branch does — an approximation, fine for
+            // a quick-compare canonical view).
             {
-              position: [base.skyBloomAim[0], base.skyBloomGroundY + 0.3, base.skyBloomAim[2]],
-              target: [base.skyBloomAim[0], base.skyBloomAim[1] + 8, base.skyBloomAim[2]],
+              position: [base.skyBloomAim[0] + 1.1, base.skyBloomGroundY + 0.4, base.skyBloomAim[2]],
+              target: [base.skyBloomAim[0], base.skyBloomGroundY + 0.4 + 8.5, base.skyBloomAim[2]],
             }
           : {
               position: [

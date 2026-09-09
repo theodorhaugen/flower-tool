@@ -364,9 +364,18 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     // `aimAtNearFlower` (below) fixes the second cause by aiming at a real
     // foreground-band flower position instead.
     //
-    // `focusDistance` set short (vs. every other preset's 11-15) — this
-    // composition's whole point is one bloom close enough to the lens to
-    // dominate the frame, not a mid-distance cluster.
+    // 3) The first `aimAtNearFlower` pass still came back near-black or
+    // blank-pale, seed after seed — this time from standing *too close*: it
+    // put the camera only ~0.3 world units sideways from the very flower it
+    // was aiming at, near enough that its own stem/petals (not clear sky)
+    // filled the extreme near field, reading as an opaque, near-featureless
+    // (often backlit) blur rather than a bloom read against sky beyond it.
+    // Fixed with a real standoff (`skyBloomCameraOffset`, generative
+    // camera-position comment) — see that comment for the current geometry.
+    // `focusDistance` (1.2) matches the real camera→bloom distance that
+    // standoff produces — nowhere close to every offset-based preset's
+    // 11-15, this composition's whole point is one bloom close enough to
+    // the lens to dominate the frame, not a mid-distance cluster.
     weight: 0.5,
     atmosphereScale: 0.35,
     aimAtNearFlower: true,
@@ -384,7 +393,7 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [8, 12],
       [-1, 1],
     ],
-    focusDistance: 2.5,
+    focusDistance: 1.2,
   },
 ]
 
@@ -670,31 +679,47 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   const skyBloomAimY = skyBloomGroundY + skyBloomFlowerScale * skyBloomStemHeightFactor
   const skyBloomAim: readonly [number, number, number] = [skyBloomAimGround.x, skyBloomAimY, skyBloomAimGround.z]
 
+  // `Sky bloom`'s third geometry rework — a live render of the second one
+  // (ground-clearance fix above, otherwise unchanged) came back either
+  // near-black or blank-pale, seed after seed. Root cause: a ±0.3 XZ jitter
+  // is nowhere near enough to clear the *aimed flower's own* stem/petal
+  // footprint — the camera was routinely sitting right beside or under its
+  // own target flower's foliage, close enough that DOF blurred that one
+  // opaque, often-backlit surface into a near-featureless dark or pale mass
+  // filling the whole frame, not a bloom read against clear sky beyond it.
+  //
+  // Fixed with a real standoff distance instead: the camera sits
+  // `skyBloomCameraOffset` world units away from the aim point in a random
+  // horizontal direction — comfortably past a foreground bloom's own
+  // petal/leaf radius — and looks back roughly *through* the aim point
+  // rather than straight up from beside it, so the bloom sits on the view
+  // ray at a real, resolvable distance instead of point-blank. Ground
+  // height is resampled at the camera's own (offset) position, not the aim
+  // point's — terrain has real small-scale bump (`detailAmplitude`,
+  // terrainShapeConfig.ts) over a ~1-unit radius, so reusing `skyBloomGroundY`
+  // (sampled only at the aim point) was never a reliable clearance guarantee
+  // for a camera sitting a unit away from it.
+  const skyBloomCameraAngle = range(cameraRng, 0, Math.PI * 2)
+  const skyBloomCameraOffset = range(cameraRng, 0.9, 1.3)
+  const skyBloomCameraX = skyBloomAim[0] + Math.cos(skyBloomCameraAngle) * skyBloomCameraOffset
+  const skyBloomCameraZ = skyBloomAim[2] + Math.sin(skyBloomCameraAngle) * skyBloomCameraOffset
+  const skyBloomCameraGroundY =
+    sampleTerrainHeight(skyBloomCameraX, skyBloomCameraZ, skyBloomTerrainShape) -
+    samplePathDepression(skyBloomCameraX, skyBloomCameraZ, meadowLayout)
+  const skyBloomCameraY = skyBloomCameraGroundY + range(cameraRng, 0.3, 0.5)
+
   const camera: GenerativeCamera = shotPreset.aimAtNearFlower
     ? {
-        // Camera sits close beside the aimed flower's own (x, z), near
-        // ground level — looking up at/through it into open sky above
-        // (`target` below). Height is anchored to `skyBloomGroundY`
-        // directly, not "bloom height minus a fixed offset": the average
-        // foreground-band stem is well under 1 world unit tall (~0.88, see
-        // `skyBloomStemHeightFactor` above), so a fixed 1.5-2.5 offset
-        // below the *bloom* (tried first) put the camera consistently
-        // ~1.1 units *below* the actual local ground — a live geometry
-        // check caught it before it cost another render cycle: every
-        // sampled seed came back with a negative ground clearance. A small
-        // offset above the real ground instead guarantees the camera stays
-        // clear of the terrain regardless of how tall this particular
-        // aim's stem happens to be. Small, independent jitter on every
-        // axis for per-seed variety without risking the flower drifting
-        // out of this preset's own narrow, steep view cone.
-        position: [
-          skyBloomAim[0] + range(cameraRng, -0.3, 0.3),
-          skyBloomGroundY + range(cameraRng, 0.2, 0.4),
-          skyBloomAim[2] + range(cameraRng, -0.3, 0.3),
-        ],
+        position: [skyBloomCameraX, skyBloomCameraY, skyBloomCameraZ],
+        // Aimed back at the flower's own (x, z) (small jitter), well above
+        // it — continuing roughly the same camera→bloom direction further
+        // up puts the bloom itself on the view ray at `skyBloomCameraOffset`
+        // world units away (this preset's own short `focusDistance` is
+        // tuned to that, not the 11-15 every offset-based preset above
+        // uses), with clear sky beyond it filling the rest of the frame.
         target: [
           skyBloomAim[0] + range(cameraRng, -0.3, 0.3),
-          skyBloomAim[1] + range(cameraRng, 6, 10),
+          skyBloomCameraY + range(cameraRng, 7, 10),
           skyBloomAim[2] + range(cameraRng, -0.3, 0.3),
         ],
       }
@@ -734,7 +759,16 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // still varies which part of the near cluster (front bloom vs. one just
   // behind it) reads sharpest, without risking overshooting past it.
   const focusRng = createRng(seed + SEED_OFFSETS.focus)
-  const focusDistance = shotPreset.focusDistance + range(focusRng, -1.5, 1.5)
+  // `Sky bloom`'s own focus distance (~1-1.4, see `aimAtNearFlower`'s
+  // camera-position comment above) sits far below every other preset's
+  // 11-15 — the standard ±1.5 jitter is proportionally huge there and could
+  // even go non-positive, so it gets a much tighter jitter band instead.
+  // `Math.max` is a defensive floor for every preset, not just this one —
+  // costs nothing today (no other preset's own focusDistance minus its own
+  // jitter range ever gets close to it) but guards the same class of bug
+  // this preset's own jitter needed fixing for.
+  const focusJitterRange = shotPreset.aimAtNearFlower ? 0.25 : 1.5
+  const focusDistance = Math.max(0.4, shotPreset.focusDistance + range(focusRng, -focusJitterRange, focusJitterRange))
 
   const bloomRng = createRng(seed + SEED_OFFSETS.bloom)
   const bloomIntensity = POST_PROCESSING_CONFIG.bloom.intensity + range(bloomRng, -0.13, 0.15)
