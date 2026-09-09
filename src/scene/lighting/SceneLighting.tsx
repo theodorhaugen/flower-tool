@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { CAMERA_SHOT_PRESETS } from '../shared/generative'
 import { useGenerative } from '../shared/generativeContext'
 import { foliageShadowTint } from '../shared/palette'
 
@@ -74,8 +75,13 @@ function mix(a: string, b: string, t: number): string {
 const MIN_SHADOW_DEPTH = 0.15
 
 export function SceneLighting() {
-  const { palette, lightingOvercast, lightingWarmth, lightingShadowDepth } = useGenerative()
+  const { palette, lightingOvercast, lightingWarmth, lightingShadowDepth, shotPresetName } = useGenerative()
   const effectiveShadowDepth = Math.max(MIN_SHADOW_DEPTH, lightingShadowDepth)
+  // See `lightingFloorScale`'s own comment on `CameraShotPreset` (shared/
+  // generative.ts) — only `Sky bloom` sets this today, to lift its own
+  // grazing-angle-ground-crushes-to-black problem without touching the key/
+  // fill lights every other preset already has tuned.
+  const lightingFloorScale = CAMERA_SHOT_PRESETS.find((p) => p.name === shotPresetName)?.lightingFloorScale ?? 1
 
   const colors = useMemo(() => {
     // Lightness-capped, not the raw palette value — see
@@ -93,8 +99,8 @@ export function SceneLighting() {
 
   return (
     <>
-      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={1.1 * lightingOvercast} />
-      <ambientLight intensity={0.24 * lightingOvercast} />
+      <hemisphereLight color={colors.sky} groundColor={colors.ground} intensity={1.1 * lightingOvercast * lightingFloorScale} />
+      <ambientLight intensity={0.24 * lightingOvercast * lightingFloorScale} />
       <directionalLight position={[4, 6, 3]} intensity={2.6 * effectiveShadowDepth} color={colors.key} />
       <directionalLight position={[-3, 3, -4]} intensity={0.35 * effectiveShadowDepth} color={colors.fill} />
     </>

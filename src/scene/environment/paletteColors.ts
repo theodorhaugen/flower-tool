@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 import { useMemo } from 'react'
+import { CAMERA_SHOT_PRESETS } from '../shared/generative'
+import { useGenerative } from '../shared/generativeContext'
 import type { ColorPalette } from '../shared/palette'
 import { foliageShadowTint } from '../shared/palette'
-import { usePalette } from '../shared/generativeContext'
 import type { GroundColors } from './groundColor'
 
 /** Fixed vegetation/soil anchors — grass stays believably green and dirt stays believably brown across every palette; only the light hitting them changes. */
@@ -42,9 +43,13 @@ export interface EnvironmentPaletteColors {
  * family from `stem` instead of reusing the grass array, so a render can
  * give stems a colour identity distinct from the grass around them. Fog/
  * horizon read `background`/`backgroundSecondary` — the palette's own sky
- * gradient — since that's the palette's "colour of the air" by definition.
+ * gradient — since that's the palette's "colour of the air" by definition,
+ * unless the active `CAMERA_SHOT_PRESETS` entry carries its own
+ * `skyColorOverride` (see that field's own comment, shared/generative.ts)
+ * — `Sky bloom`'s sky/horizon wins over the palette's own for exactly the
+ * reason that comment describes.
  */
-export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPaletteColors {
+export function deriveEnvironmentColors(palette: ColorPalette, skyColorOverride?: string): EnvironmentPaletteColors {
   // Lightness-capped, not the raw palette value — see foliageShadowTint's
   // docstring: a palette whose `foliagePrimary` runs light (Sunlit pastel's
   // mint) would otherwise make "shaded" ground read *lighter* than lit
@@ -136,16 +141,32 @@ export function deriveEnvironmentColors(palette: ColorPalette): EnvironmentPalet
   // (0.15 → 0.25) in isolation.
   const fogColor = mix(palette.backgroundSecondary, '#ffffff', 0.25)
 
-  const horizon = {
-    skyColor: mix(palette.background, '#ffffff', 0.3),
-    horizonColor: fogColor,
-    groundColor: mix(BASE_DIRT, palette.backgroundSecondary, 0.25),
-  }
+  // `skyColorOverride` (a CAMERA_SHOT_PRESETS entry's own fixed blue — see
+  // that field's own comment, shared/generative.ts) replaces the normal
+  // palette-derived sky/horizon pair wholesale rather than blending with
+  // it: the whole point is a *reliable* blue regardless of which palette
+  // this seed rolled, and mixing it with a pale cream/mint/lavender
+  // `background` would just produce a muddier version of the same problem.
+  // The horizon stop still gets its own paler, whiter mix — same aerial-
+  // perspective shape as the un-overridden version below, just starting
+  // from the override colour instead of `fogColor`.
+  const horizon = skyColorOverride
+    ? {
+        skyColor: skyColorOverride,
+        horizonColor: mix(skyColorOverride, '#ffffff', 0.55),
+        groundColor: mix(BASE_DIRT, palette.backgroundSecondary, 0.25),
+      }
+    : {
+        skyColor: mix(palette.background, '#ffffff', 0.3),
+        horizonColor: fogColor,
+        groundColor: mix(BASE_DIRT, palette.backgroundSecondary, 0.25),
+      }
 
   return { groundColors, grassColorPalette, wildVegetationColorPalette, stemColorPalette, fogColor, horizon }
 }
 
 export function useEnvironmentPaletteColors(): EnvironmentPaletteColors {
-  const palette = usePalette()
-  return useMemo(() => deriveEnvironmentColors(palette), [palette])
+  const { palette, shotPresetName } = useGenerative()
+  const skyColorOverride = CAMERA_SHOT_PRESETS.find((p) => p.name === shotPresetName)?.skyColorOverride
+  return useMemo(() => deriveEnvironmentColors(palette, skyColorOverride), [palette, skyColorOverride])
 }

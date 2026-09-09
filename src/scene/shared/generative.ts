@@ -240,6 +240,39 @@ interface CameraShotPreset {
    */
   fovOverrideDeg?: number
   /**
+   * Overrides the horizon dome's sky colour (Horizon.tsx, via
+   * environment/paletteColors.ts) with a fixed blue, regardless of the
+   * active palette's own `background` (what the sky normally derives from
+   * — see that role's own docstring). Optional, defaults to unset (every
+   * other preset's sky stays palette-tinted as normal). `Sky bloom` needs
+   * this specifically: its whole composition is "a bloom against open
+   * sky", and several palettes' own `background` reads as pale cream/mint/
+   * lavender rather than anything a viewer would call "sky" once mixed
+   * toward white for the horizon gradient — fine as a backdrop sliver in
+   * every other preset's mostly-ground frame, not fine as ~80% of this
+   * one's. The horizon's paler near-ground stop is derived from this same
+   * override (mixed towards white), not overridden independently.
+   */
+  skyColorOverride?: string
+  /**
+   * Multiplies the non-directional lighting floor (hemisphere + ambient,
+   * SceneLighting.tsx) on top of Leva's own Lighting > Overcast slider —
+   * optional, defaults to 1 (every other preset's tuned floor, unchanged).
+   * `Sky bloom`'s own low, near-grazing-angle view of the terrain (see its
+   * camera-position comment) put large stretches of ground facing away
+   * from the key light, and with no fill/floor light lifting them, they
+   * crushed to flat black rather than reading as ground in shadow — a real,
+   * photographically-plausible silhouette element in small doses (compare
+   * the reference photo's own dark foreground shape), but not at the scale
+   * a whole grazing-angle horizon band produced it at. Only the *floor*
+   * lights are scaled, not the key/fill directional lights — those are
+   * what the bloom's own bright, lit side depends on, and blowing them up
+   * too would just move the "everything reads as one flat exposure" problem
+   * SceneLighting.tsx's own docstring already fixed once back to being
+   * one preset's problem again.
+   */
+  lightingFloorScale?: number
+  /**
    * When true, `positionOffset`/`targetOffset` below are ignored — camera
    * position/target are instead built around a real foreground-flower
    * ground position (`sampleBandPosition`, subjects/flowerField/
@@ -423,6 +456,15 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     weight: 0.5,
     atmosphereScale: 0.35,
     fovOverrideDeg: 42,
+    // Clear, believable sky blue — see this field's own comment on
+    // `CameraShotPreset` above for why every palette's own (often pale
+    // cream/mint/lavender) `background` doesn't work for a composition
+    // that's mostly sky.
+    skyColorOverride: '#6FA6DD',
+    // Raised well past every other preset's implicit 1 — see this field's
+    // own comment on `CameraShotPreset` above for the grazing-angle-ground
+    // problem this is fixing.
+    lightingFloorScale: 1.7,
     aimAtNearFlower: true,
     // Unused while `aimAtNearFlower` is true (see its own comment on
     // `CameraShotPreset` above) — kept as a documented fallback shape only,
