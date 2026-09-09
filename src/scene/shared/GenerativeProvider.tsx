@@ -388,18 +388,29 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       ...base,
       palette,
       camera: selectedShotPreset
-        ? {
-            position: [
-              CAMERA_CONFIG.position[0] + midpoint(selectedShotPreset.positionOffset[0]),
-              CAMERA_CONFIG.position[1] + midpoint(selectedShotPreset.positionOffset[1]),
-              CAMERA_CONFIG.position[2] + midpoint(selectedShotPreset.positionOffset[2]),
-            ],
-            target: [
-              CAMERA_CONFIG.target[0] + midpoint(selectedShotPreset.targetOffset[0]),
-              CAMERA_CONFIG.target[1] + midpoint(selectedShotPreset.targetOffset[1]),
-              CAMERA_CONFIG.target[2] + midpoint(selectedShotPreset.targetOffset[2]),
-            ],
-          }
+        ? selectedShotPreset.aimAtNearFlower
+          ? // Same canonical (non-jittered) framing shared/generative.ts's
+            // own `aimAtNearFlower` branch draws, built around `base`'s
+            // already-computed real flower position instead of
+            // `CAMERA_CONFIG`'s fixed base — see `CameraShotPreset.
+            // aimAtNearFlower`'s own comment for why this preset can't use
+            // the generic offset-around-a-fixed-point approach below.
+            {
+              position: [base.skyBloomAim[0], base.skyBloomAim[1] - 2, base.skyBloomAim[2]],
+              target: [base.skyBloomAim[0], base.skyBloomAim[1] + 8, base.skyBloomAim[2]],
+            }
+          : {
+              position: [
+                CAMERA_CONFIG.position[0] + midpoint(selectedShotPreset.positionOffset[0]),
+                CAMERA_CONFIG.position[1] + midpoint(selectedShotPreset.positionOffset[1]),
+                CAMERA_CONFIG.position[2] + midpoint(selectedShotPreset.positionOffset[2]),
+              ],
+              target: [
+                CAMERA_CONFIG.target[0] + midpoint(selectedShotPreset.targetOffset[0]),
+                CAMERA_CONFIG.target[1] + midpoint(selectedShotPreset.targetOffset[1]),
+                CAMERA_CONFIG.target[2] + midpoint(selectedShotPreset.targetOffset[2]),
+              ],
+            }
         : {
             position: [base.camera.position[0], cameraControls.height, cameraControls.distance],
             target: [cameraControls.pan, base.camera.target[1], base.camera.target[2]],

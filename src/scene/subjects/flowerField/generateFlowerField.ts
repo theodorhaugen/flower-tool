@@ -118,8 +118,17 @@ function allocateBandCounts(depthBands: readonly DepthBand[], flowerCount: numbe
  * with the requested count, even if a band's slice of the field is mostly
  * clearings. Y is left at 0 — the caller sets it from the terrain height
  * once the flower's own scale (and thus stem height) is known.
+ *
+ * Exported (not just used internally below) for shared/generative.ts's
+ * `deriveGenerativeState` — the `Sky bloom` camera preset needs a real
+ * ground position a flower is actually likely to occupy to aim at, not just
+ * a generic dense-area estimate (see that preset's own comment). Calling
+ * this with an RNG stream independent of the one full generation below uses
+ * doesn't reproduce any *specific* already-placed flower, but draws from
+ * the exact same distribution real foreground-band flowers do, which is
+ * what aiming actually needs.
  */
-function sampleBandPosition(rng: () => number, band: DepthBand, meadowLayout: MeadowLayoutConfig): THREE.Vector3 {
+export function sampleBandPosition(rng: () => number, band: DepthBand, meadowLayout: MeadowLayoutConfig): THREE.Vector3 {
   const { minCameraDistance, maxSampleAttemptsPerFlower } = FLOWER_FIELD_CONFIG
   const nearestZ = CAMERA_Z - minCameraDistance
 

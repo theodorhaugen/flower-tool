@@ -1,5 +1,8 @@
 import { CAMERA_CONFIG } from '../camera/config'
 import { POST_PROCESSING_CONFIG } from '../effects/config'
+import { samplePathDepression } from '../environment/groundColor'
+import { FLOWER_FIELD_CONFIG } from '../subjects/flowerField/config'
+import { sampleBandPosition } from '../subjects/flowerField/generateFlowerField'
 import { frustumWidthHalfAt } from './frustum'
 import type { MeadowLayoutConfig } from './meadowLayout'
 import { sampleMeadowDensity } from './meadowLayout'
@@ -7,6 +10,8 @@ import { createMeadowLayout } from './meadowLayoutConfig'
 import type { ColorPalette } from './palette'
 import { findPaletteByName, PALETTES } from './palette'
 import { createRng, gaussianish, range } from './random'
+import { sampleTerrainHeight } from './terrainHeight'
+import { createTerrainShape } from './terrainShapeConfig'
 
 /**
  * How many candidate cluster-centre draws `deriveGenerativeState`'s camera
@@ -159,6 +164,7 @@ const SEED_OFFSETS = {
   haze: 1_100_000,
   grain: 1_200_000,
   zoom: 1_300_000,
+  skyBloomAim: 1_400_000,
 } as const
 
 /**
@@ -202,6 +208,19 @@ interface CameraShotPreset {
    * a sliver of it.
    */
   atmosphereScale?: number
+  /**
+   * When true, `positionOffset`/`targetOffset` below are ignored — camera
+   * position/target are instead built around a real foreground-flower
+   * ground position (`sampleBandPosition`, subjects/flowerField/
+   * generateFlowerField.ts) computed once per seed below, not the fixed
+   * `CAMERA_CONFIG.position`/`target` base every other preset offsets from.
+   * `Sky bloom` (below) is the one preset that needs to aim at an actual
+   * flower rather than a generic dense area — see its own comment for why
+   * a camera aimed by area-density alone kept finding nothing but empty
+   * air along its own steep, narrow upward view cone. Optional, defaults to
+   * false.
+   */
+  aimAtNearFlower?: boolean
   positionOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
   targetOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
   /**
@@ -309,56 +328,52 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
   },
   {
     name: 'Sky bloom',
-    // `skyBloom` — camera drops to near/below flower height and pitches
-    // sharply upward, well past `worm's-eye` above, so one near bloom looms
-    // large and low in frame with nothing but open sky behind/around it
-    // (no ground, no horizon, no neighbouring flowers) — the composition a
-    // reference photo asked for directly: a single soft, heavily-blurred
-    // bloom silhouetted against plain sky. Weighted lower (0.5 against the
-    // other three's 1 each, so it's picked on roughly 1-in-7 renders) since
-    // it's a deliberately distinctive occasional variant, not a replacement
-    // for the normal meadow-filling shots.
+    // Camera drops below flower height and pitches steeply upward, so one
+    // near bloom looms large and low in frame with nothing but open sky
+    // behind/around it (no ground, no horizon, no neighbouring flowers) —
+    // the composition a reference photo asked for directly: a single soft,
+    // heavily-blurred bloom silhouetted against plain sky. Weighted lower
+    // (0.5 against the other three's 1 each, ~1-in-7 renders) since it's a
+    // deliberately distinctive occasional variant, not a replacement for
+    // the normal meadow-filling shots.
+    //
+    // Two rounds of live-render debugging before this worked at all — worth
+    // keeping both lessons on record since they're easy to reintroduce:
+    //
+    // 1) A pure offset-based first pass (like every other preset below)
+    // rendered as a near-featureless pale wash: `positionOffset`'s Z sat
+    // near the camera's normal front-of-meadow spot while `targetOffset`'s
+    // Z stayed near the meadow itself, a real ~13-unit horizontal gap that
+    // only produced a shallow ~30° pitch, not a steep "look straight up" —
+    // and the short focus distance landed in empty air along that shallow
+    // ray, nowhere near any actual flower.
+    //
+    // 2) Even after fixing the geometry to a genuine ~70-80° pitch (by
+    // collapsing that horizontal gap), it *still* rendered as a near-
+    // featureless wash. Two compounding causes: `AtmosphericHazeEffect`'s
+    // depth mask reads the sky dome (Horizon.tsx, which doesn't write
+    // depth) as maximum distance and fully hazes it — a non-issue for every
+    // other preset's mostly-ground frame, but this preset's frame is
+    // *mostly sky* by design (see `atmosphereScale` below); and offset-
+    // based aiming only guarantees a generally *dense area* is ahead, not
+    // that any specific flower sits directly along this preset's own
+    // narrow, steeply-upward view cone — a real flower's stem has to be
+    // within a fraction of a world unit of the camera's own (x, z) for a
+    // ~11-15° FOV to actually catch it looking straight up, which offset
+    // jitter around a general cluster centre essentially never lands on.
+    // `aimAtNearFlower` (below) fixes the second cause by aiming at a real
+    // foreground-band flower position instead.
     //
     // `focusDistance` set short (vs. every other preset's 11-15) — this
     // composition's whole point is one bloom close enough to the lens to
     // dominate the frame, not a mid-distance cluster.
-    //
-    // Reworked after a live render came back as a near-featureless pale
-    // wash — no bloom silhouette at all, not even a legible sky/ground
-    // split. Root cause: the first pass kept `positionOffset`'s Z close to
-    // the camera's normal front-of-meadow spot (absolute ~1-3) while
-    // `targetOffset`'s Z stayed near every other preset's own aimed-at-the-
-    // meadow value (absolute ~-10 to -12, from `targetZ`/`clusterCenterZ`
-    // below) — a real ~13-unit horizontal gap between camera and target.
-    // Combined with `targetOffset`'s Y being raised ~12 units above the
-    // camera, that's only a ~30° pitch above horizontal, not the steep
-    // "looking straight up" this preset needs — and `focusDistance`'s 5
-    // units *along that shallow ray* landed in empty air well above the
-    // meadow's own content, nowhere near an actual flower, so nothing in
-    // frame ever had anything to resolve sharp against.
-    //
-    // Fixed by moving `positionOffset`'s own Z deep into the same range
-    // `targetOffset`'s Z already sits in (both land the camera and the
-    // look-at point at roughly the same Z, right at the aimed meadow
-    // cluster) — with the horizontal gap now small, `targetOffset`'s Y
-    // still pulls the look direction to a genuinely steep ~70-80° pitch
-    // instead of ~30°, and a short `focusDistance` has a real chance of
-    // landing on the near flower content the camera is now sitting right
-    // beside rather than an empty patch of sky.
-    //
-    // That geometry fix alone still rendered as a near-featureless pale
-    // wash, seed after seed — traced to `AtmosphericHazeEffect`'s own depth
-    // mask (see `atmosphereScale`'s own docstring on `CameraShotPreset`
-    // above): the sky dome (Horizon.tsx) doesn't write depth, so every sky
-    // pixel reads as maximum distance and gets the full haze mix, and this
-    // preset's frame is *mostly* sky by design — no other preset ever hazes
-    // more than a sliver of its own frame this hard. 0.35 cuts that back
-    // to where the sky can actually read as sky-coloured instead of a solid
-    // wash, while every other preset's own (already-tuned) haze is
-    // untouched. Still pending a live-render check that this + the
-    // geometry fix together produce the intended look.
     weight: 0.5,
     atmosphereScale: 0.35,
+    aimAtNearFlower: true,
+    // Unused while `aimAtNearFlower` is true (see its own comment on
+    // `CameraShotPreset` above) — kept as a documented fallback shape only,
+    // not a real fallback path (there's no runtime branch that reads these
+    // for this preset today).
     positionOffset: [
       [-1.5, 1.5],
       [-9.5, -8.5],
@@ -369,7 +384,7 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [8, 12],
       [-1, 1],
     ],
-    focusDistance: 3.5,
+    focusDistance: 2.5,
   },
 ]
 
@@ -408,6 +423,8 @@ export interface GenerativeState {
   camera: GenerativeCamera
   /** Which `CAMERA_SHOT_PRESETS` entry this seed rolled — only used to seed Leva's Camera > Shot dropdown's initial value (GenerativeProvider.tsx), not read anywhere else; the dropdown's own override bypasses this state entirely once changed (see `CAMERA_SHOT_PRESETS`'s own comment). */
   shotPresetName: string
+  /** A real foreground-band flower's (x, y, z) ground/bloom-height position for this seed — see `CameraShotPreset.aimAtNearFlower`'s own comment. Always computed (cheap), regardless of which preset this seed actually rolled, so GenerativeProvider.tsx's Shot-dropdown override can reuse it without its own copy of the same lookup. */
+  skyBloomAim: readonly [number, number, number]
   focusDistance: number
   bloomIntensity: number
   wind: GenerativeWind
@@ -627,18 +644,60 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     }
   }
 
-  const camera: GenerativeCamera = {
-    position: [
-      baseX + range(cameraRng, ...shotPreset.positionOffset[0]),
-      baseY + range(cameraRng, ...shotPreset.positionOffset[1]),
-      baseZ + range(cameraRng, ...shotPreset.positionOffset[2]),
-    ],
-    target: [
-      targetX + clusterCenterX + range(cameraRng, ...shotPreset.targetOffset[0]),
-      targetY + range(cameraRng, ...shotPreset.targetOffset[1]),
-      targetZ + clusterCenterZ + range(cameraRng, ...shotPreset.targetOffset[2]),
-    ],
-  }
+  // A real foreground-band flower's ground position/height — see
+  // `CameraShotPreset.aimAtNearFlower`'s own comment for why `Sky bloom`
+  // needs this instead of the generic offset-around-a-dense-area approach
+  // every other preset uses. Computed unconditionally (cheap — a handful of
+  // noise-function point queries, not a scene generation pass) both for
+  // simplicity and so `skyBloomAim` below can be exposed on the returned
+  // state for GenerativeProvider.tsx's Shot-dropdown override to reuse,
+  // rather than needing its own copy of this same lookup.
+  const skyBloomAimRng = createRng(seed + SEED_OFFSETS.skyBloomAim)
+  const foregroundBand = FLOWER_FIELD_CONFIG.depthBands[0]
+  const skyBloomAimGround = sampleBandPosition(skyBloomAimRng, foregroundBand, meadowLayout)
+  const skyBloomTerrainShape = createTerrainShape(seed + SEED_OFFSETS.terrainShape)
+  const skyBloomGroundY =
+    sampleTerrainHeight(skyBloomAimGround.x, skyBloomAimGround.z, skyBloomTerrainShape) -
+    samplePathDepression(skyBloomAimGround.x, skyBloomAimGround.z, meadowLayout)
+  // Matches generateFlowerField.ts's own `flowerScale * stemHeightFactor`
+  // formula for this exact band — range midpoints rather than a random
+  // roll, since this only needs one representative bloom height to aim at,
+  // not to reproduce any specific instance's own exact one.
+  const skyBloomFlowerScale = (foregroundBand.scaleRange[0] + foregroundBand.scaleRange[1]) / 2
+  const skyBloomStemHeightFactor = (foregroundBand.stemHeightFactorRange[0] + foregroundBand.stemHeightFactorRange[1]) / 2
+  const skyBloomAimY = skyBloomGroundY + skyBloomFlowerScale * skyBloomStemHeightFactor
+  const skyBloomAim: readonly [number, number, number] = [skyBloomAimGround.x, skyBloomAimY, skyBloomAimGround.z]
+
+  const camera: GenerativeCamera = shotPreset.aimAtNearFlower
+    ? {
+        // Camera sits close beside the aimed flower's own (x, z), a couple
+        // of units below its bloom height — looking up at/through it into
+        // open sky above (`target` below). Small, independent jitter on
+        // every axis for per-seed variety without risking the flower
+        // drifting out of this preset's own narrow, steep view cone.
+        position: [
+          skyBloomAim[0] + range(cameraRng, -0.3, 0.3),
+          skyBloomAim[1] - range(cameraRng, 1.5, 2.5),
+          skyBloomAim[2] + range(cameraRng, -0.3, 0.3),
+        ],
+        target: [
+          skyBloomAim[0] + range(cameraRng, -0.3, 0.3),
+          skyBloomAim[1] + range(cameraRng, 6, 10),
+          skyBloomAim[2] + range(cameraRng, -0.3, 0.3),
+        ],
+      }
+    : {
+        position: [
+          baseX + range(cameraRng, ...shotPreset.positionOffset[0]),
+          baseY + range(cameraRng, ...shotPreset.positionOffset[1]),
+          baseZ + range(cameraRng, ...shotPreset.positionOffset[2]),
+        ],
+        target: [
+          targetX + clusterCenterX + range(cameraRng, ...shotPreset.targetOffset[0]),
+          targetY + range(cameraRng, ...shotPreset.targetOffset[1]),
+          targetZ + clusterCenterZ + range(cameraRng, ...shotPreset.targetOffset[2]),
+        ],
+      }
 
   // Focus distance used to depend on the actual camera→target distance
   // (either a fixed constant, or later a per-seed geometric calc) — both
@@ -779,6 +838,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     environmentSeed: seed + SEED_OFFSETS.environment,
     camera,
     shotPresetName: shotPreset.name,
+    skyBloomAim,
     focusDistance,
     bloomIntensity,
     wind,
