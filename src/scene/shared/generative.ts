@@ -201,15 +201,20 @@ interface CameraShotPreset {
  * Every seed used to vary within one continuous jitter band around a single
  * base pose — every render was "the same macro shot from a slightly
  * different tripod position," with no seed ever producing a genuinely
- * different composition. These three discrete presets (picked per seed,
- * then jittered *within* the picked preset the same way the old single band
- * was) give real compositional variety instead: a classic dead-on macro, a
- * low worm's-eye looking up into the blooms, and a tighter single-subject
- * crop. Equal weight (an even 1-in-3 each) rather than `classic` dominating
- * — a deliberate choice to make the less-common framings show up often
- * enough to actually find/reproduce one, not a coin flip that happens to
- * look even. An `elevated` near-top-down preset used to sit here too;
- * dropped for reading as too visually complex/busy a composition.
+ * different composition. These discrete presets (picked per seed, then
+ * jittered *within* the picked preset the same way the old single band was)
+ * give real compositional variety instead: a classic dead-on macro, a low
+ * worm's-eye looking up into the blooms, a tighter single-subject crop, and
+ * `skyBloom` (below) — a much steeper worm's-eye that clears the meadow
+ * entirely and looks almost straight up through one near bloom into open
+ * sky. The first three share equal weight (an even 1-in-3-of-the-remaining-
+ * weight each) rather than `classic` dominating — a deliberate choice to
+ * make the less-common framings show up often enough to actually find/
+ * reproduce one, not a coin flip that happens to look even. `skyBloom` is
+ * weighted lower (see its own comment) so it reads as an occasional
+ * distinctive variant rather than crowding out the normal meadow shots. An
+ * `elevated` near-top-down preset used to sit here too; dropped for reading
+ * as too visually complex/busy a composition.
  */
 const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
   {
@@ -270,6 +275,37 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [-1, 1],
     ],
     focusDistance: 13,
+  },
+  {
+    // `skyBloom` — camera drops to near/below flower height and pitches
+    // sharply upward, well past `worm's-eye` above, so one near bloom looms
+    // large and low in frame with nothing but open sky behind/around it
+    // (no ground, no horizon, no neighbouring flowers) — the composition a
+    // reference photo asked for directly: a single soft, heavily-blurred
+    // bloom silhouetted against plain sky. Weighted lower (0.5 against the
+    // other three's 1 each, so it's picked on roughly 1-in-7 renders) since
+    // it's a deliberately distinctive occasional variant, not a replacement
+    // for the normal meadow-filling shots.
+    //
+    // `focusDistance` set short (5, vs. every other preset's 11-15) —
+    // this composition's whole point is one bloom close enough to the lens
+    // to dominate the frame, not a mid-distance cluster. Position/target Y
+    // offsets are first-pass estimates (camera near/just above ground
+    // level, target well above both camera and any bloom height) — pending
+    // a live-render check/iteration, same as `worm's-eye`'s own focus
+    // distance was above.
+    weight: 0.5,
+    positionOffset: [
+      [-1.5, 1.5],
+      [-9.5, -8.5],
+      [-2, 0],
+    ],
+    targetOffset: [
+      [-1, 1],
+      [10, 14],
+      [-3, -1],
+    ],
+    focusDistance: 5,
   },
 ]
 
