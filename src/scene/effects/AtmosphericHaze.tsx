@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useEnvironmentPaletteColors } from '../environment/paletteColors'
+import { CAMERA_SHOT_PRESETS } from '../shared/generative'
 import { useGenerative } from '../shared/generativeContext'
 import { POST_PROCESSING_CONFIG } from './config'
 import { AtmosphericHazeEffect } from './AtmosphericHazeEffect'
@@ -17,13 +18,18 @@ import { AtmosphericHazeEffect } from './AtmosphericHazeEffect'
  *
  * `palette.atmosphereScale` (optional, defaults to 1) additionally scales
  * strength/depthFalloff/volumetric-strength together — see its docstring in
- * shared/palette.ts for why a palette would want less than the tuned default.
+ * shared/palette.ts for why a palette would want less than the tuned
+ * default. The active `CAMERA_SHOT_PRESETS` entry's own `atmosphereScale`
+ * (shared/generative.ts) multiplies on top of that, same mechanism — a
+ * preset whose frame is dominated by undrawn-depth sky (Sky bloom) needs
+ * its own cut independent of whatever the active palette's own scale is.
  */
 export function AtmosphericHaze() {
-  const { palette, hazeAmount } = useGenerative()
+  const { palette, hazeAmount, shotPresetName } = useGenerative()
   const { fogColor } = useEnvironmentPaletteColors()
   const { haze, volumetric } = POST_PROCESSING_CONFIG.atmosphere
-  const atmosphereScale = palette.atmosphereScale ?? 1
+  const shotPreset = CAMERA_SHOT_PRESETS.find((p) => p.name === shotPresetName)
+  const atmosphereScale = (palette.atmosphereScale ?? 1) * (shotPreset?.atmosphereScale ?? 1)
 
   const effect = useMemo(
     () =>

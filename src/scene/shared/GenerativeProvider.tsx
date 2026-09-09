@@ -405,6 +405,12 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
             target: [cameraControls.pan, base.camera.target[1], base.camera.target[2]],
           },
       focusDistance: selectedShotPreset ? selectedShotPreset.focusDistance : lensControls.focusDistance,
+      // Reflects the dropdown override too, not just the seed's own natural
+      // roll — AtmosphericHaze.tsx reads this to look up a preset's own
+      // `atmosphereScale` (CAMERA_SHOT_PRESETS's own comment, shared/
+      // generative.ts), which needs to actually apply when a preset is
+      // picked manually, not just when a seed happens to roll it.
+      shotPresetName: selectedShotPreset?.name ?? base.shotPresetName,
       bloomIntensity: lensControls.glowIntensity,
       maxBlur: lensControls.blurAmount,
       fStop: lensControls.aperture,

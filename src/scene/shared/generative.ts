@@ -188,6 +188,20 @@ interface CameraShotPreset {
   name: string
   /** Selection weight, relative to the other presets — doesn't need to sum to 1. */
   weight: number
+  /**
+   * Same mechanism/purpose as `ColorPalette.atmosphereScale` (palette.ts) —
+   * scales `AtmosphericHazeEffect`'s strength/depthFalloff/volumetric-
+   * strength together, multiplied with the active palette's own scale
+   * (AtmosphericHaze.tsx). Optional, defaults to 1 (every preset's tuned
+   * haze, unchanged). A preset whose composition is dominated by "infinite
+   * depth" content (the sky dome, which doesn't write depth — see
+   * AtmosphericHazeEffect.ts's `depthMask`) needs this: haze's exponential
+   * depth mask reaches effectively 1 (maximum) there regardless of how
+   * little of a normal, mostly-ground/midground frame that ever affects —
+   * `Sky bloom` below is the one preset where that's most of the frame, not
+   * a sliver of it.
+   */
+  atmosphereScale?: number
   positionOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
   targetOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
   /**
@@ -330,9 +344,21 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     // still pulls the look direction to a genuinely steep ~70-80° pitch
     // instead of ~30°, and a short `focusDistance` has a real chance of
     // landing on the near flower content the camera is now sitting right
-    // beside rather than an empty patch of sky. Still pending a live-render
-    // check that this framing/legibility actually holds.
+    // beside rather than an empty patch of sky.
+    //
+    // That geometry fix alone still rendered as a near-featureless pale
+    // wash, seed after seed — traced to `AtmosphericHazeEffect`'s own depth
+    // mask (see `atmosphereScale`'s own docstring on `CameraShotPreset`
+    // above): the sky dome (Horizon.tsx) doesn't write depth, so every sky
+    // pixel reads as maximum distance and gets the full haze mix, and this
+    // preset's frame is *mostly* sky by design — no other preset ever hazes
+    // more than a sliver of its own frame this hard. 0.35 cuts that back
+    // to where the sky can actually read as sky-coloured instead of a solid
+    // wash, while every other preset's own (already-tuned) haze is
+    // untouched. Still pending a live-render check that this + the
+    // geometry fix together produce the intended look.
     weight: 0.5,
+    atmosphereScale: 0.35,
     positionOffset: [
       [-1.5, 1.5],
       [-9.5, -8.5],
