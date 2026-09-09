@@ -221,6 +221,25 @@ interface CameraShotPreset {
    */
   atmosphereScale?: number
   /**
+   * Overrides the lens's normal FOV (`CAMERA_CONFIG.fov / zoom`, ~11-15°)
+   * with a fixed, wider value, degrees. Optional, defaults to unset (every
+   * other preset keeps the normal macro-lens FOV and Leva's Zoom slider
+   * keeps controlling it as usual). `Sky bloom` is the one preset that
+   * needs this: at this lens's normal narrow FOV, a foreground-band bloom
+   * close enough to sit at this preset's own short `focusDistance` subtends
+   * several times the *entire* frame — there's no camera distance at that
+   * FOV that fits both "bloom in focus" and "bloom actually fits in shot,
+   * with sky around it" at once. A real macro lens can't do this either;
+   * a wider one can. Confirmed the hard way: three separate geometry
+   * fixes at the normal FOV each verified correctly (target genuinely
+   * aimed at the bloom, camera genuinely above ground, standoff distance
+   * genuinely clearing the flower's own footprint) and every one of them
+   * still rendered as either "bloom fills 100%+ of frame, no sky" or "sky
+   * only, bloom missed" — the FOV/distance mismatch, not the aim, was the
+   * actual ceiling the whole time.
+   */
+  fovOverrideDeg?: number
+  /**
    * When true, `positionOffset`/`targetOffset` below are ignored — camera
    * position/target are instead built around a real foreground-flower
    * ground position (`sampleBandPosition`, subjects/flowerField/
@@ -382,14 +401,28 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     // was aiming at, near enough that its own stem/petals (not clear sky)
     // filled the extreme near field, reading as an opaque, near-featureless
     // (often backlit) blur rather than a bloom read against sky beyond it.
-    // Fixed with a real standoff (`skyBloomCameraOffset`, generative
-    // camera-position comment) — see that comment for the current geometry.
-    // `focusDistance` (1.2) matches the real camera→bloom distance that
-    // standoff produces — nowhere close to every offset-based preset's
-    // 11-15, this composition's whole point is one bloom close enough to
-    // the lens to dominate the frame, not a mid-distance cluster.
+    // Fixed with a real standoff — but that pass's own `target` turned out
+    // not to actually be aimed at the bloom at all (a separate bug, see the
+    // camera-position comment in generative.ts), so results stayed
+    // inconsistent (sometimes swallowed, sometimes missed) until that was
+    // fixed too.
+    //
+    // 4) With `target` genuinely aimed at the bloom, results stopped being
+    // random — and became consistently *wrong* the same way every time:
+    // either the bloom filled the entire frame and then some (no sky
+    // visible at all) or, when the ~0.3 world-unit-radius-ish foreground
+    // bloom happened not to be quite on-axis, nothing but sky. The
+    // lens's normal FOV (~11-15°) is simply too narrow for any camera
+    // distance to satisfy "bloom close enough to be in focus at this
+    // preset's own short `focusDistance`" and "bloom small enough to
+    // actually fit inside the shot, with room for sky around it" at once —
+    // a real macro lens has exactly this same limitation; a wider one
+    // doesn't. `fovOverrideDeg` (see `CameraShotPreset` above) is that
+    // wider lens, and `skyBloomCameraOffset`/`focusDistance` below were
+    // rescaled to match the frame it produces.
     weight: 0.5,
     atmosphereScale: 0.35,
+    fovOverrideDeg: 42,
     aimAtNearFlower: true,
     // Unused while `aimAtNearFlower` is true (see its own comment on
     // `CameraShotPreset` above) — kept as a documented fallback shape only,
@@ -405,7 +438,11 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
       [8, 12],
       [-1, 1],
     ],
-    focusDistance: 1.2,
+    // Matches the real camera→bloom distance `skyBloomCameraOffset`/the
+    // vertical drop produce (generative camera-position comment) at
+    // `fovOverrideDeg`'s wider framing — nowhere close to every offset-
+    // based preset's 11-15, but no longer the point-blank ~1.2 either.
+    focusDistance: 2.6,
   },
 ]
 
@@ -711,14 +748,19 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // terrainShapeConfig.ts) over a ~1-unit radius, so reusing `skyBloomGroundY`
   // (sampled only at the aim point) was never a reliable clearance guarantee
   // for a camera sitting a unit away from it.
-  // Horizontal standoff clears the flower's own petal/leaf footprint (same
-  // reasoning as before); vertical drop is now chosen directly (not as an
-  // incidental side-effect of "ground height plus a small clearance") and
-  // only pulled back up if it would put the camera below the real, locally-
-  // resampled ground — the two used to be conflated, which by chance
-  // produced only a shallow ~0.48-unit drop (see `skyBloomCameraY` below).
+  // Horizontal standoff scaled up 0.8-1.1 → 2.2-2.8 for the fourth rework
+  // (`fovOverrideDeg` on this preset, below) — clearing the aimed flower's
+  // own footprint was never the limiting factor; matching the *frame* to
+  // the bloom's own angular size at this now-much-wider FOV is. At the
+  // lens's normal ~11-15° FOV, no standoff short enough to keep the bloom
+  // in focus (this preset's own short `focusDistance`) ever kept the bloom
+  // *inside* the frame at all — see `fovOverrideDeg`'s own comment
+  // (CameraShotPreset above) for the full reasoning/math. Vertical drop is
+  // chosen directly (not as an incidental side-effect of "ground height
+  // plus a small clearance") and only pulled back up if it would put the
+  // camera below the real, locally-resampled ground.
   const skyBloomCameraAngle = range(cameraRng, 0, Math.PI * 2)
-  const skyBloomCameraOffset = range(cameraRng, 0.8, 1.1)
+  const skyBloomCameraOffset = range(cameraRng, 2.2, 2.8)
   const skyBloomCameraDrop = range(cameraRng, 0.5, 0.75)
   const skyBloomCameraX = skyBloomAim[0] + Math.cos(skyBloomCameraAngle) * skyBloomCameraOffset
   const skyBloomCameraZ = skyBloomAim[2] + Math.sin(skyBloomCameraAngle) * skyBloomCameraOffset
@@ -953,7 +995,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     grassDensity: 1,
     grassHeight: 1,
     grassWidth: 1,
-    fov: CAMERA_CONFIG.fov / zoom,
+    fov: shotPreset.fovOverrideDeg ?? CAMERA_CONFIG.fov / zoom,
     zoom,
   }
 }

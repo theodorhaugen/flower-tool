@@ -395,24 +395,23 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
             // instead of `CAMERA_CONFIG`'s fixed base — see
             // `CameraShotPreset.aimAtNearFlower`'s own comment for why this
             // preset can't use the generic offset-around-a-fixed-point
-            // approach below. Offset a fixed 0.95 units sideways (midpoint
-            // of that branch's own 0.8-1.1 standoff range) rather than
-            // sitting right beside the aim point — see the camera-position
-            // comment there for why standing that close to the very flower
-            // being aimed at reads as a near-field blur, not a bloom
-            // against sky. Height uses `skyBloomGroundY` sampled at the aim
-            // point (this override can't resample terrain at the offset
-            // point the way that branch does — an approximation, fine for
-            // a quick-compare canonical view), dropped 0.625 (midpoint of
-            // that branch's own drop range) below the bloom. `target`
-            // extends the real camera→bloom vector by
-            // `SKY_BLOOM_LOOK_EXTENSION`, same as that branch — not an
-            // independently-built point, which is what put the camera
-            // looking in a completely different direction from the bloom
-            // in an earlier pass (see that branch's own comment).
+            // approach below. Offset a fixed 2.5 units sideways (midpoint
+            // of that branch's own 2.2-2.8 standoff range — scaled up
+            // alongside `fovOverrideDeg` so the bloom actually fits the
+            // frame, see that field's own comment on `CameraShotPreset`)
+            // rather than sitting right beside the aim point. Height uses
+            // `skyBloomGroundY` sampled at the aim point (this override
+            // can't resample terrain at the offset point the way that
+            // branch does — an approximation, fine for a quick-compare
+            // canonical view), dropped 0.625 (midpoint of that branch's own
+            // drop range) below the bloom. `target` extends the real
+            // camera→bloom vector by `SKY_BLOOM_LOOK_EXTENSION`, same as
+            // that branch — not an independently-built point, which is
+            // what put the camera looking in a completely different
+            // direction from the bloom in an earlier pass.
             (() => {
               const skyBloomCameraPos: readonly [number, number, number] = [
-                base.skyBloomAim[0] + 0.95,
+                base.skyBloomAim[0] + 2.5,
                 Math.max(base.skyBloomGroundY + 0.2, base.skyBloomAim[1] - 0.625),
                 base.skyBloomAim[2],
               ]
@@ -455,7 +454,11 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       wind: { ...base.wind, strength: atmosphereControls.windStrength },
       motionBlurStrength: cameraControls.blurLength,
       motionBlurDirectionAngle: THREE.MathUtils.degToRad(cameraControls.blurDirection),
-      fov: CAMERA_CONFIG.fov / denormalizeZoom(cameraControls.zoom),
+      // `Sky bloom`'s own `fovOverrideDeg` (shared/generative.ts) wins over
+      // the normal Zoom-slider-derived FOV while it's selected — see that
+      // field's own comment for why this preset needs a wider lens than
+      // Zoom's own range ever provides.
+      fov: selectedShotPreset?.fovOverrideDeg ?? CAMERA_CONFIG.fov / denormalizeZoom(cameraControls.zoom),
       zoom: denormalizeZoom(cameraControls.zoom),
       lightingOvercast: lightingControls.overcast,
       lightingWarmth: lightingControls.warmth,
