@@ -425,6 +425,8 @@ export interface GenerativeState {
   shotPresetName: string
   /** A real foreground-band flower's (x, y, z) ground/bloom-height position for this seed — see `CameraShotPreset.aimAtNearFlower`'s own comment. Always computed (cheap), regardless of which preset this seed actually rolled, so GenerativeProvider.tsx's Shot-dropdown override can reuse it without its own copy of the same lookup. */
   skyBloomAim: readonly [number, number, number]
+  /** The same aim's bare ground height (no stem/bloom height added) — `skyBloomAim[1]` minus the same band's own representative stem height. Camera height anchors to this directly (plus a small clearance), not to `skyBloomAim[1]` minus a fixed offset — see the comment where this is used in `deriveGenerativeState` for why that fixed-offset version put the camera underground. */
+  skyBloomGroundY: number
   focusDistance: number
   bloomIntensity: number
   wind: GenerativeWind
@@ -670,14 +672,24 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
 
   const camera: GenerativeCamera = shotPreset.aimAtNearFlower
     ? {
-        // Camera sits close beside the aimed flower's own (x, z), a couple
-        // of units below its bloom height — looking up at/through it into
-        // open sky above (`target` below). Small, independent jitter on
-        // every axis for per-seed variety without risking the flower
-        // drifting out of this preset's own narrow, steep view cone.
+        // Camera sits close beside the aimed flower's own (x, z), near
+        // ground level — looking up at/through it into open sky above
+        // (`target` below). Height is anchored to `skyBloomGroundY`
+        // directly, not "bloom height minus a fixed offset": the average
+        // foreground-band stem is well under 1 world unit tall (~0.88, see
+        // `skyBloomStemHeightFactor` above), so a fixed 1.5-2.5 offset
+        // below the *bloom* (tried first) put the camera consistently
+        // ~1.1 units *below* the actual local ground — a live geometry
+        // check caught it before it cost another render cycle: every
+        // sampled seed came back with a negative ground clearance. A small
+        // offset above the real ground instead guarantees the camera stays
+        // clear of the terrain regardless of how tall this particular
+        // aim's stem happens to be. Small, independent jitter on every
+        // axis for per-seed variety without risking the flower drifting
+        // out of this preset's own narrow, steep view cone.
         position: [
           skyBloomAim[0] + range(cameraRng, -0.3, 0.3),
-          skyBloomAim[1] - range(cameraRng, 1.5, 2.5),
+          skyBloomGroundY + range(cameraRng, 0.2, 0.4),
           skyBloomAim[2] + range(cameraRng, -0.3, 0.3),
         ],
         target: [
@@ -839,6 +851,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     camera,
     shotPresetName: shotPreset.name,
     skyBloomAim,
+    skyBloomGroundY,
     focusDistance,
     bloomIntensity,
     wind,

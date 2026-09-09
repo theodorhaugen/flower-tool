@@ -395,8 +395,12 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
             // `CAMERA_CONFIG`'s fixed base — see `CameraShotPreset.
             // aimAtNearFlower`'s own comment for why this preset can't use
             // the generic offset-around-a-fixed-point approach below.
+            // Height anchors to `skyBloomGroundY` (plus a small clearance),
+            // not `skyBloomAim[1]` minus a fixed offset — see that field's
+            // own comment (shared/generative.ts) for why the fixed-offset
+            // version put the camera underground.
             {
-              position: [base.skyBloomAim[0], base.skyBloomAim[1] - 2, base.skyBloomAim[2]],
+              position: [base.skyBloomAim[0], base.skyBloomGroundY + 0.3, base.skyBloomAim[2]],
               target: [base.skyBloomAim[0], base.skyBloomAim[1] + 8, base.skyBloomAim[2]],
             }
           : {
