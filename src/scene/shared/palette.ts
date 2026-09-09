@@ -188,7 +188,12 @@ export const PALETTES: readonly ColorPalette[] = [
     // under a third of red (76/240) — still warm, saturated gold — while
     // no longer being *more* saturated than the ground fix actually
     // needs headroom for.
-    glow: '#F0AC4C',
+    // Lightened ~15% towards white as part of a registry-wide brightness
+    // pass (every palette below but Sunlit pastel) — kept conservative here
+    // since `glow` doubles as `PaletteGrade.tsx`'s additive bloom tint (see
+    // the comment above on why a paler version once shifted highlights
+    // towards pink).
+    glow: '#F2B867',
     // Already a genuine, cool, muted green (hue ≈128-152°) — matches the
     // reference's foliage directly, no change needed here.
     foliagePrimary: '#2D5232',
@@ -202,15 +207,17 @@ export const PALETTES: readonly ColorPalette[] = [
     // `paleLight` were pale/dark enough to read as their own near-white/
     // near-black colours once lit, which is exactly the "more colours
     // than just orange" the reference photo doesn't have.
-    petalPrimary: '#F18A22',
-    petalSecondary: '#F0A242',
-    petalTertiary: '#D96112',
-    core: '#CB5E0B',
+    // Lightened ~20% towards white (petals/core/accent) as part of the same
+    // registry-wide brightness pass as `glow` above.
+    petalPrimary: '#F4A14E',
+    petalSecondary: '#F3B568',
+    petalTertiary: '#E18141',
+    core: '#D57E3C',
     // Leans orange rather than a neutral gold — this blends into the
     // flower centres' pollen warmth (materials.ts), so keeping it in-family
     // reinforces the centre reading as the same stark orange as the
     // petals, not a separate yellow dot.
-    accent: '#F0AF4C',
+    accent: '#F3BF70',
     // Cool muted green, matching `background`/`foliagePrimary` — a warm
     // brown stem was the one remaining non-green, non-orange colour left
     // in what's meant to be a strictly two-tone palette.
@@ -224,7 +231,8 @@ export const PALETTES: readonly ColorPalette[] = [
     // saturation and `paleLight` pulled down out of near-white territory
     // is what actually holds the hue together under that.
     deepShade: '#562A10',
-    paleLight: '#E5A46C',
+    // Lightened ~20% towards white with the rest of this palette's family.
+    paleLight: '#EAB689',
     // The reference is a tight macro shot with almost no "far" in it at
     // all — this tool's default wide/deep aerial-perspective haze fades
     // most of a normal render's midground/background towards
@@ -281,7 +289,13 @@ export const PALETTES: readonly ColorPalette[] = [
     // `glow` into an otherwise-green base, so a vivid yellow `glow` shows
     // up as scattered warm flecks across mostly-green grass rather than
     // needing a colour role of its own.
-    glow: '#F2C230',
+    // Lightened ~15% towards white as part of a registry-wide brightness
+    // pass (every palette but Sunlit pastel) — `petalPrimary`/`petalSecondary`/
+    // `petalTertiary`/`paleLight` below deliberately excluded from that
+    // pass: those are this same session's anti-wash fix (see their own
+    // comment below), and pulling them any closer to pure white would
+    // directly undo it.
+    glow: '#F4CB4F',
     // `foliagePrimary` was already a genuine forest green (hue ≈131°) —
     // left as-is. `foliageSecondary` was yellow-green (hue ≈100°),
     // re-hued to match Poppy petal's own correction above so grass reads
@@ -312,8 +326,9 @@ export const PALETTES: readonly ColorPalette[] = [
     // centre-anchor blend towards `glow` (flowerField/palette.ts's
     // `centerAnchors`) deepens/enriches the same yellow instead of pulling
     // it towards an unrelated colour.
-    core: '#E8A800',
-    accent: '#F5D24A',
+    // Lightened ~20% towards white with `glow` above.
+    core: '#EDB933',
+    accent: '#F7DB6E',
     stem: '#2E4023',
     // Deliberately near-neutral, not hue-tinted like the other new
     // palettes' `deepShade` — this is also the petal family's near-black
@@ -337,7 +352,10 @@ export const PALETTES: readonly ColorPalette[] = [
     // sync — this palette was still on the pre-fix washed-out values).
     background: '#A3BB95',
     backgroundSecondary: '#A5C2CA',
-    glow: '#F2C230',
+    // Lightened ~15% towards white with the rest of the registry's
+    // brightness pass (see Poppy petal's own comment) — `glow` conservative
+    // for the same additive-bloom-tint reason.
+    glow: '#F4CB4F',
     // `foliageSecondary` re-hued the same way as Daisies' own — see that
     // palette's comment.
     foliagePrimary: '#3C5240',
@@ -349,7 +367,11 @@ export const PALETTES: readonly ColorPalette[] = [
     // saturated, still reported as reading muted) — same fix as
     // `petalSecondary`'s magenta below, just less severe since yellow
     // survives the warm-light multiply far better than magenta does.
-    petalPrimary: '#FFCB0F',
+    // Both lightened only ~15% (rather than the registry's usual ~20%) in
+    // the brightness pass below — pushing either much further towards
+    // white works directly against the near-max-saturation fix this
+    // comment describes. `petalTertiary` (already near-white) left as-is.
+    petalPrimary: '#FFD333',
     // Pushed to near-maximum saturation — measured directly that a more
     // moderate magenta lost roughly half its saturation by the time it hit
     // the screen (checked pixel-for-pixel against the raw sampled colour).
@@ -358,13 +380,14 @@ export const PALETTES: readonly ColorPalette[] = [
     // multiply against, so anything on the blue/magenta side of the wheel
     // gets its blue channel crushed towards red/orange — a punchier magenta
     // going in is what survives as an actually-visible hot pink coming out.
-    petalSecondary: '#FF1492',
+    petalSecondary: '#FF37A2',
     petalTertiary: '#F7F5EC',
     // A warm gold-orange centre reads as believable pollen against all
     // three petal hues at once, where a colour pulled from any single one
-    // of them would clash with the other two.
-    core: '#EFA51C',
-    accent: '#F2D24A',
+    // of them would clash with the other two. Lightened ~20% with `accent`
+    // below, same registry-wide pass.
+    core: '#F2B749',
+    accent: '#F5DB6E',
     stem: '#2E4023',
     // Warm neutral rather than the ground's cool green — with three
     // different petal hues there's no single family to tint towards, so
@@ -387,7 +410,9 @@ export const PALETTES: readonly ColorPalette[] = [
     // ground, the complementary warm-light/cool-everything-else contrast is
     // what makes the blue actually pop rather than just sitting there as
     // another cool tone.
-    glow: '#F5E7B8',
+    // Lightened ~15% towards white, registry-wide brightness pass (see
+    // Poppy petal's own comment).
+    glow: '#F7EBC3',
     foliagePrimary: '#194341',
     foliageSecondary: '#2B6464',
     // Pushed to near-maximum saturation, then pushed again after measuring
@@ -398,14 +423,18 @@ export const PALETTES: readonly ColorPalette[] = [
     // above, just milder here since this `glow` at least has *some* blue
     // (unlike Potpourri's pure yellow one). Confirmed directly: the previous
     // value's peak on-screen saturation was roughly half its source value.
-    petalPrimary: '#1FADFF',
-    petalSecondary: '#007FE0',
-    petalTertiary: '#74D0FB',
-    // Stark white centre.
+    // Lightened only ~15% in the registry-wide brightness pass below —
+    // same "don't undo the crush fix" reasoning as Potpourri's petals.
+    petalPrimary: '#41B9FF',
+    petalSecondary: '#2692E5',
+    petalTertiary: '#89D7FC',
+    // Stark white centre — already at the palette's own brightness ceiling,
+    // left out of the registry-wide brightness pass.
     core: '#F7F8F5',
     // A small warm-gold fleck in the centres' pollen warmth — real pale
     // flowers still show a warm throat/pollen note even with a white face.
-    accent: '#F0C168',
+    // Lightened ~20% with the rest of the registry-wide pass.
+    accent: '#F3CD86',
     stem: '#1E4846',
     deepShade: '#0E1A18',
     // Light blue rather than near-white — this is also the petal family's
@@ -414,8 +443,10 @@ export const PALETTES: readonly ColorPalette[] = [
     // be blue, full stop; a nearly-white `paleLight` was exactly what put a
     // stray white bloom into an all-blue field (on top of the poppy-accent
     // one, see `poppyAccentProbability` above). `core` stays the actual
-    // stark white — that's the flower *centre*, a different role.
-    paleLight: '#B8D9EA',
+    // stark white — that's the flower *centre*, a different role. Lightened
+    // ~15% (conservative, same reasoning as the petal anchors above) in the
+    // registry-wide brightness pass.
+    paleLight: '#C3DFED',
   },
   {
     name: 'Lupine',
@@ -440,19 +471,22 @@ export const PALETTES: readonly ColorPalette[] = [
     // with the petals below, so bloom/glow around a flower and the flower's
     // own colour read as one warm-on-blue idea rather than two unrelated
     // colours.
-    glow: '#F5D77A',
+    // Lightened ~15% towards white, registry-wide brightness pass.
+    glow: '#F7DD8E',
     // Maxed to 100% source saturation, all three anchors kept in the same
     // narrow yellow hue band (only value/lightness varies) — "bright bright
     // yellow, and only yellow" was explicit, so there's no room here for
     // the family to drift towards gold/orange the way a wider hue spread
-    // would read as variety instead of one dominant colour.
-    petalPrimary: '#FFD11A',
-    petalSecondary: '#F5B800',
-    petalTertiary: '#FFE45C',
+    // would read as variety instead of one dominant colour. Lightened only
+    // ~15% in the registry-wide brightness pass below, same "don't undo the
+    // maxed-saturation fix" reasoning as Potpourri/Baby Blue Eyes above.
+    petalPrimary: '#FFD83C',
+    petalSecondary: '#F7C326',
+    petalTertiary: '#FFE874',
     // Same maxed-saturation treatment as the petals — a softer gold centre
     // would read as a second, less-saturated colour against them.
-    core: '#FFC300',
-    accent: '#F5D24A',
+    core: '#FFCC26',
+    accent: '#F7DB6E',
     // Blue-green rather than plain garden-green — ties the stems into the
     // water theme instead of reading as a mismatched normal plant.
     stem: '#3E6B5E',
@@ -467,9 +501,13 @@ export const PALETTES: readonly ColorPalette[] = [
     // floor raised (was near-black, l≈0.1) — verified directly that yellow
     // that dark reads as plain brown to the eye regardless of hue, putting
     // "off-colour" flowers back into an otherwise "only yellow" field just
-    // through shading rather than through an actual wrong hue.
+    // through shading rather than through an actual wrong hue. Left out of
+    // the registry-wide brightness pass — this is the petal family's own
+    // near-black extreme, the one role deliberately exempt everywhere else
+    // in the registry too.
     deepShade: '#6B5106',
-    paleLight: '#F9ECB8',
+    // Lightened ~20% towards white with `core`/`accent` above.
+    paleLight: '#FAF0C6',
   },
   {
     name: 'Greenhouse bloom',
@@ -508,7 +546,8 @@ export const PALETTES: readonly ColorPalette[] = [
     // Warm peachy light — bright and colourful on purpose, same as every
     // other palette's `glow` (the class docstring's note on why this role
     // specifically can't just be a pale neutral).
-    glow: '#F0C9A0',
+    // Lightened ~15% towards white, registry-wide brightness pass.
+    glow: '#F2D1AE',
     // Lightness raised 20.6% → 29% (hue/saturation, both already a genuine
     // forest green at ≈137°, left as-is) — this doubles as the shadow-side
     // ground-bounce/fill-light tint (`foliageShadowTint`, class docstring
@@ -534,16 +573,23 @@ export const PALETTES: readonly ColorPalette[] = [
     // actual render found the first, more moderate blue topping out at
     // ~30% saturation on screen, barely distinguishable from neutral
     // despite the source hex reading as a clear teal-blue on its own.
-    petalPrimary: '#F5C518',
-    petalSecondary: '#E0331C',
-    petalTertiary: '#06A1EF',
+    // Yellow/red lightened ~15% towards white with the rest of the
+    // registry's brightness pass. `petalTertiary` (the blue note) kept to
+    // only ~12% — this is the one measured at ~7-9% on-screen saturation
+    // despite a highly-saturated source hex (see the comment below);
+    // pulling it towards white any further works directly against that fix.
+    petalPrimary: '#F7CE3B',
+    petalSecondary: '#E5523E',
+    petalTertiary: '#24ACF1',
     // The reference's small muted brown-grey flecks (visible against the
     // bright highlight) — a real, grounded "centre" tone rather than
-    // something invented for the role.
+    // something invented for the role. Left out of the registry-wide
+    // brightness pass — deliberately muted/grounded, not an "accent" colour.
     core: '#6B5F56',
     // Warm gold pollen note — distinct from the petals' own yellow/red/blue
-    // so the centres still read as their own thing.
-    accent: '#E8A93A',
+    // so the centres still read as their own thing. Lightened ~20% with the
+    // rest of the registry's brightness pass.
+    accent: '#EDBA61',
     stem: '#4A4A32',
     // Warm neutral rather than tinted to any one petal hue — yellow, red,
     // and blue don't share a family to tint towards the way a single-hue
@@ -600,7 +646,9 @@ export const PALETTES: readonly ColorPalette[] = [
     // every other palette's petal-anchor comments on this) a pink light
     // reinforces the petals' own pink rather than crushing their blue
     // channel towards a duller peach/tan the way a gold light would.
-    glow: '#F2A8B4',
+    // Lightened ~15% towards white, registry-wide brightness pass (see
+    // Poppy petal's own comment, earlier in this file).
+    glow: '#F4B5BF',
     // Muted, slightly cool-leaning dark green (not a saturated true-green or
     // teal) — same family every other palette's `foliagePrimary` sits in.
     foliagePrimary: '#28433C',
@@ -614,14 +662,18 @@ export const PALETTES: readonly ColorPalette[] = [
     // docstring): a hex this saturated is what actually survives the
     // lighting/haze/bloom pipeline as pink rather than fading toward a
     // washed-out blush on screen.
-    petalPrimary: '#F2568F',
-    petalSecondary: '#E8829C',
-    petalTertiary: '#F7A8BE',
+    // Lightened ~15% towards white with the rest of the registry's
+    // brightness pass — conservative rather than the usual ~20%, since this
+    // was itself already "pushed rosier/more saturated" to survive the
+    // pipeline (see the comment above).
+    petalPrimary: '#F46FA0',
+    petalSecondary: '#EB95AB',
+    petalTertiary: '#F8B5C8',
     // Same pink family as the petals, not a contrasting centre colour — the
     // brief wants the whole bloom, face and centre alike, reading as one
     // rose-pink flower.
-    core: '#DE6C8C',
-    accent: '#F7C2D2',
+    core: '#E3829D',
+    accent: '#F8CBD9',
     // Distinct from `foliagePrimary`/`foliageSecondary` so stems read as
     // their own thing rather than reusing the grass greens outright.
     stem: '#3A5C46',
@@ -632,8 +684,9 @@ export const PALETTES: readonly ColorPalette[] = [
     deepShade: '#42192A',
     // Clearly pink rather than near-white — this is also the petal family's
     // near-white extreme (same `petalAnchors` mechanism), and the brief
-    // explicitly wants no white blooms in the field.
-    paleLight: '#F6C9D4',
+    // explicitly wants no white blooms in the field. Lightened ~15% with the
+    // rest of this palette's family in the registry-wide brightness pass.
+    paleLight: '#F7D1DA',
   },
   {
     name: 'Sunflower field',
@@ -661,20 +714,24 @@ export const PALETTES: readonly ColorPalette[] = [
     // than fighting it (lighting is a multiply against albedo, see every
     // other palette's petal-anchor comments), and reads as direct sun
     // against the cool sky note.
-    glow: '#FDC847',
+    // Lightened ~15% towards white, registry-wide brightness pass.
+    glow: '#FDD063',
     foliagePrimary: '#3F5C32',
     foliageSecondary: '#5C7F3E',
     // Three genuinely different steps of the same warm family (pale gold →
     // deep orange) rather than one flat hue — reads as a real sunflower's
-    // own petal gradient instead of a single flat colour.
-    petalPrimary: '#F7C721',
-    petalSecondary: '#F2A123',
-    petalTertiary: '#E8752B',
+    // own petal gradient instead of a single flat colour. Lightened ~15%
+    // with `glow` above, same registry-wide pass.
+    petalPrimary: '#F8CF42',
+    petalSecondary: '#F4AF44',
+    petalTertiary: '#EB8A4B',
     // Dark warm brown, not neutral black — a real sunflower's centre disc
     // reads as deep brown; true black here would read as a hole/shadow
-    // rather than the flower's own texture.
+    // rather than the flower's own texture. Left out of the registry-wide
+    // brightness pass — deliberately dark/grounded, same reasoning as
+    // Greenhouse bloom's own `core` above.
     core: '#4A2E14',
-    accent: '#FDC847',
+    accent: '#FDD063',
     stem: '#5C7F3E',
     // Warm dark brown (matches `core`), not neutral or cool-tinted — this
     // doubles as the petal family's near-black extreme
@@ -682,7 +739,8 @@ export const PALETTES: readonly ColorPalette[] = [
     // here would put a stray off-family bloom into an otherwise warm-gold
     // field.
     deepShade: '#3D2410',
-    paleLight: '#FCEFC7',
+    // Lightened ~15% towards white, registry-wide brightness pass.
+    paleLight: '#FCF1CF',
   },
   {
     name: 'Turquoise bloom',
