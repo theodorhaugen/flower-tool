@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { CAMERA_CONFIG } from '../camera/config'
 import { installFlowerToolDebugHook } from './debugHook'
-import { deriveGenerativeState, randomSeed, SEED_MAX, ZOOM_MAX, ZOOM_MIN } from './generative'
+import { CAMERA_SHOT_PRESETS, deriveGenerativeState, randomSeed, SEED_MAX, ZOOM_MAX, ZOOM_MIN } from './generative'
 import type { GenerativeState } from './generative'
 import { GenerativeContext } from './generativeContext'
 import { PALETTES, shiftPaletteHue } from './palette'
@@ -19,6 +19,24 @@ interface GenerativeProviderProps {
 }
 
 const PALETTE_NAMES = PALETTES.map((p) => p.name)
+
+/**
+ * Leva's Camera > Shot dropdown's "not overridden" option — keeps the
+ * normal per-seed roll/jitter (CAMERA_SHOT_PRESETS's own weighted pick,
+ * still driving Height/Distance/Pan/Focus Distance's sliders as before).
+ * Picking an actual preset name instead pins the composition to that
+ * preset's own canonical framing so the presets can be compared directly —
+ * see the `shot` control below and CAMERA_SHOT_PRESETS's own comment
+ * (shared/generative.ts) for why that override happens only here, not by
+ * threading a forced preset back through `deriveGenerativeState`.
+ */
+const SEED_DEFAULT_SHOT = 'Seed default'
+const SHOT_NAMES = [SEED_DEFAULT_SHOT, ...CAMERA_SHOT_PRESETS.map((p) => p.name)]
+
+/** Midpoint of a preset's own offset range — the "canonical", non-jittered framing Leva's Shot dropdown shows for a given preset. */
+function midpoint([lo, hi]: readonly [number, number]): number {
+  return (lo + hi) / 2
+}
 
 function readUrlParams(): { seedParam: string | null; paletteParam: string | null } {
   if (typeof window === 'undefined') return { seedParam: null, paletteParam: null }
@@ -164,6 +182,12 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       // clamp, a strong but still-recognisable streak rather than past it.
       blurLength: { value: base.motionBlurStrength, min: 0, max: 1.7, label: 'Blur Length' },
       blurDirection: { value: THREE.MathUtils.radToDeg(base.motionBlurDirectionAngle), min: 0, max: 360, label: 'Blur Direction' },
+      // Lets a specific CAMERA_SHOT_PRESETS entry be picked directly for
+      // comparison instead of waiting for a seed that happens to roll it —
+      // see SHOT_NAMES's own comment above for how the override applies.
+      // Defaults to this seed's own natural pick so the dropdown starts
+      // showing what's actually on screen, not an unrelated preset.
+      shot: { value: base.shotPresetName, options: SHOT_NAMES, label: 'Shot' },
     }),
     [seed],
   )
@@ -316,6 +340,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       zoom: normalizeZoom(base.zoom),
       blurLength: base.motionBlurStrength,
       blurDirection: THREE.MathUtils.radToDeg(base.motionBlurDirectionAngle),
+      shot: base.shotPresetName,
     })
     setLightingFold({ overcast: 1, warmth: 1, shadowDepth: 1 })
     setFlowersFold({ density: 1, scale: 1, poppyAccent: base.poppyAccentProbability })
@@ -352,14 +377,34 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
       colourControls.hueShift,
     )
 
+    // Camera > Shot dropdown override — see SHOT_NAMES's own comment above.
+    // While a specific preset is picked, it fully owns position/target/
+    // focusDistance at that preset's own canonical (non-jittered) framing;
+    // Height/Distance/Pan/Focus Distance's sliders take back over the
+    // moment it's set back to "Seed default".
+    const selectedShotPreset = CAMERA_SHOT_PRESETS.find((p) => p.name === cameraControls.shot)
+
     return {
       ...base,
       palette,
-      camera: {
-        position: [base.camera.position[0], cameraControls.height, cameraControls.distance],
-        target: [cameraControls.pan, base.camera.target[1], base.camera.target[2]],
-      },
-      focusDistance: lensControls.focusDistance,
+      camera: selectedShotPreset
+        ? {
+            position: [
+              CAMERA_CONFIG.position[0] + midpoint(selectedShotPreset.positionOffset[0]),
+              CAMERA_CONFIG.position[1] + midpoint(selectedShotPreset.positionOffset[1]),
+              CAMERA_CONFIG.position[2] + midpoint(selectedShotPreset.positionOffset[2]),
+            ],
+            target: [
+              CAMERA_CONFIG.target[0] + midpoint(selectedShotPreset.targetOffset[0]),
+              CAMERA_CONFIG.target[1] + midpoint(selectedShotPreset.targetOffset[1]),
+              CAMERA_CONFIG.target[2] + midpoint(selectedShotPreset.targetOffset[2]),
+            ],
+          }
+        : {
+            position: [base.camera.position[0], cameraControls.height, cameraControls.distance],
+            target: [cameraControls.pan, base.camera.target[1], base.camera.target[2]],
+          },
+      focusDistance: selectedShotPreset ? selectedShotPreset.focusDistance : lensControls.focusDistance,
       bloomIntensity: lensControls.glowIntensity,
       maxBlur: lensControls.blurAmount,
       fStop: lensControls.aperture,

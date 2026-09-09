@@ -184,6 +184,8 @@ export interface GenerativeCamera {
 type OffsetRange = readonly [number, number]
 
 interface CameraShotPreset {
+  /** Display name — shown in Leva's Camera > Shot dropdown (GenerativeProvider.tsx) so a specific preset can be picked directly for comparison, bypassing the normal per-seed roll. */
+  name: string
   /** Selection weight, relative to the other presets — doesn't need to sum to 1. */
   weight: number
   positionOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
@@ -215,9 +217,22 @@ interface CameraShotPreset {
  * distinctive variant rather than crowding out the normal meadow shots. An
  * `elevated` near-top-down preset used to sit here too; dropped for reading
  * as too visually complex/busy a composition.
+ *
+ * Each preset's `name` is also what populates Leva's Camera > Shot dropdown
+ * (GenerativeProvider.tsx) — picking one there shows that preset's own
+ * canonical framing (offset ranges' midpoint, no per-seed jitter, and its
+ * own tuned `focusDistance`) directly, rather than waiting to reroll a seed
+ * that happens to land on it, so the presets can actually be compared
+ * side by side. That override is applied only at Leva's final state
+ * composition, independent of `deriveGenerativeState` below — see this
+ * export's own comment on why (position/target/focusDistance all come from
+ * the picked preset directly while one is selected; Height/Distance/Pan/
+ * Focus Distance's own sliders take back over once it's set back to the
+ * "Seed default" option).
  */
-const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
+export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
   {
+    name: 'Classic',
     // Classic macro — the original tuned base framing's own jitter band, unchanged.
     weight: 1,
     positionOffset: [
@@ -233,6 +248,7 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     focusDistance: 15,
   },
   {
+    name: "Worm's-eye",
     // Low worm's-eye — camera drops near ground level and looks up into the field instead of steeply down.
     // focusDistance left at the classic-shot-era value: this composition's
     // dominant subject is the near flowers looming close to the lens (the
@@ -258,6 +274,7 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     focusDistance: 11,
   },
   {
+    name: 'Tight crop',
     // Tight single-subject crop — camera pulls in noticeably closer to the focal cluster.
     // focusDistance retuned 10 → 13, same reasoning/method as `elevated`
     // used to have before it was dropped — this preset's own geometry puts
@@ -277,6 +294,7 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     focusDistance: 13,
   },
   {
+    name: 'Sky bloom',
     // `skyBloom` — camera drops to near/below flower height and pitches
     // sharply upward, well past `worm's-eye` above, so one near bloom looms
     // large and low in frame with nothing but open sky behind/around it
@@ -289,15 +307,20 @@ const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     //
     // `focusDistance` set short (5, vs. every other preset's 11-15) —
     // this composition's whole point is one bloom close enough to the lens
-    // to dominate the frame, not a mid-distance cluster. Position/target Y
-    // offsets are first-pass estimates (camera near/just above ground
-    // level, target well above both camera and any bloom height) — pending
-    // a live-render check/iteration, same as `worm's-eye`'s own focus
-    // distance was above.
+    // to dominate the frame, not a mid-distance cluster.
+    //
+    // Position Y raised one step from the first pass, -9.5/-8.5 (absolute
+    // ~-0.1 to 0.9, essentially at true ground level) → -8/-7 (absolute
+    // ~1.4 to 2.4) — deliberately kept clear of the literal ground/canopy
+    // rather than sitting inside it, while staying notably lower than
+    // `worm's-eye` (absolute ~3.4-5.4) so this still reads as "clears the
+    // meadow, near/just above the canopy" rather than converging on that
+    // preset. Pending a live-render check on the actual framing/legibility
+    // this produces.
     weight: 0.5,
     positionOffset: [
       [-1.5, 1.5],
-      [-9.5, -8.5],
+      [-8, -7],
       [-2, 0],
     ],
     targetOffset: [
@@ -342,6 +365,8 @@ export interface GenerativeState {
   /** Sub-seed for the environment's own per-instance RNG (grass/vegetation placement, soil/damp texture). */
   environmentSeed: number
   camera: GenerativeCamera
+  /** Which `CAMERA_SHOT_PRESETS` entry this seed rolled — only used to seed Leva's Camera > Shot dropdown's initial value (GenerativeProvider.tsx), not read anywhere else; the dropdown's own override bypasses this state entirely once changed (see `CAMERA_SHOT_PRESETS`'s own comment). */
+  shotPresetName: string
   focusDistance: number
   bloomIntensity: number
   wind: GenerativeWind
@@ -712,6 +737,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     terrainShapeSeed: seed + SEED_OFFSETS.terrainShape,
     environmentSeed: seed + SEED_OFFSETS.environment,
     camera,
+    shotPresetName: shotPreset.name,
     focusDistance,
     bloomIntensity,
     wind,
