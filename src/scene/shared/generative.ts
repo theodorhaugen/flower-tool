@@ -79,6 +79,18 @@ const CLUSTER_AREA_SAMPLE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
 ]
 
 /**
+ * How far past the aimed bloom (as a multiple of the camera→bloom
+ * distance) `Sky bloom`'s own `target` sits — see that preset's camera-
+ * position comment for why this has to be a real extension of the actual
+ * camera→bloom vector, not an independently-built point that only
+ * approximately points the same way. 1 would put `target` exactly on the
+ * bloom itself (a valid look-at point on its own, just with no built-in
+ * "and a bit of open sky past it" lean); comfortably past 1 keeps the
+ * bloom on-axis while framing a little more of what's beyond it.
+ */
+export const SKY_BLOOM_LOOK_EXTENSION = 3
+
+/**
  * Reads `sampleMeadowDensity` (the path-carved density flower/grass
  * placement actually samples — shared/meadowLayout.ts), not the raw
  * `sampleMeadowClusterField` this used to read. The cluster field alone has
@@ -699,28 +711,44 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // terrainShapeConfig.ts) over a ~1-unit radius, so reusing `skyBloomGroundY`
   // (sampled only at the aim point) was never a reliable clearance guarantee
   // for a camera sitting a unit away from it.
+  // Horizontal standoff clears the flower's own petal/leaf footprint (same
+  // reasoning as before); vertical drop is now chosen directly (not as an
+  // incidental side-effect of "ground height plus a small clearance") and
+  // only pulled back up if it would put the camera below the real, locally-
+  // resampled ground — the two used to be conflated, which by chance
+  // produced only a shallow ~0.48-unit drop (see `skyBloomCameraY` below).
   const skyBloomCameraAngle = range(cameraRng, 0, Math.PI * 2)
-  const skyBloomCameraOffset = range(cameraRng, 0.9, 1.3)
+  const skyBloomCameraOffset = range(cameraRng, 0.8, 1.1)
+  const skyBloomCameraDrop = range(cameraRng, 0.5, 0.75)
   const skyBloomCameraX = skyBloomAim[0] + Math.cos(skyBloomCameraAngle) * skyBloomCameraOffset
   const skyBloomCameraZ = skyBloomAim[2] + Math.sin(skyBloomCameraAngle) * skyBloomCameraOffset
   const skyBloomCameraGroundY =
     sampleTerrainHeight(skyBloomCameraX, skyBloomCameraZ, skyBloomTerrainShape) -
     samplePathDepression(skyBloomCameraX, skyBloomCameraZ, meadowLayout)
-  const skyBloomCameraY = skyBloomCameraGroundY + range(cameraRng, 0.3, 0.5)
+  const skyBloomCameraY = Math.max(skyBloomCameraGroundY + 0.2, skyBloomAim[1] - skyBloomCameraDrop)
 
   const camera: GenerativeCamera = shotPreset.aimAtNearFlower
     ? {
         position: [skyBloomCameraX, skyBloomCameraY, skyBloomCameraZ],
-        // Aimed back at the flower's own (x, z) (small jitter), well above
-        // it — continuing roughly the same camera→bloom direction further
-        // up puts the bloom itself on the view ray at `skyBloomCameraOffset`
-        // world units away (this preset's own short `focusDistance` is
-        // tuned to that, not the 11-15 every offset-based preset above
-        // uses), with clear sky beyond it filling the rest of the frame.
+        // Genuinely aimed at the bloom, not just roughly nearby — a real
+        // bug in the previous pass: `target`'s X/Z came from `skyBloomAim`
+        // directly and its Y from a large fixed offset above the camera,
+        // which happened to point in a completely different direction from
+        // the actual camera→bloom vector (measured directly on the pass
+        // that shipped: an 82.6° pitch towards `target`, vs. the real
+        // bloom sitting only ~24° above horizontal from the camera — the
+        // two were never the same ray, so the bloom was usually well
+        // outside this preset's own narrow field of view no matter how
+        // dialled-in the standoff distance/ground clearance were).
+        // `target` here is instead constructed by extending the real
+        // camera→bloom vector further along the same line — the bloom
+        // then sits exactly on the view ray at `skyBloomCameraOffset`-ish
+        // world units out (this preset's own short `focusDistance` matches
+        // that), with clear sky visible beyond it along that same sightline.
         target: [
-          skyBloomAim[0] + range(cameraRng, -0.3, 0.3),
-          skyBloomCameraY + range(cameraRng, 7, 10),
-          skyBloomAim[2] + range(cameraRng, -0.3, 0.3),
+          skyBloomCameraX + (skyBloomAim[0] - skyBloomCameraX) * SKY_BLOOM_LOOK_EXTENSION,
+          skyBloomCameraY + (skyBloomAim[1] - skyBloomCameraY) * SKY_BLOOM_LOOK_EXTENSION,
+          skyBloomCameraZ + (skyBloomAim[2] - skyBloomCameraZ) * SKY_BLOOM_LOOK_EXTENSION,
         ],
       }
     : {

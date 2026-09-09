@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { CAMERA_CONFIG } from '../camera/config'
 import { installFlowerToolDebugHook } from './debugHook'
-import { CAMERA_SHOT_PRESETS, deriveGenerativeState, randomSeed, SEED_MAX, ZOOM_MAX, ZOOM_MIN } from './generative'
+import { CAMERA_SHOT_PRESETS, deriveGenerativeState, randomSeed, SEED_MAX, SKY_BLOOM_LOOK_EXTENSION, ZOOM_MAX, ZOOM_MIN } from './generative'
 import type { GenerativeState } from './generative'
 import { GenerativeContext } from './generativeContext'
 import { PALETTES, shiftPaletteHue } from './palette'
@@ -395,19 +395,36 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
             // instead of `CAMERA_CONFIG`'s fixed base — see
             // `CameraShotPreset.aimAtNearFlower`'s own comment for why this
             // preset can't use the generic offset-around-a-fixed-point
-            // approach below. Offset a fixed 1.1 units sideways (midpoint
-            // of that branch's own 0.9-1.3 standoff range) rather than
+            // approach below. Offset a fixed 0.95 units sideways (midpoint
+            // of that branch's own 0.8-1.1 standoff range) rather than
             // sitting right beside the aim point — see the camera-position
             // comment there for why standing that close to the very flower
             // being aimed at reads as a near-field blur, not a bloom
             // against sky. Height uses `skyBloomGroundY` sampled at the aim
             // point (this override can't resample terrain at the offset
             // point the way that branch does — an approximation, fine for
-            // a quick-compare canonical view).
-            {
-              position: [base.skyBloomAim[0] + 1.1, base.skyBloomGroundY + 0.4, base.skyBloomAim[2]],
-              target: [base.skyBloomAim[0], base.skyBloomGroundY + 0.4 + 8.5, base.skyBloomAim[2]],
-            }
+            // a quick-compare canonical view), dropped 0.625 (midpoint of
+            // that branch's own drop range) below the bloom. `target`
+            // extends the real camera→bloom vector by
+            // `SKY_BLOOM_LOOK_EXTENSION`, same as that branch — not an
+            // independently-built point, which is what put the camera
+            // looking in a completely different direction from the bloom
+            // in an earlier pass (see that branch's own comment).
+            (() => {
+              const skyBloomCameraPos: readonly [number, number, number] = [
+                base.skyBloomAim[0] + 0.95,
+                Math.max(base.skyBloomGroundY + 0.2, base.skyBloomAim[1] - 0.625),
+                base.skyBloomAim[2],
+              ]
+              return {
+                position: skyBloomCameraPos,
+                target: [
+                  skyBloomCameraPos[0] + (base.skyBloomAim[0] - skyBloomCameraPos[0]) * SKY_BLOOM_LOOK_EXTENSION,
+                  skyBloomCameraPos[1] + (base.skyBloomAim[1] - skyBloomCameraPos[1]) * SKY_BLOOM_LOOK_EXTENSION,
+                  skyBloomCameraPos[2] + (base.skyBloomAim[2] - skyBloomCameraPos[2]) * SKY_BLOOM_LOOK_EXTENSION,
+                ],
+              }
+            })()
           : {
               position: [
                 CAMERA_CONFIG.position[0] + midpoint(selectedShotPreset.positionOffset[0]),
