@@ -114,8 +114,8 @@ export const POST_PROCESSING_CONFIG = {
     contrast: 1.18,
     /** Strongest on already-muddy/desaturated pixels, tapers off on already-vivid ones — see the shader for the exact falloff. */
     vibrance: 1.2,
-    /** Soft corner falloff — see PaletteGradePass.ts's shader comment for why this is multiplicative distance-based darkening, not the harder-edged `Vignette` effect this project deliberately dropped earlier. A luminance-only lens/lighting characteristic, not a colour choice. */
-    vignette: 0.22,
+    /** Soft corner falloff — see PaletteGradePass.ts's shader comment for why this is multiplicative distance-based darkening, not the harder-edged `Vignette` effect this project deliberately dropped earlier. A luminance-only lens/lighting characteristic, not a colour choice. Zeroed — the corner darkening read as unwanted framing rather than a lens characteristic; left wired up (not removed) rather than deleting the mechanism outright. */
+    vignette: 0,
   },
 
   /**

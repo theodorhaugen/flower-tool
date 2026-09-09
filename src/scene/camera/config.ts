@@ -83,16 +83,20 @@ export const CAMERA_CONFIG = {
    */
   sweep: {
     /**
-     * Lowered from an earlier 20° — at `motionBlurStrength`'s natural top
-     * end (1.7, shared/generative.ts) that made the actual clamp below do
-     * essentially all the work (20° × 1.7 = 34°, deep into the range this
-     * camera's 22° FOV can no longer keep the swept subject recognisable
-     * in), and left Leva's own Blur Length slider with a long dead zone at
-     * its top where dragging further did nothing extra. 8° keeps the same
-     * 1.7 ceiling landing right at `maxRotationAmplitudeDeg` below instead
-     * of far past it — see that constant's own comment.
+     * Lowered again, 8° → 5.5° — even within the (already fixed) range that
+     * keeps the swept subject recognisable, the top end of Blur Length was
+     * still swinging the camera far enough to read as a dramatic whip-pan
+     * rather than a heavy-but-calm blur. This only trims the *sweep's*
+     * amplitude, not how strongly frames blend (`LongExposureBlurPass.ts`'s
+     * half-life/streak-length are untouched) — a maxed-out Blur Length still
+     * produces a heavily blurred render, just from a gentler underlying
+     * pan rather than a big directional swoosh. (Earlier history: lowered
+     * from an original 20° — at `motionBlurStrength`'s natural top end
+     * (1.7, shared/generative.ts) that made the clamp below do essentially
+     * all the work, 20° × 1.7 = 34°, deep into territory this camera's 22°
+     * FOV can no longer keep the swept subject recognisable in.)
      */
-    rotationAmplitudeDeg: 8,
+    rotationAmplitudeDeg: 5.5,
     periodSeconds: 2.4,
     /** Subtle roll wobble, relative to `rotationAmplitudeDeg` — kept small and fixed regardless of `motionBlurStrength`/`motionBlurDirectionAngle`. */
     rollWeight: 0.05,
@@ -100,16 +104,13 @@ export const CAMERA_CONFIG = {
      * Hard ceiling on the *actual* swept amplitude, in degrees, after
      * `motionBlurStrength` (Leva's Camera > Blur Length — the single dial
      * on the sweep now, see CameraSweep.tsx) has been applied. Set just
-     * above `rotationAmplitudeDeg`(8°) × 1.7 (`motionBlurStrength`'s own
+     * above `rotationAmplitudeDeg`(5.5°) × 1.7 (`motionBlurStrength`'s own
      * hard ceiling, shared/generative.ts, which Leva's own Blur Length
      * slider range matches exactly — GenerativeProvider.tsx) — so in normal
      * use this never actually engages; it exists purely as a defensive
-     * ceiling. This used to be a real, frequently-engaging clamp (30°
-     * against a 34° raw max) which produced a dead zone across the top of
-     * Blur Length's range and let even Leva's own maximum swing the camera
-     * roughly 1.4x this camera's 22° FOV — well past where the swept
-     * subject stays recognisable, which is what actually needed fixing.
+     * ceiling, same role as before this pass (see `rotationAmplitudeDeg`'s
+     * own comment for why that value just dropped).
      */
-    maxRotationAmplitudeDeg: 14,
+    maxRotationAmplitudeDeg: 10,
   },
 }
