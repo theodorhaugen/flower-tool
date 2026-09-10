@@ -15,6 +15,15 @@ import { buildCenterMaterialVariants, buildPetalMaterialVariants } from './mater
 const STEM_WIND_STRENGTH_MULTIPLIER = 0.5
 
 /**
+ * Temporary diagnostic toggle — flip to `true` to bring flower centres
+ * back. Requested to check whether they're contributing to a look the
+ * user isn't happy with, across every render in the tool, not just one
+ * palette/preset. Not wired to Leva since this is a one-off A/B check,
+ * not a creative control.
+ */
+const SHOW_FLOWER_CENTERS = false
+
+/**
  * Thousands of non-botanical "flowers" — a thin stem, clusters of
  * translucent petals, and a small center — scattered through a
  * depth-biased volume in front of the camera. Everything is instanced: a
@@ -132,14 +141,15 @@ export function FlowerField() {
           />
         )
       })}
-      {field.centerGroups.map((group) => (
-        <InstancedGroup
-          key={`center-${group.variantIndex}`}
-          geometry={centerGeometries[group.variantIndex]}
-          material={centerMaterials[group.variantIndex]}
-          instances={group.instances}
-        />
-      ))}
+      {SHOW_FLOWER_CENTERS &&
+        field.centerGroups.map((group) => (
+          <InstancedGroup
+            key={`center-${group.variantIndex}`}
+            geometry={centerGeometries[group.variantIndex]}
+            material={centerMaterials[group.variantIndex]}
+            instances={group.instances}
+          />
+        ))}
       {field.stemGroups.map((group) => (
         <InstancedGroup
           key={`stem-${group.variantIndex}`}
