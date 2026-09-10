@@ -273,6 +273,24 @@ interface CameraShotPreset {
    */
   lightingFloorScale?: number
   /**
+   * Multiplies `maxBlur` (LensOpticsDepthOfField.tsx's bokeh-disc-size
+   * multiplier, Leva's Lens > Blur Amount) on top of whatever the seed/
+   * Leva slider already set — optional, defaults to 1 (every other
+   * preset's blur amount, unchanged). Exact-focus pixels always render
+   * perfectly sharp regardless of `maxBlur` (the thin-lens formula's own
+   * blur factor is 0 there, and 0 times anything is still 0) — `maxBlur`
+   * only controls how much anything *away* from that exact point blurs.
+   * `Sky bloom`'s aimed bloom has real depth across its own petals/leaves
+   * (it isn't an infinitesimally thin plane sitting exactly at
+   * `focusDistance`), so most of it was never actually *at* the sharp
+   * point to begin with — reported as reading "too sharp" regardless, since
+   * the tuned default `maxBlur` still left most of that real depth
+   * variation only mildly softened. Raised well past every other preset's
+   * implicit 1 so the bloom's own volume reads as gently, consistently
+   * soft rather than picking out one crisp plane through it.
+   */
+  maxBlurScale?: number
+  /**
    * When true, `positionOffset`/`targetOffset` below are ignored — camera
    * position/target are instead built around a real foreground-flower
    * ground position (`sampleBandPosition`, subjects/flowerField/
@@ -465,6 +483,8 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     // own comment on `CameraShotPreset` above for the grazing-angle-ground
     // problem this is fixing.
     lightingFloorScale: 1.7,
+    // See this field's own comment on `CameraShotPreset` above.
+    maxBlurScale: 2.2,
     aimAtNearFlower: true,
     // Unused while `aimAtNearFlower` is true (see its own comment on
     // `CameraShotPreset` above) — kept as a documented fallback shape only,

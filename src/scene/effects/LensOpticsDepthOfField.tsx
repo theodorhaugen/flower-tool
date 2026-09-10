@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { CAMERA_CONFIG } from '../camera/config'
+import { CAMERA_SHOT_PRESETS } from '../shared/generative'
 import { useGenerative } from '../shared/generativeContext'
 import { LensOpticsDepthOfFieldEffect } from './LensOpticsDepthOfFieldEffect'
 
@@ -32,6 +33,11 @@ import { LensOpticsDepthOfFieldEffect } from './LensOpticsDepthOfFieldEffect'
  * docstring for a real bug that used to make those two sides of the
  * comparison land on different, incompatible scales).
  *
+ * `maxBlur` is additionally scaled by the active shot preset's own
+ * `maxBlurScale` (optional, defaults to 1) — see that field's own comment
+ * on `CameraShotPreset` for why `Sky bloom` is the one preset that needs
+ * this.
+ *
  * A live raycast-based autofocus (reading the actual on-screen depth at
  * screen-centre every frame, rather than a seed-derived guess) was tried
  * here and reverted. One version (raycasting the *entire* scene graph)
@@ -48,7 +54,8 @@ import { LensOpticsDepthOfFieldEffect } from './LensOpticsDepthOfFieldEffect'
  */
 export function LensOpticsDepthOfField() {
   const { metersPerWorldUnit, focalLength, rings, samples } = CAMERA_CONFIG.dof
-  const { focusDistance, maxBlur, fStop } = useGenerative()
+  const { focusDistance, maxBlur, fStop, shotPresetName } = useGenerative()
+  const maxBlurScale = CAMERA_SHOT_PRESETS.find((p) => p.name === shotPresetName)?.maxBlurScale ?? 1
 
   const effect = useMemo(
     () =>
@@ -56,12 +63,12 @@ export function LensOpticsDepthOfField() {
         focus: focusDistance * metersPerWorldUnit,
         focalLength,
         fStop,
-        maxBlur,
+        maxBlur: maxBlur * maxBlurScale,
         rings,
         samples,
         metersPerWorldUnit,
       }),
-    [focusDistance, metersPerWorldUnit, focalLength, fStop, maxBlur, rings, samples],
+    [focusDistance, metersPerWorldUnit, focalLength, fStop, maxBlur, maxBlurScale, rings, samples],
   )
 
   useEffect(() => {
