@@ -1,0 +1,30 @@
+import type * as THREE from 'three'
+import type { Rng } from '../../shared/random'
+import type { BladeColorGradient } from '../../shared/taperedBlade'
+import { createTaperedBladeGeometry } from '../../shared/taperedBlade'
+
+export interface PetalArchetype {
+  /** Higher = more pointed tip, lower = rounder. */
+  tipSharpness: number
+  /** Upward/backward cupping along the petal's length. */
+  curl: number
+  /** Twist gradient from base to tip. */
+  twist: number
+  /** Overall width relative to length. */
+  widthScale: number
+}
+
+/**
+ * A petal is a tapered blade with richer segmentation than grass/vegetation
+ * get — petals are the visual subject, so they can afford it. The colour
+ * gradient is baked in per geometry variant (not per instance) — it's the
+ * same handful of unique meshes doing double duty for shape variety and
+ * colour-bleed variety.
+ */
+export function createPetalGeometry(
+  rng: Rng,
+  archetype: PetalArchetype,
+  colorGradient?: BladeColorGradient,
+): THREE.BufferGeometry {
+  return createTaperedBladeGeometry(rng, { ...archetype, widthSegments: 4, heightSegments: 6, colorGradient })
+}
