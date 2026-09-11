@@ -176,7 +176,7 @@ const SEED_OFFSETS = {
   haze: 1_100_000,
   grain: 1_200_000,
   zoom: 1_300_000,
-  skyBloomAim: 1_400_000,
+  nearFlowerAim: 1_400_000,
 } as const
 
 /**
@@ -303,6 +303,25 @@ interface CameraShotPreset {
    * false.
    */
   aimAtNearFlower?: boolean
+  /**
+   * A lighter-touch version of `aimAtNearFlower` above, for a preset that
+   * doesn't need its whole geometry rebuilt — `positionOffset` still
+   * applies as normal (camera position is untouched), but `targetOffset`'s
+   * X/Z jitter is added on top of the same real foreground-flower ground
+   * position `aimAtNearFlower` uses (`nearFlowerAim`, computed once below
+   * regardless of which preset needs it) instead of the generic cluster-
+   * density-searched centre (`clusterCenterX`/`clusterCenterZ` below) every
+   * other preset anchors to. `Tight crop` needs this: pulling the camera in
+   * close narrows how much slack the generic "this general area is dense
+   * enough" search leaves before the actual aim point lands between real
+   * flowers rather than on one — the same class of "aimed at an area, not
+   * an actual flower" problem `Sky bloom` had, just without that preset's
+   * own extreme close-macro geometry needing to change too. `targetOffset`'s
+   * own Y jitter is untouched either way (still `targetY` + jitter, not
+   * tied to the aimed flower's own height) — only X/Z change anchor.
+   * Optional, defaults to false; ignored when `aimAtNearFlower` is true.
+   */
+  aimAtRealFlower?: boolean
   positionOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
   targetOffset: readonly [OffsetRange, OffsetRange, OffsetRange]
   /**
@@ -395,7 +414,17 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     // used to have before it was dropped — this preset's own geometry puts
     // its near ground content at ~13 world units, consistently across
     // seeds, not the 10 it was set to.
+    //
+    // `aimAtRealFlower` added after the same "aim often misses the actual
+    // flowers" report `Sky bloom` got — see that field's own comment on
+    // `CameraShotPreset` above. Doesn't need `Sky bloom`'s own extreme
+    // close-macro geometry rework (normal FOV, normal camera height/
+    // distance are all still fine here), just a real flower under the
+    // aim point instead of a generic "this area is dense enough" guess —
+    // pulling the crop in tight narrows the slack that guess used to get
+    // away with.
     weight: 1,
+    aimAtRealFlower: true,
     positionOffset: [
       [-1.5, 1.5],
       [-1, 1],
@@ -543,10 +572,10 @@ export interface GenerativeState {
   camera: GenerativeCamera
   /** Which `CAMERA_SHOT_PRESETS` entry this seed rolled — only used to seed Leva's Camera > Shot dropdown's initial value (GenerativeProvider.tsx), not read anywhere else; the dropdown's own override bypasses this state entirely once changed (see `CAMERA_SHOT_PRESETS`'s own comment). */
   shotPresetName: string
-  /** A real foreground-band flower's (x, y, z) ground/bloom-height position for this seed — see `CameraShotPreset.aimAtNearFlower`'s own comment. Always computed (cheap), regardless of which preset this seed actually rolled, so GenerativeProvider.tsx's Shot-dropdown override can reuse it without its own copy of the same lookup. */
-  skyBloomAim: readonly [number, number, number]
-  /** The same aim's bare ground height (no stem/bloom height added) — `skyBloomAim[1]` minus the same band's own representative stem height. Camera height anchors to this directly (plus a small clearance), not to `skyBloomAim[1]` minus a fixed offset — see the comment where this is used in `deriveGenerativeState` for why that fixed-offset version put the camera underground. */
-  skyBloomGroundY: number
+  /** A real foreground-band flower's (x, y, z) ground/bloom-height position for this seed — see `CameraShotPreset.aimAtNearFlower`/`aimAtRealFlower`'s own comments (both presets that need this share the one lookup). Always computed (cheap), regardless of which preset this seed actually rolled, so GenerativeProvider.tsx's Shot-dropdown override can reuse it without its own copy of the same lookup. */
+  nearFlowerAim: readonly [number, number, number]
+  /** The same aim's bare ground height (no stem/bloom height added) — `nearFlowerAim[1]` minus the same band's own representative stem height. Camera height anchors to this directly (plus a small clearance), not to `nearFlowerAim[1]` minus a fixed offset — see the comment where this is used in `deriveGenerativeState` for why that fixed-offset version put the camera underground. */
+  nearFlowerGroundY: number
   focusDistance: number
   bloomIntensity: number
   wind: GenerativeWind
@@ -771,24 +800,24 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // needs this instead of the generic offset-around-a-dense-area approach
   // every other preset uses. Computed unconditionally (cheap — a handful of
   // noise-function point queries, not a scene generation pass) both for
-  // simplicity and so `skyBloomAim` below can be exposed on the returned
+  // simplicity and so `nearFlowerAim` below can be exposed on the returned
   // state for GenerativeProvider.tsx's Shot-dropdown override to reuse,
   // rather than needing its own copy of this same lookup.
-  const skyBloomAimRng = createRng(seed + SEED_OFFSETS.skyBloomAim)
+  const nearFlowerAimRng = createRng(seed + SEED_OFFSETS.nearFlowerAim)
   const foregroundBand = FLOWER_FIELD_CONFIG.depthBands[0]
-  const skyBloomAimGround = sampleBandPosition(skyBloomAimRng, foregroundBand, meadowLayout)
-  const skyBloomTerrainShape = createTerrainShape(seed + SEED_OFFSETS.terrainShape)
-  const skyBloomGroundY =
-    sampleTerrainHeight(skyBloomAimGround.x, skyBloomAimGround.z, skyBloomTerrainShape) -
-    samplePathDepression(skyBloomAimGround.x, skyBloomAimGround.z, meadowLayout)
+  const nearFlowerAimGround = sampleBandPosition(nearFlowerAimRng, foregroundBand, meadowLayout)
+  const nearFlowerTerrainShape = createTerrainShape(seed + SEED_OFFSETS.terrainShape)
+  const nearFlowerGroundY =
+    sampleTerrainHeight(nearFlowerAimGround.x, nearFlowerAimGround.z, nearFlowerTerrainShape) -
+    samplePathDepression(nearFlowerAimGround.x, nearFlowerAimGround.z, meadowLayout)
   // Matches generateFlowerField.ts's own `flowerScale * stemHeightFactor`
   // formula for this exact band — range midpoints rather than a random
   // roll, since this only needs one representative bloom height to aim at,
   // not to reproduce any specific instance's own exact one.
-  const skyBloomFlowerScale = (foregroundBand.scaleRange[0] + foregroundBand.scaleRange[1]) / 2
-  const skyBloomStemHeightFactor = (foregroundBand.stemHeightFactorRange[0] + foregroundBand.stemHeightFactorRange[1]) / 2
-  const skyBloomAimY = skyBloomGroundY + skyBloomFlowerScale * skyBloomStemHeightFactor
-  const skyBloomAim: readonly [number, number, number] = [skyBloomAimGround.x, skyBloomAimY, skyBloomAimGround.z]
+  const nearFlowerScale = (foregroundBand.scaleRange[0] + foregroundBand.scaleRange[1]) / 2
+  const nearFlowerStemHeightFactor = (foregroundBand.stemHeightFactorRange[0] + foregroundBand.stemHeightFactorRange[1]) / 2
+  const nearFlowerAimY = nearFlowerGroundY + nearFlowerScale * nearFlowerStemHeightFactor
+  const nearFlowerAim: readonly [number, number, number] = [nearFlowerAimGround.x, nearFlowerAimY, nearFlowerAimGround.z]
 
   // `Sky bloom`'s third geometry rework — a live render of the second one
   // (ground-clearance fix above, otherwise unchanged) came back either
@@ -807,7 +836,7 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   // ray at a real, resolvable distance instead of point-blank. Ground
   // height is resampled at the camera's own (offset) position, not the aim
   // point's — terrain has real small-scale bump (`detailAmplitude`,
-  // terrainShapeConfig.ts) over a ~1-unit radius, so reusing `skyBloomGroundY`
+  // terrainShapeConfig.ts) over a ~1-unit radius, so reusing `nearFlowerGroundY`
   // (sampled only at the aim point) was never a reliable clearance guarantee
   // for a camera sitting a unit away from it.
   // Horizontal standoff scaled up 0.8-1.1 → 2.2-2.8 for the fourth rework
@@ -824,18 +853,18 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
   const skyBloomCameraAngle = range(cameraRng, 0, Math.PI * 2)
   const skyBloomCameraOffset = range(cameraRng, 2.2, 2.8)
   const skyBloomCameraDrop = range(cameraRng, 0.5, 0.75)
-  const skyBloomCameraX = skyBloomAim[0] + Math.cos(skyBloomCameraAngle) * skyBloomCameraOffset
-  const skyBloomCameraZ = skyBloomAim[2] + Math.sin(skyBloomCameraAngle) * skyBloomCameraOffset
+  const skyBloomCameraX = nearFlowerAim[0] + Math.cos(skyBloomCameraAngle) * skyBloomCameraOffset
+  const skyBloomCameraZ = nearFlowerAim[2] + Math.sin(skyBloomCameraAngle) * skyBloomCameraOffset
   const skyBloomCameraGroundY =
-    sampleTerrainHeight(skyBloomCameraX, skyBloomCameraZ, skyBloomTerrainShape) -
+    sampleTerrainHeight(skyBloomCameraX, skyBloomCameraZ, nearFlowerTerrainShape) -
     samplePathDepression(skyBloomCameraX, skyBloomCameraZ, meadowLayout)
-  const skyBloomCameraY = Math.max(skyBloomCameraGroundY + 0.2, skyBloomAim[1] - skyBloomCameraDrop)
+  const skyBloomCameraY = Math.max(skyBloomCameraGroundY + 0.2, nearFlowerAim[1] - skyBloomCameraDrop)
 
   const camera: GenerativeCamera = shotPreset.aimAtNearFlower
     ? {
         position: [skyBloomCameraX, skyBloomCameraY, skyBloomCameraZ],
         // Genuinely aimed at the bloom, not just roughly nearby — a real
-        // bug in the previous pass: `target`'s X/Z came from `skyBloomAim`
+        // bug in the previous pass: `target`'s X/Z came from `nearFlowerAim`
         // directly and its Y from a large fixed offset above the camera,
         // which happened to point in a completely different direction from
         // the actual camera→bloom vector (measured directly on the pass
@@ -850,9 +879,9 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
         // world units out (this preset's own short `focusDistance` matches
         // that), with clear sky visible beyond it along that same sightline.
         target: [
-          skyBloomCameraX + (skyBloomAim[0] - skyBloomCameraX) * SKY_BLOOM_LOOK_EXTENSION,
-          skyBloomCameraY + (skyBloomAim[1] - skyBloomCameraY) * SKY_BLOOM_LOOK_EXTENSION,
-          skyBloomCameraZ + (skyBloomAim[2] - skyBloomCameraZ) * SKY_BLOOM_LOOK_EXTENSION,
+          skyBloomCameraX + (nearFlowerAim[0] - skyBloomCameraX) * SKY_BLOOM_LOOK_EXTENSION,
+          skyBloomCameraY + (nearFlowerAim[1] - skyBloomCameraY) * SKY_BLOOM_LOOK_EXTENSION,
+          skyBloomCameraZ + (nearFlowerAim[2] - skyBloomCameraZ) * SKY_BLOOM_LOOK_EXTENSION,
         ],
       }
     : {
@@ -861,10 +890,14 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
           baseY + range(cameraRng, ...shotPreset.positionOffset[1]),
           baseZ + range(cameraRng, ...shotPreset.positionOffset[2]),
         ],
+        // X/Z anchor to a real flower's own ground position
+        // (`nearFlowerAim`) instead of the generic cluster-density-searched
+        // centre when `aimAtRealFlower` is set — see that field's own
+        // comment on `CameraShotPreset` above. Y is untouched either way.
         target: [
-          targetX + clusterCenterX + range(cameraRng, ...shotPreset.targetOffset[0]),
+          (shotPreset.aimAtRealFlower ? nearFlowerAim[0] : targetX + clusterCenterX) + range(cameraRng, ...shotPreset.targetOffset[0]),
           targetY + range(cameraRng, ...shotPreset.targetOffset[1]),
-          targetZ + clusterCenterZ + range(cameraRng, ...shotPreset.targetOffset[2]),
+          (shotPreset.aimAtRealFlower ? nearFlowerAim[2] : targetZ + clusterCenterZ) + range(cameraRng, ...shotPreset.targetOffset[2]),
         ],
       }
 
@@ -1016,8 +1049,8 @@ export function deriveGenerativeState(seed: number, { forcePaletteName }: Derive
     environmentSeed: seed + SEED_OFFSETS.environment,
     camera,
     shotPresetName: shotPreset.name,
-    skyBloomAim,
-    skyBloomGroundY,
+    nearFlowerAim,
+    nearFlowerGroundY,
     focusDistance,
     bloomIntensity,
     wind,

@@ -400,7 +400,7 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
             // alongside `fovOverrideDeg` so the bloom actually fits the
             // frame, see that field's own comment on `CameraShotPreset`)
             // rather than sitting right beside the aim point. Height uses
-            // `skyBloomGroundY` sampled at the aim point (this override
+            // `nearFlowerGroundY` sampled at the aim point (this override
             // can't resample terrain at the offset point the way that
             // branch does — an approximation, fine for a quick-compare
             // canonical view), dropped 0.625 (midpoint of that branch's own
@@ -411,16 +411,16 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
             // direction from the bloom in an earlier pass.
             (() => {
               const skyBloomCameraPos: readonly [number, number, number] = [
-                base.skyBloomAim[0] + 2.5,
-                Math.max(base.skyBloomGroundY + 0.2, base.skyBloomAim[1] - 0.625),
-                base.skyBloomAim[2],
+                base.nearFlowerAim[0] + 2.5,
+                Math.max(base.nearFlowerGroundY + 0.2, base.nearFlowerAim[1] - 0.625),
+                base.nearFlowerAim[2],
               ]
               return {
                 position: skyBloomCameraPos,
                 target: [
-                  skyBloomCameraPos[0] + (base.skyBloomAim[0] - skyBloomCameraPos[0]) * SKY_BLOOM_LOOK_EXTENSION,
-                  skyBloomCameraPos[1] + (base.skyBloomAim[1] - skyBloomCameraPos[1]) * SKY_BLOOM_LOOK_EXTENSION,
-                  skyBloomCameraPos[2] + (base.skyBloomAim[2] - skyBloomCameraPos[2]) * SKY_BLOOM_LOOK_EXTENSION,
+                  skyBloomCameraPos[0] + (base.nearFlowerAim[0] - skyBloomCameraPos[0]) * SKY_BLOOM_LOOK_EXTENSION,
+                  skyBloomCameraPos[1] + (base.nearFlowerAim[1] - skyBloomCameraPos[1]) * SKY_BLOOM_LOOK_EXTENSION,
+                  skyBloomCameraPos[2] + (base.nearFlowerAim[2] - skyBloomCameraPos[2]) * SKY_BLOOM_LOOK_EXTENSION,
                 ],
               }
             })()
@@ -430,10 +430,14 @@ export function GenerativeProvider({ children, forceSeed, forcePaletteName }: Ge
                 CAMERA_CONFIG.position[1] + midpoint(selectedShotPreset.positionOffset[1]),
                 CAMERA_CONFIG.position[2] + midpoint(selectedShotPreset.positionOffset[2]),
               ],
+              // X/Z anchor to `base.nearFlowerAim` instead of
+              // `CAMERA_CONFIG.target` when `aimAtRealFlower` is set (e.g.
+              // Tight crop) — same reasoning as shared/generative.ts's own
+              // `aimAtRealFlower` branch (CameraShotPreset's own comment).
               target: [
-                CAMERA_CONFIG.target[0] + midpoint(selectedShotPreset.targetOffset[0]),
+                (selectedShotPreset.aimAtRealFlower ? base.nearFlowerAim[0] : CAMERA_CONFIG.target[0]) + midpoint(selectedShotPreset.targetOffset[0]),
                 CAMERA_CONFIG.target[1] + midpoint(selectedShotPreset.targetOffset[1]),
-                CAMERA_CONFIG.target[2] + midpoint(selectedShotPreset.targetOffset[2]),
+                (selectedShotPreset.aimAtRealFlower ? base.nearFlowerAim[2] : CAMERA_CONFIG.target[2]) + midpoint(selectedShotPreset.targetOffset[2]),
               ],
             }
         : {
