@@ -36,7 +36,9 @@ import { LensOpticsDepthOfFieldEffect } from './LensOpticsDepthOfFieldEffect'
  * `maxBlur` is additionally scaled by the active shot preset's own
  * `maxBlurScale` (optional, defaults to 1) — see that field's own comment
  * on `CameraShotPreset` for why `Sky bloom` is the one preset that needs
- * this.
+ * this. `focalLength` is likewise overridden by that preset's own
+ * `focalLengthOverrideMM` when set — see its own comment for the real
+ * physically-invalid-regime bug this fixes, not just a look.
  *
  * A live raycast-based autofocus (reading the actual on-screen depth at
  * screen-centre every frame, rather than a seed-derived guess) was tried
@@ -53,9 +55,11 @@ import { LensOpticsDepthOfFieldEffect } from './LensOpticsDepthOfFieldEffect'
  * test environment.
  */
 export function LensOpticsDepthOfField() {
-  const { metersPerWorldUnit, focalLength, rings, samples } = CAMERA_CONFIG.dof
+  const { metersPerWorldUnit, focalLength: baseFocalLength, rings, samples } = CAMERA_CONFIG.dof
   const { focusDistance, maxBlur, fStop, shotPresetName } = useGenerative()
-  const maxBlurScale = CAMERA_SHOT_PRESETS.find((p) => p.name === shotPresetName)?.maxBlurScale ?? 1
+  const shotPreset = CAMERA_SHOT_PRESETS.find((p) => p.name === shotPresetName)
+  const maxBlurScale = shotPreset?.maxBlurScale ?? 1
+  const focalLength = shotPreset?.focalLengthOverrideMM ?? baseFocalLength
 
   const effect = useMemo(
     () =>

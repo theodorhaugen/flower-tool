@@ -240,6 +240,32 @@ interface CameraShotPreset {
    */
   fovOverrideDeg?: number
   /**
+   * Overrides the DOF lens equation's `focalLength` (LensOpticsDepthOfField.tsx,
+   * normally `CAMERA_CONFIG.dof.focalLength` = 100mm) with a fixed, shorter
+   * value, mm. Optional, defaults to unset (every other preset keeps the
+   * normal 100mm figure). `Sky bloom` needs this for a genuinely physical
+   * reason, not just a look: its own `focusDistance` (2.6 world units) is
+   * only 78mm once converted through `metersPerWorldUnit` — *closer than
+   * the 100mm focal length itself*, a regime no real 100mm lens can focus
+   * into at all, and the thin-lens equation doesn't fail gracefully there.
+   * `nearDoF` in the shader flips sign once `focalPlaneMM` (the focus
+   * distance in mm) drops below `focalLength`, which flips the sign of the
+   * *entire* per-pixel `blur` value for everywhere except the one exact
+   * plane in perfect focus — and `blur` is clamped to `[0, 1]` right after,
+   * silently floors every one of those negative results to *zero blur*.
+   * The practical result: almost the entire frame reads as knife-edge sharp
+   * regardless of `maxBlur`/`maxBlurScale` (multiplying zero by anything is
+   * still zero), *and* independently reads as unusually vivid/saturated —
+   * every other preset's own colour grade is tuned against an image that's
+   * already been softened/diluted by real defocus blur, and this was the
+   * one preset silently skipping that softening across nearly the whole
+   * frame. A real wide/standard lens (35mm here) has a far shorter true
+   * minimum focus distance, so the same 78mm focus distance is a normal,
+   * valid distance for it — comfortably positive `nearDoF`, and the
+   * physically-correct falloff the rest of this effect already relies on.
+   */
+  focalLengthOverrideMM?: number
+  /**
    * Overrides the horizon dome's sky colour (Horizon.tsx, via
    * environment/paletteColors.ts) with a fixed blue, regardless of the
    * active palette's own `background` (what the sky normally derives from
@@ -503,6 +529,10 @@ export const CAMERA_SHOT_PRESETS: readonly CameraShotPreset[] = [
     weight: 0.5,
     atmosphereScale: 0.35,
     fovOverrideDeg: 42,
+    // See this field's own comment on `CameraShotPreset` above — fixes a
+    // real physically-invalid-regime bug in the DOF formula at this
+    // preset's own short focusDistance, not just a stylistic choice.
+    focalLengthOverrideMM: 35,
     // Clear, believable sky blue — see this field's own comment on
     // `CameraShotPreset` above for why every palette's own (often pale
     // cream/mint/lavender) `background` doesn't work for a composition
