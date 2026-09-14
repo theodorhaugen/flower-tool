@@ -184,7 +184,7 @@ export interface LongExposureBlurPassOptions {
    * many real frames a given virtual-time step happened to take.
    */
   halfLifeSeconds?: number
-  /** The per-seed/Leva-overridable `motionBlurStrength` (see shared/generative.ts, Leva's Camera > Blur Length) — used only for `recoveryAmount` (the contrast/saturation recovery in COPY_FRAGMENT_SHADER), *not* for the within-frame streak below (see `render()`'s docstring for why that's read from the real camera instead). 1 = as tuned. */
+  /** The per-seed/Leva-overridable `motionBlurStrength` (see shared/generative.ts, Leva's Camera > Blur Length) — sets both `recoveryAmount` (the contrast/saturation recovery in COPY_FRAGMENT_SHADER) and `streakMagnitude` (the within-frame streak's fixed length, see the class docstring). The streak's *direction* still reads the real camera transform each frame regardless (see `render()`'s docstring). 1 = as tuned. */
   movementMultiplier?: number
   /**
    * The actual scene camera (MainCamera.tsx) — read live each frame to
@@ -199,65 +199,41 @@ export interface LongExposureBlurPassOptions {
 
 const DEFAULT_HALF_LIFE_SECONDS = 0.12
 
-// Used only for `recoveryAmount` below (how strong *this render's* Blur
-// Length is, as a fraction of its own ceiling) — no longer for estimating
-// the streak itself (see `render()`'s docstring for why that moved to
-// reading the real camera transform instead).
+// Used for both `recoveryAmount` and the within-frame streak's own
+// magnitude below (how strong *this render's* Blur Length is, as a
+// fraction of its own ceiling) — not for estimating the streak's
+// *direction*, which still reads the real camera transform each frame (see
+// `render()`'s docstring).
 const BASE_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg)
 const MAX_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.maxRotationAmplitudeDeg)
 /**
- * The full per-frame yaw delta is the physically "correct" streak length —
- * a real continuous exposure would smear *everything* by exactly that much
- * — but applying that in full reads as an across-the-board blur increase,
- * not just a grass fix, since the existing multi-frame temporal
- * accumulation (below) already does most of the work of building up a
- * trail for larger features. This only needs to be large enough to close
- * the *gap* a thin blade would otherwise fall entirely into between
- * discrete accumulated frames, not to re-derive the whole exposure from
- * scratch, so it's dialled back well under 1.
- *
- * Raised from 0.08, then again from 0.22 — the accumulation blend above is
- * what does most of the work streaking *large* features (a flower cluster
- * shifts a real fraction of its own size across the settle burst's camera
- * sweep), but small/fine detail — a flower centre's dark disc, a petal's
- * own edge — shifts by only a few pixels over that same angular sweep,
- * nowhere near its own size, so it kept reading as crisp even at Blur
- * Length's max. This term is what actually reaches that detail: it's a
- * direct directional blur of *this one frame* before it ever joins the
- * accumulation, sized off the camera's instantaneous angular speed rather
- * than the swept range, so it scales with Blur Length independently of how
- * far the overall sweep is allowed to travel. Still well under the "full
- * physically correct" smear the comment above warns against — that's
- * measured in whole-frame terms, and this is scaled for small-feature
- * reach, not to redo the large-feature job the blend above already does.
- *
- * Raised again, from 1.1, alongside cutting `halfLifeSeconds` (effects/
- * config.ts) hard: shrinking the temporal accumulation's memory window
- * fixed the "blends genuinely different vantage points, erasing shape"
- * failure mode, but on its own that also thins out the overall blur *look*
- * this tool wants present on every render, never fully sharp. This term is
- * what carries that look forward instead — it's a same-frame directional
- * smear, so it can't erase shape the way blending distinct moments can,
- * only stretch what's already there along the sweep's own direction. Net
- * effect versus the old (0.7 half-life, 1.1 streak) pairing: still, or more,
- * visibly blurred, but blurred *as* a flower rather than blurred *into*
- * abstract noise.
- */
-const STREAK_STRENGTH = 2.2
-/**
- * Caps the within-frame streak to a sane fraction of the screen — a guard
- * against a single unusually large real-world step (a slow/stalled frame,
- * or a burst-restart transition — see `render()`) producing an absurdly
- * long smear rather than a subtle one.
+ * Ceiling — and, since the streak's magnitude is now fixed per-render (see
+ * `streakMagnitude` below), the *actual* per-frame streak length at Blur
+ * Length's max, not just a rarely-reached safety bound.
  *
  * Raised in steps (0.1 → 0.2 → 0.4) chasing a persistent diagonal banding
  * artifact that turned out to have nothing to do with this clamp at all —
- * see `render()`'s docstring for how the streak's own source was rewritten
- * from a formula-based estimate to reading the real camera transform,
- * which is what actually fixed it. Left at 0.4 since it's still a
- * reasonable outer bound for the *now-accurate* per-frame delta.
+ * fixed by rewriting the streak's *direction* source from a formula-based
+ * estimate to reading the real camera transform (see `render()`'s
+ * docstring). Left at 0.4 since it was already a deliberately-verified
+ * bound for a streak this size — `STREAK_TAPS` (below) was raised
+ * specifically while measuring against streak lengths reaching this same
+ * ceiling, so making that the *typical* value at high Blur Length (rather
+ * than an outer case only a slow/stalled frame briefly touched) isn't
+ * asking the tap count to cover new ground.
  */
 const MAX_STREAK_UV = 0.4
+/**
+ * Below this raw reprojected-delta magnitude, `render()` keeps the
+ * previous frame's streak *direction* instead of renormalizing this one —
+ * dividing a near-zero vector by its own near-zero length is numerically
+ * unstable, and it's *expected* to go near zero right at each sweep
+ * reversal's own instantaneous zero-crossing (peak of the sine wave, where
+ * angular velocity is momentarily 0) — a real moment in the sweep, not a
+ * glitch. Without this, the streak's direction would spike/flicker exactly
+ * at that instant instead of smoothly reversing through it.
+ */
+const STREAK_DIRECTION_EPSILON = 1e-4
 /**
  * Effectively "at infinity" for the reference point `render()` reprojects
  * to estimate the streak — see its docstring. Large enough that any
@@ -340,6 +316,31 @@ function clampedRotationAmplitude(movementMultiplier: number): number {
  * *which* component moved the camera or by what formula, so CameraSweep,
  * HandheldDrift, a user orbit, and anything added later are all captured
  * automatically and always in sync with what was actually rendered.
+ *
+ * That reprojected delta now only supplies the streak's *direction*
+ * (normalized, then held steady through each sweep reversal's own
+ * momentary zero-crossing — see `STREAK_DIRECTION_EPSILON`). Its
+ * *magnitude* used to be the raw delta itself (scaled by a since-removed
+ * `STREAK_STRENGTH` constant) — this render's *one real frame's* own
+ * instantaneous angular step, which is small at any real framerate and,
+ * critically, varies with how much wall-clock time that particular frame
+ * actually took and how many real frames a settle burst happened to
+ * render — neither of which has anything to do with the Blur Length the
+ * user actually set. A slower device (or just ordinary frame-to-frame
+ * timing jitter) could — and, reported directly, did — settle on a
+ * visibly *less* blurred still than a faster one at the exact same Blur
+ * Length. `streakMagnitude` (set once per pass instance, same
+ * `movementMultiplier`-vs-ceiling ratio `recoveryAmount` already uses) is
+ * now what actually sizes the streak: fixed for this render's whole
+ * settle burst, independent of real frame timing/count, so "Blur Length
+ * X" means the same guaranteed amount of within-frame smear every time —
+ * closer to a single deterministic convolution (the family of effect a
+ * `Photoshop`-style Motion Blur filter is) than a byproduct of how many
+ * frames happened to accumulate. The multi-frame temporal accumulation
+ * above is unchanged and still does real work — the distinct-vantage-
+ * point ghosting a true long exposure has that a single directional
+ * convolution alone can't produce — but it's no longer what determines
+ * *whether* a captured still reads as blurred at all.
  */
 export class LongExposureBlurPass extends Pass {
   private accumulated: THREE.WebGLRenderTarget
@@ -362,6 +363,10 @@ export class LongExposureBlurPass extends Pass {
   private readonly scratchReferencePoint = new THREE.Vector3()
   private readonly scratchNdcOld = new THREE.Vector3()
   private readonly scratchNdcNew = new THREE.Vector3()
+  /** Fixed per-render within-frame streak length — see the class docstring on why this replaced a per-frame-delta-derived magnitude. */
+  private readonly streakMagnitude: number
+  /** The streak's last real direction, held through a near-zero raw delta (a sweep reversal's own zero-crossing) instead of renormalizing noise — see `STREAK_DIRECTION_EPSILON`. Arbitrary but real initial value: only matters before the very first real motion is observed, which happens well before anything is captured. */
+  private readonly previousStreakDirection = new THREE.Vector2(1, 0)
 
   constructor({ halfLifeSeconds = DEFAULT_HALF_LIFE_SECONDS, movementMultiplier = 1, camera }: LongExposureBlurPassOptions = {}) {
     super('LongExposureBlurPass')
@@ -406,6 +411,11 @@ export class LongExposureBlurPass extends Pass {
     // washing the whole burst does, so that ratio — not the per-frame
     // streak — is what the recovery below scales with.
     const recoveryAmount = clampedRotationAmplitude(movementMultiplier) / MAX_ROTATION_AMPLITUDE_RAD
+    // Same ratio as `recoveryAmount` above, reused for the within-frame
+    // streak's own fixed magnitude — see the class docstring on
+    // `streakMagnitude`'s own field comment and the paragraph on why this
+    // replaced a per-frame-delta-derived magnitude.
+    this.streakMagnitude = MAX_STREAK_UV * recoveryAmount
 
     this.copyMaterial = new THREE.ShaderMaterial({
       uniforms: { tDiffuse: { value: null }, recoveryAmount: { value: recoveryAmount } },
@@ -492,8 +502,20 @@ export class LongExposureBlurPass extends Pass {
       const ndcOld = this.scratchNdcOld.copy(referencePoint).applyMatrix4(this.previousViewMatrix).applyMatrix4(this.previousProjectionMatrix)
       const ndcNew = this.scratchNdcNew.copy(referencePoint).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix)
 
-      blurStepU = THREE.MathUtils.clamp(((ndcNew.x - ndcOld.x) * 0.5) * STREAK_STRENGTH, -MAX_STREAK_UV, MAX_STREAK_UV)
-      blurStepV = THREE.MathUtils.clamp(((ndcNew.y - ndcOld.y) * 0.5) * STREAK_STRENGTH, -MAX_STREAK_UV, MAX_STREAK_UV)
+      // Direction only, from this frame's real reprojected delta — see the
+      // class docstring for why the *magnitude* comes from
+      // `streakMagnitude` (fixed per render) instead of this delta's own
+      // size, and `STREAK_DIRECTION_EPSILON` for why a near-zero delta
+      // keeps the previous direction rather than renormalizing noise.
+      const rawDeltaU = (ndcNew.x - ndcOld.x) * 0.5
+      const rawDeltaV = (ndcNew.y - ndcOld.y) * 0.5
+      const rawMagnitude = Math.hypot(rawDeltaU, rawDeltaV)
+      if (rawMagnitude > STREAK_DIRECTION_EPSILON) {
+        this.previousStreakDirection.set(rawDeltaU / rawMagnitude, rawDeltaV / rawMagnitude)
+      }
+
+      blurStepU = THREE.MathUtils.clamp(this.previousStreakDirection.x * this.streakMagnitude, -MAX_STREAK_UV, MAX_STREAK_UV)
+      blurStepV = THREE.MathUtils.clamp(this.previousStreakDirection.y * this.streakMagnitude, -MAX_STREAK_UV, MAX_STREAK_UV)
     }
     this.captureCameraState()
 
