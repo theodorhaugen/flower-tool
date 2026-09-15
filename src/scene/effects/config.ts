@@ -209,17 +209,27 @@ export const POST_PROCESSING_CONFIG = {
      * and a sharp, clearly a flower with it forced to 0. Two smaller cuts
      * (to 0.35, and to the base sweep amplitude) each barely moved that
      * result — the blend window needed to shrink by much more than half
-     * before it stopped erasing shape. This cut is paired with
+     * before it stopped erasing shape. That cut was originally paired with
      * `STREAK_STRENGTH`/`MAX_STREAK_UV` (LongExposureBlurPass.ts) both
-     * raised to compensate, so the *look* stays just as blurred — softer,
-     * even — while what's actually doing the blurring shifts from "blend
-     * several genuinely different vantage points together" (destroys
-     * shape) to "smear one moment's content along the sweep's direction"
-     * (keeps shape, streaks it). The tool's whole point is a soft, never
-     * game-graphic-sharp render — this isn't about making anything sharper,
-     * it's about making sure there's still a recognisable flower under
-     * the blur every time.
+     * raised to compensate, shifting what was actually doing the blurring
+     * from "blend several genuinely different vantage points together"
+     * (destroys shape) to "smear one moment's content along the sweep's
+     * direction" (keeps shape, streaks it).
+     *
+     * Nudged back up, 0.18 → 0.24, once that within-frame streak became a
+     * *deterministic*, capped-low magnitude in its own right
+     * (`STREAK_MAGNITUDE_CEILING`, LongExposureBlurPass.ts) rather than the
+     * dominant source of the visible blur: on its own, that streak reads as
+     * a single clean, mathematically uniform smear — good for guaranteeing
+     * *some* blur always shows up regardless of real frame timing, but
+     * nothing like the overlapping-stroke, tonally-varied texture real long-
+     * exposure photography has, which only genuine multi-frame accumulation
+     * (real rendered content blending, not a formula) can produce. This
+     * gives the accumulation a bit more reach to bring that texture back,
+     * short of the 0.35s step that (per the measurement above) had already
+     * barely moved the needle on erasing shape — nowhere near the 0.7s that
+     * actually did.
      */
-    halfLifeSeconds: 0.18,
+    halfLifeSeconds: 0.24,
   },
 }

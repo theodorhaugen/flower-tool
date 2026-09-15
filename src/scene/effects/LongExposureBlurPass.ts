@@ -207,22 +207,45 @@ const DEFAULT_HALF_LIFE_SECONDS = 0.12
 const BASE_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.rotationAmplitudeDeg)
 const MAX_ROTATION_AMPLITUDE_RAD = THREE.MathUtils.degToRad(CAMERA_CONFIG.sweep.maxRotationAmplitudeDeg)
 /**
- * Ceiling — and, since the streak's magnitude is now fixed per-render (see
- * `streakMagnitude` below), the *actual* per-frame streak length at Blur
- * Length's max, not just a rarely-reached safety bound.
+ * Hard safety clamp on the within-frame streak — not, any more, the
+ * *actual* per-frame streak length at Blur Length's max (see
+ * `STREAK_MAGNITUDE_CEILING` below for that). Still exists as a defensive
+ * bound in `render()`'s final `clamp()` call in case anything upstream ever
+ * pushes `streakMagnitude` past it.
  *
  * Raised in steps (0.1 → 0.2 → 0.4) chasing a persistent diagonal banding
  * artifact that turned out to have nothing to do with this clamp at all —
  * fixed by rewriting the streak's *direction* source from a formula-based
  * estimate to reading the real camera transform (see `render()`'s
- * docstring). Left at 0.4 since it was already a deliberately-verified
- * bound for a streak this size — `STREAK_TAPS` (below) was raised
- * specifically while measuring against streak lengths reaching this same
- * ceiling, so making that the *typical* value at high Blur Length (rather
- * than an outer case only a slow/stalled frame briefly touched) isn't
- * asking the tap count to cover new ground.
+ * docstring). `STREAK_TAPS` (below) was raised specifically while
+ * measuring against streak lengths reaching this same ceiling, so it's
+ * comfortably oversampled relative to `STREAK_MAGNITUDE_CEILING`'s own,
+ * smaller, actual working range.
  */
 const MAX_STREAK_UV = 0.4
+/**
+ * The within-frame streak's actual per-render ceiling — `streakMagnitude`
+ * below is this times `recoveryAmount`'s own 0-1 ratio, so this is what the
+ * streak reaches at Blur Length's max.
+ *
+ * Cut from `MAX_STREAK_UV` (0.4) once this streak became the *deterministic*
+ * per-frame magnitude (see the class docstring) rather than an occasional
+ * per-frame-delta peak: at the old, full ceiling on every single frame, the
+ * within-frame streak stopped reading as *part of* a long exposure and
+ * started reading as the *whole* of it — a single clean, uniform-direction
+ * multi-tap blur, mathematically smooth in a way real ICM photography never
+ * quite is (compare a real long-exposure reference: overlapping strokes,
+ * tonal variation along the smear, not one flat gradient). That texture
+ * comes from the temporal accumulation below blending genuinely different
+ * rendered moments together — real content, real lighting variation, not a
+ * formula — and a streak this dominant drowned that contribution out almost
+ * entirely. 0.15 keeps the streak's own job (guaranteeing *some* real blur
+ * shows up regardless of real frame timing/count — the reliability fix this
+ * whole mechanism exists for) without it being the dominant source of the
+ * *look* — that's shared back with the accumulation (see
+ * `motionBlur.halfLifeSeconds`, effects/config.ts, raised alongside this).
+ */
+const STREAK_MAGNITUDE_CEILING = 0.15
 /**
  * Below this raw reprojected-delta magnitude, `render()` keeps the
  * previous frame's streak *direction* instead of renormalizing this one —
@@ -414,8 +437,10 @@ export class LongExposureBlurPass extends Pass {
     // Same ratio as `recoveryAmount` above, reused for the within-frame
     // streak's own fixed magnitude — see the class docstring on
     // `streakMagnitude`'s own field comment and the paragraph on why this
-    // replaced a per-frame-delta-derived magnitude.
-    this.streakMagnitude = MAX_STREAK_UV * recoveryAmount
+    // replaced a per-frame-delta-derived magnitude, and
+    // `STREAK_MAGNITUDE_CEILING`'s own comment for why this is capped well
+    // under `MAX_STREAK_UV`.
+    this.streakMagnitude = STREAK_MAGNITUDE_CEILING * recoveryAmount
 
     this.copyMaterial = new THREE.ShaderMaterial({
       uniforms: { tDiffuse: { value: null }, recoveryAmount: { value: recoveryAmount } },
