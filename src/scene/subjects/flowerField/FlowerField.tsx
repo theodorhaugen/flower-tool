@@ -105,6 +105,19 @@ export function FlowerField() {
     [flowerFieldSeed, palette, stemColorPalette, meadowLayout, terrainShape, flowerDensity, flowerScale, poppyAccentProbability],
   )
 
+  // `stemMaterial` gets its own effect, separate from the geometries/other
+  // materials below — it rebuilds whenever `wind` changes identity, which
+  // happens on every Leva tweak anywhere in the app (see
+  // GenerativeProvider.tsx's `wind` field), far more often than the actual
+  // seed/palette-derived resources below change. A single combined effect
+  // keyed on all of them together would dispose those still-in-use
+  // geometries/materials on every one of those unrelated tweaks — see
+  // Grass.tsx's/InstancedGroup.tsx's own copies of this comment for the
+  // full mechanism (and the "grass disappears" bug this combines with).
+  useEffect(() => {
+    return () => stemMaterial.dispose()
+  }, [stemMaterial])
+
   useEffect(() => {
     return () => {
       petalGeometries.forEach((geometry) => geometry.dispose())
@@ -113,9 +126,8 @@ export function FlowerField() {
       petalMaterials.forEach((material) => material.dispose())
       foregroundPetalMaterials.forEach((material) => material.dispose())
       centerMaterials.forEach((material) => material.dispose())
-      stemMaterial.dispose()
     }
-  }, [petalGeometries, centerGeometries, stemGeometries, petalMaterials, foregroundPetalMaterials, centerMaterials, stemMaterial])
+  }, [petalGeometries, centerGeometries, stemGeometries, petalMaterials, foregroundPetalMaterials, centerMaterials])
 
   return (
     <group>

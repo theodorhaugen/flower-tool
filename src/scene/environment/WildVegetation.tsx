@@ -36,12 +36,21 @@ export function WildVegetation() {
 
   useWindAnimation([material])
 
+  // Two separate effects, each keyed to only the resource it owns — see
+  // Grass.tsx's own copy of this comment (and InstancedGroup.tsx's) for
+  // why a single effect disposing both on `[groups, material]` together is
+  // wrong: `material` rebuilds whenever `wind` changes identity, which
+  // happens on every Leva tweak anywhere in the app, far more often than
+  // `groups` itself changes.
   useEffect(() => {
     return () => {
       groups.forEach((group) => group.geometry.dispose())
-      material.dispose()
     }
-  }, [groups, material])
+  }, [groups])
+
+  useEffect(() => {
+    return () => material.dispose()
+  }, [material])
 
   return (
     <>

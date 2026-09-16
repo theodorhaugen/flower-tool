@@ -107,12 +107,24 @@ export function Grass() {
 
   useWindAnimation([material])
 
+  // Two separate effects, each keyed to only the resource it owns — not
+  // one effect disposing both on `[groups, material]` together. `material`
+  // is rebuilt whenever `wind` changes identity, which happens on every
+  // Leva tweak anywhere in the app (see GenerativeProvider.tsx's `wind`
+  // field), far more often than `groups` itself actually changes; a single
+  // combined effect would dispose every blade's still-in-use geometry on
+  // each of those unrelated tweaks, forcing a wasteful re-upload on top of
+  // the actual bug this used to combine with — see InstancedGroup.tsx's
+  // own docstring for that half of it.
   useEffect(() => {
     return () => {
       groups.forEach((group) => group.geometry.dispose())
-      material.dispose()
     }
-  }, [groups, material])
+  }, [groups])
+
+  useEffect(() => {
+    return () => material.dispose()
+  }, [material])
 
   return (
     <>
