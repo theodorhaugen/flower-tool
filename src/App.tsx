@@ -1,11 +1,15 @@
-import { SceneCanvas } from './scene/SceneCanvas'
+import { Leva } from 'leva'
+import { CapturedView } from './CapturedView'
 import { Experience } from './scene/Experience'
 
 function App() {
   return (
-    <SceneCanvas>
-      <Experience />
-    </SceneCanvas>
+    <>
+      <Leva titleBar={{ title: 'Flower Field' }} collapsed />
+      <CapturedView>
+        <Experience />
+      </CapturedView>
+    </>
   )
 }
 
