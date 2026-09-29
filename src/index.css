@@ -13,7 +13,10 @@ body,
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: #0a0908;
+  /* White, not the near-black it used to be — makes it possible to actually
+     judge a render's own brightness/exposure against a neutral surround
+     instead of every image reading relatively brighter next to black. */
+  background: #ffffff;
 }
 
 body {
